@@ -22,6 +22,7 @@ To export these for your thesis:
 **Caption**: *Figure 2: Execution pipeline of the energy-aware Endpoint Picker Plugin. The scheduling process evaluates candidate pods through a sequence of hard constraints (filters) followed by soft, multi-objective normalisation (batch scorers).*
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/26d23c20-4774-40e6-81f6-265a14478030" />
 
 
 ---
