@@ -1,17 +1,5 @@
 # D2 Thesis Diagrams
 
-Because you want high-quality, PhD-level figures, I have translated your most important architectural diagrams into **D2 (Declarative Diagramming)** code. 
-
-D2's layout engine generates incredibly clean, professional vector graphics that are far superior to Mermaid. 
-
-### How to use these:
-1. Copy the code blocks below.
-2. Go to the **[D2 Playground (play.d2lang.com)](https://play.d2lang.com/)**.
-3. Paste the code into the editor. 
-4. Select the **"Terminal"** or **"Neutral"** theme (top right) for a very academic look.
-5. Apply the **ELK** layout engine (top right) for perfect orthogonal routing.
-6. Export as **SVG** for perfect clarity in your thesis.
-
 ---
 
 ### 1. High-Level System Architecture
@@ -27,6 +15,8 @@ This diagram shows the control plane routing intersecting with the data plane te
 This diagram shows the strict hierarchical flow of filtering, scoring, and picking candidate pods.
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/4f89ea3f-2239-4de5-8eb7-d7a7371b18bc" />
+
 
 ---
 
