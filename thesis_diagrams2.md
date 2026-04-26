@@ -1,13 +1,5 @@
 # Thesis Diagrams (Professional Academic Styling)
 
-These diagrams have been restyled with custom clean, modern, and academic themes. When exported, they will look highly professional and readable, suitable for a PhD-level document. 
-
-To export these for your thesis:
-1. Go to [Mermaid Live Editor](https://mermaid.live/).
-2. Paste the code blocks below.
-3. Export as **SVG** for perfect scaling in LaTeX, or **PNG** for Microsoft Word.
-
----
 
 ## 1. System Architecture: Control and Data Planes
 
