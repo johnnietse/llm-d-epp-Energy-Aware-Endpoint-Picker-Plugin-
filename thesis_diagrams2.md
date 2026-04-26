@@ -1,4 +1,4 @@
-# Thesis Diagrams (Professional Academic Styling)
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/1e0e2b41-ac9c-4e54-be5d-83ff51d1c163" /># Thesis Diagrams (Professional Academic Styling)
 
 These diagrams have been restyled with custom clean, modern, and academic themes. When exported, they will look highly professional and readable, suitable for a PhD-level document. 
 
@@ -23,6 +23,7 @@ To export these for your thesis:
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
 
+
 ---
 
 ## 3. Phase-Aware Objective Weighting
@@ -30,6 +31,7 @@ To export these for your thesis:
 **Caption**: *Figure 3: Phase-aware scheduling logic differentiating between compute-bound (prefill) and memory-bound (decode) phases. The weight matrix dynamically shifts to prioritise latency for prefix processing and energy savings during autoregressive decoding.*
 
 ![Phase-Aware Routing](docs/diagrams/phase_aware_routing.png)
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/4a1304c3-b072-4c97-b234-50b780590820" />
 
 ---
 
