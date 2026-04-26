@@ -17,6 +17,8 @@ These diagrams are generated using [Mermaid.js](https://mermaid.js.org/). You ca
 **Caption**: *Figure 2: Internal scheduling pipeline of the Endpoint Picker Plugin. The process follows a strict Filter → Score → Pick hierarchy. Pods are first filtered based on hard latency constraints (ε-constraint method) and power budgets. The remaining feasible pods are then ranked using an aggregated multi-objective scoring function over energy, carbon, and KV-cache transfer metrics.*
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+<img width="2256" height="1504" alt="image" src="https://github.com/user-attachments/assets/144638c7-5f7d-4ac7-b6c0-e52627bb3f92" />
+
 
 ---
 
