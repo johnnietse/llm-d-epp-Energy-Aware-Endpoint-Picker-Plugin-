@@ -178,6 +178,7 @@ Our system uses a **hybrid approach**: SLOs are enforced as hard constraints (fi
 ### 3.2 Scheduling Pipeline
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/c50140cd-157d-470c-817a-c1d1d1c5c7e2" />
 
 The request routing pipeline executes in three phases:
 
