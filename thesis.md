@@ -4,7 +4,7 @@
 
 ---
 
-> **Thesis — ELEC49X Capstone Project**
+> **Proposal**
 > Author: Johnnie
 > Date: April 2026
 
