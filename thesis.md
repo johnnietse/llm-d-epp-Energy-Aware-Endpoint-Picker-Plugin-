@@ -93,6 +93,9 @@ Modern autoregressive LLMs process requests in two distinct computational phases
 
 This phase distinction is critical for energy-aware routing: a GPU that excels at prefill (high compute throughput) may be wasteful during decode (underutilised compute, sustained power draw), while a low-power ASIC may provide superior energy-per-token during the decode phase.
 
+![Phase-Aware Scheduling Flow](docs/diagrams/phase_aware_routing.png)
+
+
 ### 2.2 Disaggregated Serving
 
 Recent work has demonstrated that separating prefill and decode onto specialised hardware pools yields significant efficiency gains:
@@ -110,6 +113,8 @@ Our system builds on this foundation by adding an **energy-aware routing layer**
 ### 2.3 Gateway API Inference Extension (GIE)
 
 The Kubernetes Gateway API Inference Extension (GIE) provides a standardised framework for intelligent LLM request routing. The architecture consists of:
+
+![GIE Integration Architecture](docs/diagrams/gie_integration.png)
 
 ```
 Client → Envoy Gateway → ext_proc (gRPC) → Endpoint Picker Plugin → vLLM Pod
@@ -167,47 +172,11 @@ Our system uses a **hybrid approach**: SLOs are enforced as hard constraints (fi
 
 ### 3.1 System Architecture
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Inference Gateway (Envoy)                  │
-│    ┌───────────────────────────────────────────────────┐     │
-│    │  ext_proc (gRPC) → Energy-Aware EPP Sidecar       │     │
-│    │                                                    │     │
-│    │  ┌──────────────────────────────────────────────┐  │     │
-│    │  │          GIESchedulingProfile                │  │     │
-│    │  │                                              │  │     │
-│    │  │  Filters:                                    │  │     │
-│    │  │    1. SLO Constraint Filter (ε-constraint)   │  │     │
-│    │  │    2. Energy Budget Filter (TDP headroom)    │  │     │
-│    │  │                                              │  │     │
-│    │  │  Batch Scorers:                              │  │     │
-│    │  │    1. Energy-Aware Scorer (phase weights)    │  │     │
-│    │  │    2. Carbon Intensity Scorer (grid signal)  │  │     │
-│    │  │    3. KV-Cache Transfer Scorer (disagg.)     │  │     │
-│    │  │                                              │  │     │
-│    │  │  Picker: MaxScorePicker                      │  │     │
-│    │  └──────────────────────────────────────────────┘  │     │
-│    │                                                    │     │
-│    │  Data Sources:                                     │     │
-│    │    ├── DCGM Scraper → GPU power (5s interval)     │     │
-│    │    ├── RAPL Scraper → CPU/ASIC power (5s)         │     │
-│    │    └── Carbon API  → Grid CO₂ (5min interval)     │     │
-│    │                                                    │     │
-│    │  Adaptive Controller (30s interval):               │     │
-│    │    └── Adjusts scoring weights based on grid CO₂   │     │
-│    └───────────────────────────────────────────────────┘     │
-│                              │                               │
-│              ┌───────────────┼───────────────┐               │
-│              ▼               ▼               ▼               │
-│         ┌────────┐     ┌────────┐     ┌────────┐            │
-│         │ vLLM   │     │ vLLM   │     │ vLLM   │            │
-│         │ H100   │     │ A100   │     │ QC100  │            │
-│         │ 700W   │     │ 250W   │     │ 75W    │            │
-│         └────────┘     └────────┘     └────────┘            │
-└──────────────────────────────────────────────────────────────┘
-```
+![System Architecture](docs/diagrams/architecture.png)
 
 ### 3.2 Scheduling Pipeline
+
+![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
 
 The request routing pipeline executes in three phases:
 
@@ -249,6 +218,8 @@ Three batch scorers compute normalised scores in [0, 1]:
 `MaxScorePicker` selects the pod with the highest **aggregate** score (sum across all scorers).
 
 ### 3.3 Adaptive Weight Controller
+
+![Adaptive Weight Controller FSM](docs/diagrams/adaptive_controller_fsm.png)
 
 The controller runs every 30 seconds and adjusts scoring weights based on external signals:
 
@@ -321,6 +292,9 @@ energy-aware-epp/
 ### 4.3 Key Implementation Details
 
 #### 4.3.1 EnergyStore (Thread-Safe Telemetry Hub)
+
+![Telemetry Concurrency Model](docs/diagrams/concurrency_model.png)
+
 ```go
 type EnergyStore struct {
     mu        sync.RWMutex
@@ -342,14 +316,15 @@ type BatchScorerPlugin interface {
 This enables the `Schedule()` method to pass all candidates to each scorer for proper relative ranking.
 
 #### 4.3.3 GIE Adapter Layer
-Thin adapters translate between GIE types (`GIEPod`, `GIERequest`, `GIECycleState`) and our internal types (`PodInfo`, `PodCandidate`):
+Thin adapters translate between real GIE v1.5.0 types (`scheduling.Endpoint`, `scheduling.LLMRequest`, `scheduling.CycleState`) and our internal types (`PodInfo`, `PodCandidate`):
 ```go
-func giePodToPodInfo(pod GIEPod) scorer.PodInfo {
-    labels := pod.GetLabels()
+func endpointToPodInfo(ep scheduling.Endpoint) scorer.PodInfo {
+    meta := ep.GetMetadata()
     return scorer.PodInfo{
-        Name:          pod.GetName(),
-        HardwareClass: parseHardwareClassLabel(labels),
-        TDP:           parseTDPLabel(labels),
+        Name:          meta.PodName,
+        Labels:        meta.Labels,
+        HardwareClass: parseHardwareClassLabel(meta.Labels),
+        TDP:           parseTDPLabel(meta.Labels),
     }
 }
 ```

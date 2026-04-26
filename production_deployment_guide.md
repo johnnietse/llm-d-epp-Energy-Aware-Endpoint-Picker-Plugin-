@@ -22,38 +22,7 @@
 
 ## 1. Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Inference Gateway (Envoy)                     │
-│                         ┌─────────┐                             │
-│  Client → HTTPRoute → │ ext_proc │ → Selected Backend Pod      │
-│                         └────┬────┘                             │
-│                              │ gRPC (UDS)                       │
-│                    ┌─────────▼─────────┐                        │
-│                    │   Energy-Aware    │                        │
-│                    │   EPP Sidecar     │                        │
-│                    │ (our plugin)      │                        │
-│                    └─────────┬─────────┘                        │
-│                              │                                  │
-│              ┌───────────────┼───────────────┐                  │
-│              ▼               ▼               ▼                  │
-│     ┌────────────┐  ┌────────────┐  ┌────────────┐             │
-│     │ vLLM Pod 1 │  │ vLLM Pod 2 │  │ vLLM Pod 3 │             │
-│     │ H100 GPU   │  │ A100 GPU   │  │ QC AI 100  │             │
-│     │ (prefill)  │  │ (decode)   │  │ (decode)   │             │
-│     └─────┬──────┘  └─────┬──────┘  └─────┬──────┘             │
-│           │               │               │                    │
-│     ┌─────▼──────┐  ┌─────▼──────┐  ┌─────▼──────┐             │
-│     │ DCGM       │  │ DCGM       │  │ RAPL       │             │
-│     │ Exporter   │  │ Exporter   │  │ Exporter   │             │
-│     └────────────┘  └────────────┘  └────────────┘             │
-│                              │                                  │
-│                    ┌─────────▼─────────┐                        │
-│                    │   Prometheus      │                        │
-│                    │   + Grafana       │                        │
-│                    └───────────────────┘                        │
-└─────────────────────────────────────────────────────────────────┘
-```
+![Production Architecture](docs/diagrams/architecture.png)
 
 ### Request Flow (Step-by-Step)
 1. Client sends inference request to Envoy Gateway
@@ -299,20 +268,7 @@ env:
 ```
 
 ### 6.4 How Our EPP Consumes Telemetry
-```
-┌─────────────────┐     scrape /metrics     ┌──────────────┐
-│  DCGM Exporter  │ ◄──────────────────────  │              │
-│  (GPU power)    │      every 5s            │  EPP Sidecar │
-└─────────────────┘                          │              │
-┌─────────────────┐     read /sys/class/     │  scrapers:   │
-│  RAPL sysfs     │ ◄──────────────────────  │  - DCGM      │
-│  (CPU/ASIC)     │      every 5s            │  - RAPL      │
-└─────────────────┘                          │  - Carbon API│
-┌─────────────────┐     HTTP GET /v1/latest  │              │
-│  CO2Signal API  │ ◄──────────────────────  │              │
-│  (grid carbon)  │      every 5min          └──────────────┘
-└─────────────────┘
-```
+![Telemetry Concurrency Model](docs/diagrams/concurrency_model.png)
 
 ---
 
@@ -356,18 +312,27 @@ spec:
 ```
 
 ### 7.3 Register with llm-d Inference Scheduler
-In a fork of `llm-d-inference-scheduler`:
+
+Our plugin now implements the **real GIE v1.5.0 interfaces** directly — no fork needed:
+
+![GIE Integration Architecture](docs/diagrams/gie_integration.png)
 
 ```go
-// pkg/epp/scheduling/energy_plugin.go
+// Import our real GIE-compatible adapters
 import energyepp "github.com/johnnie/energy-aware-epp/pkg/config"
 
 func RegisterEnergyPlugins() {
     suite := energyepp.NewEnergyPluginSuite(energyepp.DefaultEnergyConfig())
-    profile := energyepp.NewGIESchedulingProfile(suite.Store)
     
-    // Register with the scheduler
-    scheduler.RegisterProfile("energy-aware", profile)
+    // These implement scheduling.Filter and scheduling.Scorer directly
+    filter := energyepp.NewGIEFilterAdapter("energy-budget", suite.BudgetFilter)
+    scorer := energyepp.NewGIEScorerAdapter("energy-aware", suite.EnergyScorer)
+    carbon := energyepp.NewGIECarbonScorerAdapter("carbon-intensity", suite.CarbonScorer)
+    
+    // Compile-time interface assertions guarantee compatibility:
+    // var _ scheduling.Filter = &GIEFilterAdapter{}
+    // var _ scheduling.Scorer = &GIEScorerAdapter{}
+    // var _ scheduling.Scorer = &GIECarbonScorerAdapter{}
 }
 ```
 
@@ -484,13 +449,14 @@ python -m vllm.entrypoints.openai.api_server_benchmark \
 > **Key thesis argument**: The EPP plugin code, scoring algorithms, adaptive controller, and observability stack are **identical** between local validation and production. The only difference is the data source (simulated profiles vs. real DCGM/RAPL telemetry). This validates the architecture's portability.
 
 ### What You Can Claim in Your Thesis
-1. **Implementation is complete and validated** — 110+ tests, 0 data races, 8 packages
+1. **Implementation is complete and validated** — 93+ tests, 0 data races, 8 packages
 2. **Scoring algorithms are correct** — E2E simulation proves phase-aware routing (99.8% prefill, 100% decode accuracy)
 3. **SCI methodology is ISO-compliant** — Hardware-specific embodied carbon amortization
 4. **Architecture is production-ready** — Containerized, health-checked, Prometheus-instrumented
 5. **Kubernetes integration is demonstrated** — 3 pods running in Kind with correct labels
-6. **GIE interface compatibility** — BatchScorerPlugin + FilterPlugin adapters tested
-7. **Research contribution** — SLO ε-constraint filter + KV-cache transfer energy model are novel additions based on latest literature (DistServe, Splitwise, throttLLeM)
+6. **Real GIE v1.5.0 interface conformance** — `scheduling.Filter` and `scheduling.Scorer` interfaces implemented with compile-time assertions (`var _ scheduling.Filter = &GIEFilterAdapter{}`)
+7. **Standalone Go module** — Imports `sigs.k8s.io/gateway-api-inference-extension v1.5.0` as a direct dependency; no upstream fork required
+8. **Research contribution** — SLO ε-constraint filter + KV-cache transfer energy model are novel additions based on latest literature (DistServe, Splitwise, throttLLeM)
 
 ### What Requires Real Hardware to Fully Validate
 1. Actual energy savings (kWh reduction) under load

@@ -4,6 +4,8 @@
 
 An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler](https://github.com/llm-d/llm-d-inference-scheduler) on Kubernetes. Enables **token-level, phase-aware routing** that dynamically directs Prefill and Decode phases to heterogeneous hardware (high-performance GPUs vs. low-power ASICs) to optimize for energy efficiency, carbon footprint, and total cost of ownership.
 
+**Integrated with** [Gateway API Inference Extension (GIE) v1.5.0](https://github.com/kubernetes-sigs/gateway-api-inference-extension) — implements the real `scheduling.Filter` and `scheduling.Scorer` interfaces for production deployment.
+
 ## Key Results
 
 ### Phase-Aware Routing (E2E Simulation — 1,000 cycles)
@@ -34,30 +36,31 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    Scheduling Pipeline                               │
-│                                                                      │
-│  Request ──▶ EnergyBudgetFilter ──▶ EnergyAwareScorer ──▶ Winner    │
-│                     │                      │                         │
-│              (>90% TDP? reject)    (phase-aware weights)             │
-│                     │                      │                         │
-│              ┌──────┴──────┐       ┌───────┴────────┐               │
-│              │ EnergyStore │◀──────│ AdaptiveCtrl   │               │
-│              │  (shared)   │       │ (closed-loop)  │               │
-│              └──────┬──────┘       └────────────────┘               │
-│                     │                                                │
-│  ┌──────────────────┼──────────────────────────┐                    │
-│  │       Scrapers   │                          │                    │
-│  │  DCGM ──▶ GPU power, util, tokens/sec       │                    │
-│  │  RAPL ──▶ CPU/pkg energy (ΔE/Δt)            │                    │
-│  │  Carbon ──▶ grid CO2 intensity              │                    │
-│  └─────────────────────────────────────────────┘                    │
-│                                                                      │
-│  Prometheus Exporter (17 metrics) ──▶ Grafana Dashboard (13 panels) │
-│  SCI Calculator (ISO 21031) ──▶ Per-Request Carbon Intensity Score  │
-└──────────────────────────────────────────────────────────────────────┘
-```
+![System Architecture](docs/diagrams/architecture.png)
+
+### Scheduling Pipeline
+
+![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+
+### Adaptive Weight Controller FSM
+
+![Adaptive Controller](docs/diagrams/adaptive_controller_fsm.png)
+
+### GIE Integration Architecture
+
+![GIE Integration](docs/diagrams/gie_integration.png)
+
+Our plugin implements the real Gateway API Inference Extension interfaces:
+
+| Adapter | GIE Interface | Wraps | Category |
+|---------|--------------|-------|----------|
+| `GIEFilterAdapter` | `scheduling.Filter` | `EnergyBudgetFilter` | Hard constraint |
+| `GIEScorerAdapter` | `scheduling.Scorer` | `EnergyAwareScorer` | Balance |
+| `GIECarbonScorerAdapter` | `scheduling.Scorer` | `CarbonIntensityScorer` | Distribution |
+
+### Telemetry Concurrency Model
+
+![Concurrency Model](docs/diagrams/concurrency_model.png)
 
 ## Project Structure
 
@@ -87,7 +90,9 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 │   │       └── *_test.go
 │   ├── config/
 │   │   ├── energy_config.go           # Master config + plugin suite factory
-│   │   ├── plugin_registry.go         # GIE adapter layer (Filter + Scorer)
+│   │   ├── plugin_registry.go         # Standalone adapter layer (Filter + Scorer)
+│   │   ├── scheduling_profile.go      # GIE scheduling profile orchestrator
+│   │   ├── gie_adapter.go             # ★ Real GIE v1.5.0 interface adapters
 │   │   └── config_test.go
 │   ├── adaptive/
 │   │   ├── weight_controller.go       # Closed-loop adaptive weight adjustment
@@ -106,6 +111,8 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 │   │   └── heterogeneous-pool.yaml
 │   └── grafana/
 │       └── energy-epp-dashboard.json  # 13-panel Grafana dashboard
+├── docs/
+│   └── diagrams/                      # ★ Generated architectural diagrams
 ├── benchmarks/
 │   ├── profiles/hardware_profiles.yaml
 │   └── scripts/
@@ -113,7 +120,7 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 │       └── run-experiments.sh
 ├── Dockerfile                         # Multi-stage distroless build
 ├── Makefile                           # 25 targets
-├── go.mod
+├── go.mod                             # Go 1.25.7 + GIE v1.5.0 dependency
 └── README.md
 ```
 
@@ -138,6 +145,15 @@ make test-cover
 # Deploy to Kind cluster (requires kind, kubectl, docker)
 make kind-setup
 ```
+
+## Dependencies
+
+| Dependency | Version | Purpose |
+|-----------|---------|---------|
+| Go | 1.25.7+ | Language runtime |
+| `sigs.k8s.io/gateway-api-inference-extension` | v1.5.0 | GIE scheduling interfaces |
+| `k8s.io/apimachinery` | v0.35.3 | Kubernetes types |
+| `sigs.k8s.io/controller-runtime` | v0.23.3 | Controller utilities |
 
 ## Phase-Aware Scoring
 
