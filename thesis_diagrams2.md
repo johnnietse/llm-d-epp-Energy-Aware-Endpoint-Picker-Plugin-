@@ -1,4 +1,4 @@
-<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/1e0e2b41-ac9c-4e54-be5d-83ff51d1c163" /># Thesis Diagrams (Professional Academic Styling)
+# Thesis Diagrams (Professional Academic Styling)
 
 These diagrams have been restyled with custom clean, modern, and academic themes. When exported, they will look highly professional and readable, suitable for a PhD-level document. 
 
