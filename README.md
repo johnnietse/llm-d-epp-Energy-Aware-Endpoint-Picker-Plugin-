@@ -38,9 +38,12 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 
 ![System Architecture](docs/diagrams/architecture.png)
 
-### Scheduling Pipeline
+### Scheduling Pipeline for LLM Inference EndPoint Picker
 
 ![Scheduling Pipeline](docs/diagrams/scheduling_pipeline.png)
+
+<img width="871" height="638" alt="Screenshot (10258)" src="https://github.com/user-attachments/assets/188c12a3-8e1a-4b46-8a85-c300f0d467fa" />
+
 
 ### Adaptive Weight Controller FSM
 
