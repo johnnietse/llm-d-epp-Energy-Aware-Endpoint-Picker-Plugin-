@@ -1,0 +1,96 @@
+# Energy-Aware EPP — EndpointPickerConfig
+#
+# This configuration integrates the energy-aware plugins into the llm-d
+# inference scheduler alongside existing plugins. It defines two scheduling
+# profiles (Prefill and Decode) with different weight vectors.
+#
+# Architecture:
+#   Prefill Cycle: PrefillFilter → EnergyBudgetFilter → Scorers (load=50, energy=20) → MaxScorePicker
+#   Decode Cycle:  DecodeFilter  → EnergyBudgetFilter → Scorers (load=30, energy=60) → MaxScorePicker
+#
+# The key innovation is the asymmetric energy weights:
+#   - Prefill: latency-dominant (w_latency=0.6, w_energy=0.2, w_carbon=0.2)
+#   - Decode:  energy-dominant  (w_latency=0.2, w_energy=0.5, w_carbon=0.3)
+
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+
+plugins:
+# ─── Existing llm-d plugins ──────────────────────────────────────────
+- type: disagg-headers-handler
+
+- type: prefill-filter
+
+- type: decode-filter
+
+- type: load-aware-scorer
+  parameters:
+    threshold: 10
+
+- type: prefix-based-pd-decider
+  parameters:
+    nonCachedTokens: 8
+
+- type: disagg-profile-handler
+  parameters:
+    deciders:
+      prefill: prefix-based-pd-decider
+
+- type: max-score-picker
+
+# ─── NEW: Energy-aware plugins ────────────────────────────────────────
+- type: energy-budget-filter
+  parameters:
+    maxClusterPowerWatts: 2000
+    maxPodUtilizationFactor: 0.9
+    filterStalePods: false
+    estimatedPowerIncreaseWatts: 25
+
+- type: energy-aware-scorer
+  parameters:
+    prefillWeights:
+      latency: 0.6
+      energy: 0.2
+      carbon: 0.2
+    decodeWeights:
+      latency: 0.2
+      energy: 0.5
+      carbon: 0.3
+    fallbackCarbonIntensity: 390.0
+    latencySloMs: 500.0
+
+- type: carbon-intensity-scorer
+  parameters:
+    fallbackCarbonIntensity: 390.0
+
+# ─── Scheduling Profiles ─────────────────────────────────────────────
+schedulingProfiles:
+- name: prefill
+  plugins:
+  # Filters (sequential, order matters)
+  - pluginRef: prefill-filter
+  - pluginRef: energy-budget-filter
+  # Picker
+  - pluginRef: max-score-picker
+  # Scorers (weighted, higher weight = more influence)
+  - pluginRef: load-aware-scorer
+    weight: 50     # Load is important for prefill (avoid hot pods)
+  - pluginRef: energy-aware-scorer
+    weight: 20     # Energy is secondary for prefill (TTFT matters more)
+  - pluginRef: carbon-intensity-scorer
+    weight: 10     # Carbon is tertiary for prefill
+
+- name: decode
+  plugins:
+  # Filters
+  - pluginRef: decode-filter
+  - pluginRef: energy-budget-filter
+  # Picker
+  - pluginRef: max-score-picker
+  # Scorers
+  - pluginRef: load-aware-scorer
+    weight: 20     # Load is secondary for decode
+  - pluginRef: energy-aware-scorer
+    weight: 60     # Energy is DOMINANT for decode (core thesis contribution)
+  - pluginRef: carbon-intensity-scorer
+    weight: 30     # Carbon matters more for decode (sustained power draw)

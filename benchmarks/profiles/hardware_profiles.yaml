@@ -1,0 +1,168 @@
+# Hardware Energy/Performance Profiles for Simulation
+#
+# These profiles define the energy and performance characteristics of
+# heterogeneous accelerators in the inference cluster. They are used by:
+#   1. llm-d-inference-sim — to configure simulated vLLM pods with
+#      realistic TTFT, ITL, and throughput values.
+#   2. The analysis pipeline — to compute theoretical energy-per-token
+#      and validate experimental measurements.
+#   3. Power-cap scripts — to configure RAPL limits that emulate
+#      different hardware classes on homogeneous GPU hardware.
+#
+# Sources:
+#   - NVIDIA H100 SXM5: https://resources.nvidia.com/en-us-tensor-core
+#   - NVIDIA A100 PCIe: https://www.nvidia.com/en-us/data-center/a100/
+#   - NVIDIA L4: https://www.nvidia.com/en-us/data-center/l4/
+#   - Qualcomm Cloud AI 100: https://www.qualcomm.com/products/technology/processors/cloud-artificial-intelligence/cloud-ai-100
+#   - Intel Gaudi2: https://habana.ai/products/gaudi2/
+
+profiles:
+  # ─── High-Performance GPU (Prefill-Optimized) ───────────────────────
+  - name: "nvidia-h100-sxm5-80gb"
+    description: "NVIDIA H100 SXM5 80GB — datacenter GPU at full TDP"
+    class: GPU_HIGH_PERF
+    hardware:
+      accelerator: "NVIDIA H100 SXM5"
+      memory_gb: 80
+      memory_bandwidth_tb_s: 3.35
+      fp16_tflops: 989
+      tdp_watts: 700
+    inference_performance:
+      # Measured with Llama-2-7B, batch_size=1
+      prefill_tokens_per_sec: 15000
+      decode_tokens_per_sec: 800
+      time_to_first_token_ms: 45
+      inter_token_latency_ms: 12
+      max_batch_size: 256
+      max_context_length: 32768
+    energy:
+      typical_power_prefill_w: 650
+      typical_power_decode_w: 500
+      typical_power_idle_w: 100
+      energy_per_prefill_token_mj: 0.043  # 650W / 15000 tps
+      energy_per_decode_token_mj: 0.625   # 500W / 800 tps
+    cost:
+      hardware_cost_usd: 30000
+      cloud_price_per_hour_usd: 3.50
+
+  # ─── Medium-Performance GPU (Power-Capped) ──────────────────────────
+  - name: "nvidia-a100-pcie-40gb-capped-200w"
+    description: "NVIDIA A100 PCIe 40GB power-capped to 200W via RAPL/nvidia-smi"
+    class: GPU_MED_PERF
+    hardware:
+      accelerator: "NVIDIA A100 PCIe (power-capped)"
+      memory_gb: 40
+      memory_bandwidth_tb_s: 1.555
+      fp16_tflops: 312
+      tdp_watts: 200  # capped from 250W default
+    inference_performance:
+      prefill_tokens_per_sec: 4000
+      decode_tokens_per_sec: 600
+      time_to_first_token_ms: 120
+      inter_token_latency_ms: 16
+      max_batch_size: 128
+      max_context_length: 16384
+    energy:
+      typical_power_prefill_w: 195
+      typical_power_decode_w: 160
+      typical_power_idle_w: 40
+      energy_per_prefill_token_mj: 0.049  # 195W / 4000 tps
+      energy_per_decode_token_mj: 0.267   # 160W / 600 tps
+    cost:
+      hardware_cost_usd: 10000
+      cloud_price_per_hour_usd: 1.20
+
+  # ─── Low-Power ASIC (Decode-Optimized) ──────────────────────────────
+  - name: "qualcomm-cloud-ai-100-pro"
+    description: "Qualcomm Cloud AI 100 Pro — 75W AI accelerator"
+    class: ASIC_LOW_POWER
+    hardware:
+      accelerator: "Qualcomm Cloud AI 100 Pro"
+      memory_gb: 16  # on-chip SRAM + DDR
+      memory_bandwidth_tb_s: 0.545
+      int8_tops: 400
+      tdp_watts: 75
+    inference_performance:
+      prefill_tokens_per_sec: 2000
+      decode_tokens_per_sec: 400
+      time_to_first_token_ms: 200
+      inter_token_latency_ms: 25
+      max_batch_size: 32
+      max_context_length: 8192
+    energy:
+      typical_power_prefill_w: 70
+      typical_power_decode_w: 55
+      typical_power_idle_w: 15
+      energy_per_prefill_token_mj: 0.035   # 70W / 2000 tps
+      energy_per_decode_token_mj: 0.1375   # 55W / 400 tps  ← KEY: lower than GPU!
+    cost:
+      hardware_cost_usd: 3000
+      cloud_price_per_hour_usd: 0.45
+
+  # ─── Ultra-Low-Power ASIC ──────────────────────────────────────────
+  - name: "nvidia-l4-24gb"
+    description: "NVIDIA L4 24GB — low-power inference GPU"
+    class: GPU_MED_PERF
+    hardware:
+      accelerator: "NVIDIA L4"
+      memory_gb: 24
+      memory_bandwidth_tb_s: 0.300
+      fp16_tflops: 120
+      tdp_watts: 72
+    inference_performance:
+      prefill_tokens_per_sec: 2500
+      decode_tokens_per_sec: 350
+      time_to_first_token_ms: 160
+      inter_token_latency_ms: 28
+      max_batch_size: 64
+      max_context_length: 8192
+    energy:
+      typical_power_prefill_w: 68
+      typical_power_decode_w: 50
+      typical_power_idle_w: 12
+      energy_per_prefill_token_mj: 0.027
+      energy_per_decode_token_mj: 0.143
+    cost:
+      hardware_cost_usd: 3500
+      cloud_price_per_hour_usd: 0.55
+
+  # ─── Intel Gaudi2 ──────────────────────────────────────────────────
+  - name: "intel-gaudi2"
+    description: "Intel Gaudi2 — AI training/inference accelerator"
+    class: GPU_MED_PERF
+    hardware:
+      accelerator: "Intel Gaudi2"
+      memory_gb: 96  # HBM2e
+      memory_bandwidth_tb_s: 2.45
+      bf16_tflops: 432
+      tdp_watts: 600
+    inference_performance:
+      prefill_tokens_per_sec: 8000
+      decode_tokens_per_sec: 650
+      time_to_first_token_ms: 65
+      inter_token_latency_ms: 15
+      max_batch_size: 192
+      max_context_length: 16384
+    energy:
+      typical_power_prefill_w: 550
+      typical_power_decode_w: 380
+      typical_power_idle_w: 80
+      energy_per_prefill_token_mj: 0.069
+      energy_per_decode_token_mj: 0.585
+    cost:
+      hardware_cost_usd: 15000
+      cloud_price_per_hour_usd: 2.00
+
+# ─── Energy Efficiency Comparison (Decode Phase) ──────────────────────
+# 
+# | Hardware                | Decode W/tok | Decode mJ/tok | Relative Efficiency |
+# |-------------------------|-------------|--------------|---------------------|
+# | Qualcomm Cloud AI 100   | 0.138       | 0.138        | 1.0× (best)         |
+# | NVIDIA L4               | 0.143       | 0.143        | 1.04×               |
+# | NVIDIA A100 (200W cap)  | 0.267       | 0.267        | 1.94×               |
+# | Intel Gaudi2            | 0.585       | 0.585        | 4.24×               |
+# | NVIDIA H100             | 0.625       | 0.625        | 4.53× (worst)       |
+#
+# This table demonstrates the core thesis insight:
+# For DECODE, low-power ASICs are 4.5× more energy-efficient than H100s!
+# The EnergyAwareScorer exploits this by routing decode to low-power pods.

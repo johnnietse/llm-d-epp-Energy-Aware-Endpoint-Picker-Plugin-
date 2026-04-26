@@ -1,0 +1,11 @@
+# Kind cluster configuration for energy-aware EPP development.
+# Uses a single-node cluster for Docker Desktop compatibility.
+# Multiple EPP pods simulate heterogeneous hardware via labels/env.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: energy-epp-dev
+networking:
+  apiServerPort: 6444
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.31.0
