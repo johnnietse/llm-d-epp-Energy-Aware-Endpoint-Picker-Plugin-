@@ -1,6 +1,6 @@
 # Energy-Aware Token-Level Routing for Heterogeneous LLM Inference
 
-> **Master's Thesis** — Design, Implementation, and Evaluation of an LLM-D Endpoint Picker Plugin
+> **Proposal and Implementation** — Design, Implementation, and Evaluation of an LLM-D Endpoint Picker Plugin
 
 An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler](https://github.com/llm-d/llm-d-inference-scheduler) on Kubernetes. Enables **token-level, phase-aware routing** that dynamically directs Prefill and Decode phases to heterogeneous hardware (high-performance GPUs vs. low-power ASICs) to optimize for energy efficiency, carbon footprint, and total cost of ownership.
 
@@ -218,4 +218,4 @@ On clean grids (e.g., France nuclear @ 55 gCO2/kWh), embodied carbon dominates a
 
 ## License
 
-This project is part of a Master's thesis research. See LICENSE for details.
+This project is part of a possible thesis research. See LICENSE for details.
