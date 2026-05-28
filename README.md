@@ -2,6 +2,8 @@
 
 > **Proposal and Implementation** - Design, Implementation, and Evaluation of an LLM-D Endpoint Picker Plugin
 
+Take a look of the thesis/research report here: [Open Report](Johnnie_Yan_Ho_Tse_Energy_Aware_Token_Level_Routing_for_Heterogeneous_LLM_Inference_in_Kubernetes_Research_Paper.pdf)
+
 An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler](https://github.com/llm-d/llm-d-inference-scheduler) on Kubernetes. Enables **token-level, phase-aware routing** that dynamically directs Prefill and Decode phases to heterogeneous hardware (high-performance GPUs vs. low-power ASICs) to optimize for energy efficiency, carbon footprint, and total cost of ownership.
 
 **Integrated with** [Gateway API Inference Extension (GIE) v1.5.0](https://github.com/kubernetes-sigs/gateway-api-inference-extension) - implements the real `scheduling.Filter` and `scheduling.Scorer` interfaces for production deployment.
