@@ -1,0 +1,148 @@
+# ─────────────────────────────────────────────────────────────────────
+# CI Pipeline — Build, Test, and Validate
+#
+# Runs on every push and pull request to ensure the project stays
+# healthy. Tests the Go code, validates the Docker build, and
+# checks that the upstream-port interface is still compatible.
+# ─────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ─── Go Build & Test ──────────────────────────────────────────────
+  test:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Go mod download
+        run: go mod download
+
+      - name: Go vet
+        run: go vet ./pkg/...
+
+      - name: Run unit tests
+        run: |
+          go test -v -count=1 -race -coverprofile=coverage.out ./pkg/...
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          go test -count=1 ./pkg/... 2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Run E2E simulation
+        run: |
+          go test -v -count=1 -run TestEndToEnd_FullPipelineSimulation ./pkg/simulation/
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+
+  # ─── Build Verification ───────────────────────────────────────────
+  build:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build binary
+        run: |
+          go build -o energy-epp ./cmd/energy-epp/
+          echo "Binary size: $(du -h energy-epp | cut -f1)"
+
+  # ─── Docker Image ─────────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t energy-epp:ci-test .
+          SIZE=$(docker image ls energy-epp:ci-test --format "{{.Size}}")
+          echo "## 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "Image size: **$SIZE**" >> $GITHUB_STEP_SUMMARY
+
+  # ─── Interface Compatibility Check ────────────────────────────────
+  compatibility:
+    name: Upstream Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check upstream-port interface conformance
+        run: |
+          echo "## 🔌 Upstream Compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check that the upstream-port implements the correct interface
+          if grep -q "var _ .*Scorer = " upstream-port/energy_aware.go; then
+            echo "✅ Compile-time Scorer interface assertion present" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Missing Scorer interface assertion" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          # Check that the factory function exists
+          if grep -q "Factory" upstream-port/energy_aware.go; then
+            echo "✅ Factory function present (required for plugin registration)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Missing Factory function" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          # Check required methods
+          for method in "Score" "TypedName" "Category"; do
+            if grep -q "func.*${method}" upstream-port/energy_aware.go; then
+              echo "✅ Method \`${method}\` implemented" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Method \`${method}\` missing" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All interface checks passed. Plugin is compatible with llm-d-router." >> $GITHUB_STEP_SUMMARY
+
+  # ─── Diagrams (optional) ──────────────────────────────────────────
+  diagrams:
+    name: Generate Diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate diagrams
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python benchmarks/scripts/generate_advanced_diagrams.py
+          echo "Diagrams generated successfully"

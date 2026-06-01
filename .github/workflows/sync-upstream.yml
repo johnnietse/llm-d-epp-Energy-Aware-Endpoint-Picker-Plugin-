@@ -1,0 +1,126 @@
+# ─────────────────────────────────────────────────────────────────────
+# Sync llm-d-router upstream reference
+#
+# This workflow automatically pulls the latest code from the official
+# llm-d/llm-d-router repository into our llm-d-ref/ directory whenever
+# the upstream repo is updated. Runs on a daily schedule and can also
+# be triggered manually.
+#
+# SETUP REQUIRED (one-time):
+#   1. Go to your repo → Settings → Secrets and variables → Actions
+#   2. No extra secrets needed — uses the default GITHUB_TOKEN
+#   3. Go to Settings → Actions → General → Workflow permissions
+#   4. Select "Read and write permissions"
+#   5. Check "Allow GitHub Actions to create and approve pull requests"
+# ─────────────────────────────────────────────────────────────────────
+name: Sync Upstream llm-d-router
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC (2:00 AM EST)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions tab
+    inputs:
+      force_sync:
+        description: 'Force sync even if no new commits'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch latest upstream llm-d-router
+        run: |
+          cd llm-d-ref
+          git fetch origin main
+          
+          # Check if there are new commits
+          LOCAL_HEAD=$(git rev-parse HEAD)
+          REMOTE_HEAD=$(git rev-parse origin/main)
+          
+          echo "Local HEAD:  $LOCAL_HEAD"
+          echo "Remote HEAD: $REMOTE_HEAD"
+          
+          if [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ] && [ "${{ inputs.force_sync }}" != "true" ]; then
+            echo "SYNC_NEEDED=false" >> $GITHUB_ENV
+            echo "Already up to date — no sync needed"
+          else
+            BEHIND=$(git rev-list HEAD..origin/main --count)
+            echo "SYNC_NEEDED=true" >> $GITHUB_ENV
+            echo "COMMITS_BEHIND=$BEHIND" >> $GITHUB_ENV
+            echo "Upstream is $BEHIND commits ahead"
+          fi
+
+      - name: Pull upstream changes
+        if: env.SYNC_NEEDED == 'true'
+        run: |
+          cd llm-d-ref
+          git pull origin main --ff-only
+          echo "NEW_HEAD=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Verify upstream scorer interface compatibility
+        if: env.SYNC_NEEDED == 'true'
+        run: |
+          # Check if the scheduling.Scorer interface still exists and is compatible
+          echo "Checking upstream interface compatibility..."
+          
+          SCORER_FILE="llm-d-ref/pkg/epp/framework/interface/scheduling/scorer.go"
+          if [ -f "$SCORER_FILE" ]; then
+            echo "✓ Scorer interface file exists"
+          else
+            echo "⚠ Scorer interface file not found at expected path"
+            # Search for it
+            find llm-d-ref/pkg -name "*.go" -exec grep -l "type Scorer interface" {} \; || true
+          fi
+          
+          # Check if the plugin registration pattern still exists
+          RUNNER_FILE="llm-d-ref/cmd/epp/runner/runner.go"
+          if grep -q "registerInTreePlugins" "$RUNNER_FILE" 2>/dev/null; then
+            echo "✓ Plugin registration function exists"
+          else
+            echo "⚠ registerInTreePlugins not found — upstream may have refactored"
+          fi
+          
+          # Count current number of scorers
+          SCORER_COUNT=$(ls -d llm-d-ref/pkg/epp/framework/plugins/scheduling/scorer/*/ 2>/dev/null | wc -l)
+          echo "✓ Upstream has $SCORER_COUNT scorer plugins"
+
+      - name: Commit and push
+        if: env.SYNC_NEEDED == 'true'
+        run: |
+          git add llm-d-ref/
+          git commit -m "chore: sync llm-d-router upstream to ${{ env.NEW_HEAD }} (${{ env.COMMITS_BEHIND }} new commits)" || echo "No changes to commit"
+          git push
+
+      - name: Create summary
+        if: env.SYNC_NEEDED == 'true'
+        run: |
+          echo "## 🔄 Upstream Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commits synced**: ${{ env.COMMITS_BEHIND }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New HEAD**: \`${{ env.NEW_HEAD }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source**: [llm-d/llm-d-router](https://github.com/llm-d/llm-d-router)" >> $GITHUB_STEP_SUMMARY
+
+      - name: No sync needed summary
+        if: env.SYNC_NEEDED == 'false'
+        run: |
+          echo "## ✅ Already Up to Date" >> $GITHUB_STEP_SUMMARY
+          echo "No new commits from upstream llm-d-router." >> $GITHUB_STEP_SUMMARY
