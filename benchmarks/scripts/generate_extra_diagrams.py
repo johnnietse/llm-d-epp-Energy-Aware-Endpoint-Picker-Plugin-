@@ -155,10 +155,117 @@ def draw_routing_algorithm_flow():
     plt.savefig('docs/diagrams/routing_algorithm_flow.png', bbox_inches='tight', dpi=300)
     plt.close()
 
+def draw_sci_calculation_flow():
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.axis('off')
+    
+    # Components
+    ax.add_patch(patches.Rectangle((0.1, 0.7), 0.25, 0.15, fill=True, color='#ffe0b2', ec='black', lw=2))
+    ax.text(0.225, 0.775, 'Operational Energy ($E$)\n(kWh)', ha='center', va='center', fontsize=10, fontweight='bold')
+    
+    ax.add_patch(patches.Rectangle((0.4, 0.7), 0.25, 0.15, fill=True, color='#ffcc80', ec='black', lw=2))
+    ax.text(0.525, 0.775, 'Grid Intensity ($I$)\n(gCO₂/kWh)', ha='center', va='center', fontsize=10, fontweight='bold')
+    
+    ax.add_patch(patches.Rectangle((0.7, 0.7), 0.2, 0.15, fill=True, color='#bcaaa4', ec='black', lw=2))
+    ax.text(0.8, 0.775, 'Embodied Carbon\n($M$) (gCO₂)', ha='center', va='center', fontsize=10, fontweight='bold')
+    
+    # Operational Carbon
+    ax.add_patch(patches.Rectangle((0.25, 0.4), 0.25, 0.15, fill=True, color='#ffab91', ec='black', lw=2))
+    ax.text(0.375, 0.475, 'Operational Carbon\n($E \\times I$)', ha='center', va='center', fontsize=11, fontweight='bold')
+    
+    # Total Carbon
+    ax.add_patch(patches.Rectangle((0.5, 0.2), 0.25, 0.15, fill=True, color='#ef9a9a', ec='black', lw=2))
+    ax.text(0.625, 0.275, 'Total Carbon\n$(E \\times I) + M$', ha='center', va='center', fontsize=11, fontweight='bold')
+    
+    # Functional Unit
+    ax.add_patch(patches.Rectangle((0.8, 0.2), 0.15, 0.15, fill=True, color='#e6ee9c', ec='black', lw=2))
+    ax.text(0.875, 0.275, 'Tokens ($R$)\n(Generated)', ha='center', va='center', fontsize=10, fontweight='bold')
+    
+    # SCI Output
+    ax.add_patch(patches.FancyBboxPatch((0.5, -0.05), 0.35, 0.15, boxstyle="round,pad=0.05", fill=True, color='#a5d6a7', ec='black', lw=2))
+    ax.text(0.675, 0.025, 'Software Carbon Intensity (SCI)\n$SCI = ((E \\times I) + M) / R$', ha='center', va='center', fontsize=12, fontweight='bold')
+    
+    # Arrows
+    ax.annotate('', xy=(0.35, 0.55), xytext=(0.225, 0.7), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    ax.annotate('', xy=(0.4, 0.55), xytext=(0.525, 0.7), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    ax.annotate('', xy=(0.6, 0.35), xytext=(0.375, 0.4), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    ax.annotate('', xy=(0.65, 0.35), xytext=(0.8, 0.7), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    ax.annotate('', xy=(0.6, 0.1), xytext=(0.625, 0.2), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    ax.annotate('', xy=(0.7, 0.1), xytext=(0.875, 0.2), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    
+    plt.title('Green Software Foundation SCI Calculation Flow', fontsize=14, fontweight='bold')
+    plt.savefig('docs/diagrams/sci_calculation_flow.png', bbox_inches='tight', dpi=300)
+    plt.close()
+
+def draw_inference_timeline_gantt():
+    fig, ax = plt.subplots(figsize=(10, 4))
+    
+    # Task names and temporal start/duration
+    tasks = ['Prefill Phase (H100)', 'KV-Cache Transfer (Network)', 'Decode Phase (L4 ASIC)']
+    colors = ['#ef5350', '#90caf9', '#66bb6a']
+    start_times = [0, 150, 350]
+    durations = [150, 200, 800]
+    power_draw = ['700W', 'Switch Overhead', '72W']
+    
+    for i, task in enumerate(tasks):
+        ax.barh(task, durations[i], left=start_times[i], color=colors[i], edgecolor='black', height=0.5)
+        ax.text(start_times[i] + durations[i]/2, i, f'{durations[i]}ms\n{power_draw[i]}', ha='center', va='center', color='white' if i != 1 else 'black', fontweight='bold', fontsize=10)
+        
+    # TTFT and TPOT markers
+    ax.axvline(x=150, color='r', linestyle='--', label='TTFT (Time-To-First-Token)')
+    ax.axvline(x=1150, color='g', linestyle='--', label='Total Request Completion')
+    
+    ax.set_xlabel('Time (milliseconds)', fontsize=12)
+    ax.set_title('Temporal Execution Timeline of Disaggregated Inference', fontsize=14, fontweight='bold')
+    ax.invert_yaxis()
+    ax.legend()
+    ax.grid(axis='x', linestyle=':', alpha=0.6)
+    
+    plt.savefig('docs/diagrams/inference_timeline_gantt.png', bbox_inches='tight', dpi=300)
+    plt.close()
+
+def draw_hardware_spec_comparison():
+    fig, ax = plt.subplots(figsize=(9, 6))
+    
+    hardware = ['H100 80GB\n(Prefill)', 'A100 40GB\n(General)', 'L4 24GB\n(Decode)']
+    tdp = [700, 400, 72]
+    energy_per_token = [308.7, 381.8, 285.9]
+    
+    x = np.arange(len(hardware))
+    width = 0.35
+    
+    ax1 = ax
+    ax2 = ax1.twinx()
+    
+    bar1 = ax1.bar(x - width/2, tdp, width, color='#ef5350', label='TDP (W)')
+    bar2 = ax2.bar(x + width/2, energy_per_token, width, color='#42a5f5', label='Energy/Token (mJ)')
+    
+    ax1.set_ylabel('Thermal Design Power (Watts)', fontsize=12, color='#c62828')
+    ax2.set_ylabel('Energy per Token (mJ)', fontsize=12, color='#1565c0')
+    ax1.set_title('Heterogeneous Hardware Specification Comparison', fontsize=14, fontweight='bold')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(hardware, fontsize=12, fontweight='bold')
+    
+    # Adding values on top of bars
+    for i, v in enumerate(tdp):
+        ax1.text(i - width/2, v + 10, f'{v}W', ha='center', fontweight='bold')
+    for i, v in enumerate(energy_per_token):
+        ax2.text(i + width/2, v + 5, f'{v}mJ', ha='center', fontweight='bold')
+        
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+    
+    plt.savefig('docs/diagrams/hardware_spec_comparison.png', bbox_inches='tight', dpi=300)
+    plt.close()
+
 if __name__ == "__main__":
     print("Generating extra diagrams...")
     draw_epsilon_constraint()
     draw_system_components()
     draw_phase_aware_weights()
     draw_routing_algorithm_flow()
+    draw_sci_calculation_flow()
+    draw_inference_timeline_gantt()
+    draw_hardware_spec_comparison()
     print("Diagrams successfully generated in docs/diagrams/")
