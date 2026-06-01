@@ -105,6 +105,33 @@ analyze: ## Analyze experiment results with Python
 experiments: build ## Run full experiment suite (tests + demo + analysis)
 	bash benchmarks/scripts/run-experiments.sh
 
+setup-bench: ## Bootstrap GPU cluster for benchmarking (single-node power-cap)
+	bash benchmarks/scripts/setup-benchmark-cluster.sh --mode single-node
+
+cluster-bench: ## Run cluster benchmark suite (requires GPU cluster)
+	bash benchmarks/scripts/run-cluster-benchmark.sh
+
+cluster-bench-e3: ## Run power-cap sweep only
+	bash benchmarks/scripts/run-cluster-benchmark.sh --experiment E3
+
+cluster-bench-e4: ## Run load sweep only
+	bash benchmarks/scripts/run-cluster-benchmark.sh --experiment E4
+
+frontenac-setup: ## Setup environment on Frontenac HPC (run on login node)
+	bash benchmarks/scripts/frontenac/01-setup-env.sh
+
+frontenac-profile: ## Submit single-GPU profiling job to SLURM
+	sbatch benchmarks/scripts/frontenac/02-profile-gpu.sbatch
+
+frontenac-sweep: ## Submit multi-GPU power sweep job to SLURM
+	sbatch benchmarks/scripts/frontenac/03-power-sweep.sbatch
+
+frontenac-score: ## Run EPP scoring with measured GPU profiles
+	bash benchmarks/scripts/frontenac/04-run-epp-scoring.sh benchmarks/results/frontenac/
+
+frontenac-analyze: ## Generate thesis figures from Frontenac results
+	python3 benchmarks/scripts/frontenac/05-analyze-frontenac.py benchmarks/results/frontenac/
+
 # ─── Docker ──────────────────────────────────────────────────────────
 docker: ## Build Docker image
 	@echo "Building Docker image $(DOCKER_IMAGE)..."
