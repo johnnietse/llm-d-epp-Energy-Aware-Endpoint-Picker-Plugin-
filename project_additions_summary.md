@@ -1,0 +1,44 @@
+# Project Additions Summary
+
+## What Was Added
+
+### 📊 8 New Advanced Diagrams (`docs/diagrams/`)
+
+| # | Diagram | File | Purpose |
+|---|---------|------|---------|
+| 1 | **Regional Carbon Intensity** | `regional_carbon_comparison.png` | Bar chart of 10 global regions with FSM threshold lines (200 & 500 gCO₂/kWh). Shows why routing decisions change based on geography. |
+| 2 | **DVFS Power-Frequency Curve** | `dvfs_power_frequency_curve.png` | Dual-axis plot showing the decode-phase "sweet spot" where lowering GPU frequency saves energy with negligible latency impact (~42% savings). |
+| 3 | **Adaptive FSM (Detailed)** | `adaptive_fsm_detailed.png` | Full state diagram showing Normal → Carbon-Critical → Emergency mode transitions with exact weight vectors ($w_L, w_E, w_C$) for each state. |
+| 4 | **Energy-Delay Product Scatter** | `edp_scatter_analysis.png` | EDP scatter plot comparing H100/A100/A100-Capped/L4 with iso-EDP contour curves. Visualizes the energy-latency tradeoff. |
+| 5 | **Cost per Million Tokens** | `cost_per_million_tokens.png` | Bar chart comparing cloud inference cost (USD/MTok) across 5 hardware types using real cloud pricing × throughput. |
+| 6 | **Workload Radar Chart** | `workload_characterization_radar.png` | Radar chart profiling 4 benchmark traces (Chatbot, Code Gen, Summarization, Burst) across 5 dimensions. |
+| 7 | **Carbon Savings Heatmap** | `carbon_savings_heatmap.png` | Hardware × Region heatmap showing SCI values (gCO₂ per 1000 tokens). Immediately reveals where routing has the largest environmental impact. |
+| 8 | **Scoring Overhead CDF** | `scoring_overhead_cdf.png` | CDF of endpoint scoring latency comparing Round-Robin (~12µs), Latency-Only (~33µs), and Energy-Aware EPP (~90µs) with P50/P99 markers. |
+
+### 📁 New Data Files
+
+| File | Location | Description |
+|------|----------|-------------|
+| **Carbon Intensity Profiles** | `benchmarks/profiles/carbon_intensity_regions.yaml` | 10 global regions (Norway through Poland) with average/marginal/peak/off-peak intensity, grid mix, API source citations, and FSM threshold config. |
+| **Workload Traces** | `benchmarks/traces/sample_workload_traces.yaml` | 6 reproducible trace definitions: Chatbot, Code Gen, Summarization, Burst Traffic, Carbon Spike Scenario, and Multi-Model Mixed. Each has token distributions, arrival patterns, and SLO targets. |
+
+### 🔧 New Scripts & Infrastructure
+
+| File | Purpose |
+|------|---------|
+| `benchmarks/scripts/generate_advanced_diagrams.py` | Generates all 8 advanced diagrams above |
+| `benchmarks/scripts/generate-all-figures.sh` | **One-command reproducibility script** — runs ALL figure generation scripts sequentially |
+| `Makefile` additions | `make bench-report` (regenerate all figures) and `make gen-figures` (advanced diagrams only) |
+
+### 🔍 Research-Backed Additions
+
+Based on web research, the following data sources and methodologies were incorporated:
+
+- **Carbon intensity data** sourced from Electricity Maps (average) and WattTime (marginal MOER)
+- **DVFS sweet spot** modeling based on 2025-2026 studies showing ~42% energy savings via frequency scaling during memory-bound decode
+- **Cost data** calibrated against current cloud GPU pricing (H100 $3.50/hr, L4 $0.55/hr)
+- **Workload distributions** based on ShareGPT conversational dataset patterns (standard vLLM benchmark)
+
+## Total Diagram Inventory
+
+After all additions, the `docs/diagrams/` directory now contains **~18 publication-quality diagrams** covering every major concept in the thesis.
