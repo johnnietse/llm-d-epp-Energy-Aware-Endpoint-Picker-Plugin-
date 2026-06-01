@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────────
+# Example: Minimal energy-aware configuration
+#
+# Adds the energy-aware scorer alongside the default kv-cache scorer.
+# This is the simplest possible configuration — all parameters use
+# their defaults.
+#
+# Use case: You have a heterogeneous cluster and want to save energy
+# without tuning any parameters.
+# ─────────────────────────────────────────────────────────────────────
+apiVersion: config.llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+
+plugins:
+  - type: kv-cache-utilization-scorer
+  - type: energy-aware-scorer
+  - type: max-score-picker
+  - type: single-profile-handler
+
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: kv-cache-utilization-scorer
+        weight: 3
+      - pluginRef: energy-aware-scorer
+        weight: 5
+      - pluginRef: max-score-picker
