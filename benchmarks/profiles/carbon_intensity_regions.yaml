@@ -1,0 +1,166 @@
+# Regional Grid Carbon Intensity Profiles
+#
+# These profiles define the real-time and average carbon intensity
+# (gCO2eq/kWh) for regions referenced in the thesis evaluation.
+# Used by:
+#   1. The Adaptive Weight Controller FSM — to trigger Normal/Carbon-Critical
+#      mode transitions based on grid carbon signals.
+#   2. The SCI Calculator — to compute Software Carbon Intensity per-pod.
+#   3. Benchmark scripts — to simulate regional routing decisions.
+#
+# Data Sources (as of 2025-2026):
+#   - Electricity Maps: https://app.electricitymaps.com
+#   - WattTime (Marginal Emissions): https://www.watttime.org
+#   - UK Carbon Intensity API: https://carbonintensity.org.uk
+#   - IEA Real-Time Electricity Tracker: https://www.iea.org/data-and-statistics
+#   - US EIA Hourly Grid Monitor: https://www.eia.gov/electricity/gridmonitor
+#
+# Signal Types:
+#   average_intensity: Average carbon intensity of the grid mix (gCO2eq/kWh).
+#                      Suitable for SCI reporting and general carbon accounting.
+#   marginal_intensity: Marginal operating emissions rate (MOER). Reflects the
+#                       emissions from the plant that would ramp up to serve
+#                       additional load. Better for load-shifting decisions.
+
+regions:
+  # ─── Clean Grids (Nuclear/Hydro dominant) ───────────────────────────
+  - name: "ca-on"
+    display_name: "Ontario, Canada"
+    country: "CA"
+    grid_mix: "Nuclear (58%), Hydro (25%), Gas (10%), Wind/Solar (7%)"
+    average_intensity_gco2_kwh: 30
+    marginal_intensity_gco2_kwh: 45
+    peak_intensity_gco2_kwh: 120
+    off_peak_intensity_gco2_kwh: 15
+    notes: "One of the cleanest grids globally. Nuclear baseload."
+    api_source: "ElectricityMaps"
+
+  - name: "fr"
+    display_name: "France"
+    country: "FR"
+    grid_mix: "Nuclear (67%), Hydro (12%), Wind (8%), Gas (7%), Solar (5%)"
+    average_intensity_gco2_kwh: 56
+    marginal_intensity_gco2_kwh: 80
+    peak_intensity_gco2_kwh: 150
+    off_peak_intensity_gco2_kwh: 30
+    notes: "Nuclear-dominated European grid."
+    api_source: "ElectricityMaps"
+
+  - name: "no"
+    display_name: "Norway"
+    country: "NO"
+    grid_mix: "Hydro (92%), Wind (6%), Gas (2%)"
+    average_intensity_gco2_kwh: 19
+    marginal_intensity_gco2_kwh: 25
+    peak_intensity_gco2_kwh: 50
+    off_peak_intensity_gco2_kwh: 10
+    notes: "Nearly 100% renewable hydro baseload."
+    api_source: "ElectricityMaps"
+
+  # ─── Moderate Grids (Gas/Renewables mix) ────────────────────────────
+  - name: "us-cal"
+    display_name: "California, USA (CAISO)"
+    country: "US"
+    grid_mix: "Solar (27%), Gas (37%), Wind (8%), Hydro (10%), Nuclear (9%)"
+    average_intensity_gco2_kwh: 220
+    marginal_intensity_gco2_kwh: 350
+    peak_intensity_gco2_kwh: 450
+    off_peak_intensity_gco2_kwh: 80
+    notes: "High solar during day, gas ramp at sunset (duck curve)."
+    api_source: "WattTime"
+
+  - name: "us-va"
+    display_name: "Virginia, USA (PJM)"
+    country: "US"
+    grid_mix: "Gas (42%), Nuclear (30%), Coal (12%), Wind (8%), Solar (5%)"
+    average_intensity_gco2_kwh: 310
+    marginal_intensity_gco2_kwh: 420
+    peak_intensity_gco2_kwh: 550
+    off_peak_intensity_gco2_kwh: 200
+    notes: "Major US data center hub (Ashburn). Coal still present."
+    api_source: "WattTime"
+
+  - name: "gb"
+    display_name: "Great Britain"
+    country: "GB"
+    grid_mix: "Wind (30%), Gas (35%), Nuclear (15%), Solar (5%), Imports (10%)"
+    average_intensity_gco2_kwh: 180
+    marginal_intensity_gco2_kwh: 290
+    peak_intensity_gco2_kwh: 400
+    off_peak_intensity_gco2_kwh: 80
+    notes: "Rapidly decarbonizing. High wind variability."
+    api_source: "CarbonIntensity.org.uk"
+
+  - name: "de"
+    display_name: "Germany"
+    country: "DE"
+    grid_mix: "Wind (28%), Solar (12%), Gas (14%), Coal (27%), Biomass (10%)"
+    average_intensity_gco2_kwh: 350
+    marginal_intensity_gco2_kwh: 500
+    peak_intensity_gco2_kwh: 650
+    off_peak_intensity_gco2_kwh: 150
+    notes: "Still significant coal. Nuclear phase-out complete (2023)."
+    api_source: "ElectricityMaps"
+
+  # ─── Dirty Grids (Coal dominant) ────────────────────────────────────
+  - name: "pl"
+    display_name: "Poland"
+    country: "PL"
+    grid_mix: "Coal (65%), Gas (10%), Wind (14%), Solar (5%), Biomass (4%)"
+    average_intensity_gco2_kwh: 680
+    marginal_intensity_gco2_kwh: 820
+    peak_intensity_gco2_kwh: 950
+    off_peak_intensity_gco2_kwh: 500
+    notes: "Coal-heavy grid. Highest carbon intensity in EU."
+    api_source: "ElectricityMaps"
+
+  - name: "in"
+    display_name: "India (National)"
+    country: "IN"
+    grid_mix: "Coal (55%), Gas (10%), Hydro (12%), Solar (10%), Wind (8%)"
+    average_intensity_gco2_kwh: 630
+    marginal_intensity_gco2_kwh: 780
+    peak_intensity_gco2_kwh: 900
+    off_peak_intensity_gco2_kwh: 400
+    notes: "Rapidly growing renewables but coal baseload dominates."
+    api_source: "ElectricityMaps"
+
+  - name: "au-nsw"
+    display_name: "New South Wales, Australia"
+    country: "AU"
+    grid_mix: "Coal (60%), Gas (10%), Solar (15%), Wind (12%)"
+    average_intensity_gco2_kwh: 590
+    marginal_intensity_gco2_kwh: 750
+    peak_intensity_gco2_kwh: 850
+    off_peak_intensity_gco2_kwh: 350
+    notes: "Transitioning from coal but still heavy reliance."
+    api_source: "ElectricityMaps"
+
+# ─── FSM Threshold Configuration ──────────────────────────────────────
+#
+# These thresholds map directly to the Adaptive Weight Controller FSM
+# defined in Section III.D of the thesis:
+#
+#   Normal Mode:       grid_carbon < normal_threshold
+#   Carbon-Critical:   grid_carbon >= carbon_critical_threshold
+#   Emergency Mode:    cluster_power >= emergency_power_budget_kw
+#
+fsm_thresholds:
+  normal_threshold_gco2_kwh: 200
+  carbon_critical_threshold_gco2_kwh: 500
+  emergency_power_budget_kw: 50
+
+# ─── Regional Carbon Savings Summary ──────────────────────────────────
+#
+# For a cluster processing 10M requests/day with energy-aware routing:
+#
+# | Region       | Avg gCO2/kWh | Daily CO2 Saved (kg) | Annual CO2 Saved (tonnes) |
+# |--------------|-------------|---------------------|--------------------------|
+# | Ontario      | 30          | 0.55                | 0.20                     |
+# | California   | 220         | 4.05                | 1.48                     |
+# | Virginia     | 310         | 5.71                | 2.08                     |
+# | Germany      | 350         | 6.44                | 2.35                     |
+# | Poland       | 680         | 12.52               | 4.57                     |
+# | India        | 630         | 11.60               | 4.23                     |
+#
+# Note: Assumes 17.4% energy reduction and average 346.1 mJ/token baseline.

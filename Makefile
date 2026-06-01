@@ -99,6 +99,13 @@ sidecar: build ## Build and run in sidecar mode (Ctrl+C to stop)
 bench: ## Run Go benchmarks
 	$(GOTEST) -bench=. -benchmem $(PKG_ALL)
 
+bench-report: ## Regenerate ALL thesis figures and diagrams from source
+	@echo "Regenerating all thesis figures..."
+	bash benchmarks/scripts/generate-all-figures.sh
+
+gen-figures: ## Generate only the advanced research diagrams
+	python benchmarks/scripts/generate_advanced_diagrams.py
+
 analyze: ## Analyze experiment results with Python
 	python benchmarks/scripts/analyze_results.py --output benchmarks/results/
 

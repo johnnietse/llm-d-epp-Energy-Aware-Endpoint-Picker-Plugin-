@@ -1,0 +1,179 @@
+# Sample Workload Traces for Benchmark Reproducibility
+#
+# These synthetic workload traces define reproducible request sequences
+# used by the simulation framework to evaluate routing strategies.
+# Each trace specifies a series of inference requests with realistic
+# token distributions calibrated against production LLM serving patterns.
+#
+# Usage:
+#   python benchmarks/scripts/generate_synthetic_telemetry.py --trace benchmarks/traces/sample_workload_traces.yaml
+#
+# Reference distributions:
+#   - Input tokens:  LogNormal(mu=5.5, sigma=1.0) ≈ median 245 tokens
+#   - Output tokens: LogNormal(mu=4.5, sigma=0.8) ≈ median 90 tokens
+#   - Based on: ShareGPT conversational dataset (widely used in vLLM benchmarks)
+
+traces:
+  # ─── Trace 1: Steady-State Chatbot (Balanced) ──────────────────────
+  - name: "steady_state_chatbot"
+    description: "Simulates a production chatbot with balanced prefill/decode load"
+    duration_seconds: 300
+    target_rps: 10
+    arrival_pattern: "poisson"
+    request_distribution:
+      input_tokens:
+        distribution: "lognormal"
+        mu: 5.5
+        sigma: 1.0
+        min: 10
+        max: 4096
+      output_tokens:
+        distribution: "lognormal"
+        mu: 4.5
+        sigma: 0.8
+        min: 5
+        max: 2048
+    phase_ratio:
+      prefill_percentage: 45
+      decode_percentage: 55
+    slo_targets:
+      ttft_p99_ms: 500
+      tpot_p99_ms: 50
+
+  # ─── Trace 2: Code Generation (Decode-Heavy) ───────────────────────
+  - name: "code_generation"
+    description: "Simulates code completion/generation with short prompts and long outputs"
+    duration_seconds: 300
+    target_rps: 8
+    arrival_pattern: "poisson"
+    request_distribution:
+      input_tokens:
+        distribution: "lognormal"
+        mu: 4.0
+        sigma: 0.7
+        min: 20
+        max: 1024
+      output_tokens:
+        distribution: "lognormal"
+        mu: 6.0
+        sigma: 1.2
+        min: 50
+        max: 4096
+    phase_ratio:
+      prefill_percentage: 20
+      decode_percentage: 80
+    slo_targets:
+      ttft_p99_ms: 300
+      tpot_p99_ms: 40
+
+  # ─── Trace 3: Summarization (Prefill-Heavy) ────────────────────────
+  - name: "document_summarization"
+    description: "Simulates document summarization with long inputs and short outputs"
+    duration_seconds: 300
+    target_rps: 5
+    arrival_pattern: "poisson"
+    request_distribution:
+      input_tokens:
+        distribution: "lognormal"
+        mu: 7.5
+        sigma: 0.8
+        min: 1000
+        max: 16384
+      output_tokens:
+        distribution: "lognormal"
+        mu: 4.0
+        sigma: 0.5
+        min: 50
+        max: 512
+    phase_ratio:
+      prefill_percentage: 75
+      decode_percentage: 25
+    slo_targets:
+      ttft_p99_ms: 2000
+      tpot_p99_ms: 30
+
+  # ─── Trace 4: Burst Traffic (Stress Test) ──────────────────────────
+  - name: "burst_traffic"
+    description: "Simulates traffic bursts to test adaptive controller mode transitions"
+    duration_seconds: 300
+    target_rps: 25
+    arrival_pattern: "bursty"
+    burst_config:
+      burst_duration_seconds: 30
+      burst_rps: 50
+      calm_rps: 5
+      burst_interval_seconds: 60
+    request_distribution:
+      input_tokens:
+        distribution: "lognormal"
+        mu: 5.0
+        sigma: 1.2
+        min: 10
+        max: 4096
+      output_tokens:
+        distribution: "lognormal"
+        mu: 5.0
+        sigma: 1.0
+        min: 10
+        max: 2048
+    phase_ratio:
+      prefill_percentage: 40
+      decode_percentage: 60
+    slo_targets:
+      ttft_p99_ms: 1000
+      tpot_p99_ms: 80
+
+  # ─── Trace 5: Carbon Spike Scenario ────────────────────────────────
+  - name: "carbon_spike_scenario"
+    description: "Steady load with simulated grid carbon intensity spike at t=120s"
+    duration_seconds: 300
+    target_rps: 10
+    arrival_pattern: "constant"
+    request_distribution:
+      input_tokens:
+        distribution: "lognormal"
+        mu: 5.5
+        sigma: 1.0
+        min: 10
+        max: 4096
+      output_tokens:
+        distribution: "lognormal"
+        mu: 4.5
+        sigma: 0.8
+        min: 5
+        max: 2048
+    phase_ratio:
+      prefill_percentage: 45
+      decode_percentage: 55
+    carbon_scenario:
+      initial_intensity_gco2_kwh: 180
+      spike_start_seconds: 120
+      spike_end_seconds: 210
+      spike_intensity_gco2_kwh: 720
+      description: "Simulates evening peak when gas/coal plants ramp up"
+    slo_targets:
+      ttft_p99_ms: 500
+      tpot_p99_ms: 50
+
+  # ─── Trace 6: Multi-Model Mixed Workload ───────────────────────────
+  - name: "multi_model_mixed"
+    description: "Mixed workload with different model sizes (7B, 13B, 70B)"
+    duration_seconds: 300
+    target_rps: 12
+    arrival_pattern: "poisson"
+    model_distribution:
+      - model: "meta-llama/Llama-3-8B"
+        weight: 0.60
+        input_tokens: { distribution: "lognormal", mu: 5.5, sigma: 1.0, min: 10, max: 4096 }
+        output_tokens: { distribution: "lognormal", mu: 4.5, sigma: 0.8, min: 5, max: 2048 }
+      - model: "meta-llama/Llama-3-70B"
+        weight: 0.25
+        input_tokens: { distribution: "lognormal", mu: 5.0, sigma: 0.8, min: 10, max: 2048 }
+        output_tokens: { distribution: "lognormal", mu: 4.0, sigma: 0.6, min: 5, max: 1024 }
+      - model: "mistralai/Mixtral-8x7B"
+        weight: 0.15
+        input_tokens: { distribution: "lognormal", mu: 6.0, sigma: 1.0, min: 50, max: 8192 }
+        output_tokens: { distribution: "lognormal", mu: 5.0, sigma: 0.8, min: 20, max: 2048 }
+    slo_targets:
+      ttft_p99_ms: 1000
+      tpot_p99_ms: 60
