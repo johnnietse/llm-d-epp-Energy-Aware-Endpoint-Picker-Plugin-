@@ -91,8 +91,74 @@ def draw_system_components():
     plt.savefig('docs/diagrams/system_components.png', bbox_inches='tight', dpi=300)
     plt.close()
 
+def draw_phase_aware_weights():
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    categories = ['Prefill Phase', 'Decode Phase']
+    latency_weights = [0.60, 0.20]
+    energy_weights = [0.20, 0.50]
+    carbon_weights = [0.20, 0.30]
+    
+    x = np.arange(len(categories))
+    width = 0.25
+    
+    ax.bar(x - width, latency_weights, width, label='Latency Weight ($w_L$)', color='#ef5350')
+    ax.bar(x, energy_weights, width, label='Energy Weight ($w_E$)', color='#66bb6a')
+    ax.bar(x + width, carbon_weights, width, label='Carbon Weight ($w_C$)', color='#42a5f5')
+    
+    ax.set_ylabel('Weight Value', fontsize=12)
+    ax.set_title('Phase-Aware Multi-Objective Scoring Weights', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, fontsize=12, fontweight='bold')
+    ax.legend()
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.set_ylim(0, 0.8)
+    
+    # Add value labels
+    for i in range(len(categories)):
+        ax.text(i - width, latency_weights[i] + 0.02, f'{latency_weights[i]:.2f}', ha='center', fontsize=10)
+        ax.text(i, energy_weights[i] + 0.02, f'{energy_weights[i]:.2f}', ha='center', fontsize=10)
+        ax.text(i + width, carbon_weights[i] + 0.02, f'{carbon_weights[i]:.2f}', ha='center', fontsize=10)
+        
+    plt.savefig('docs/diagrams/phase_aware_weights.png', bbox_inches='tight', dpi=300)
+    plt.close()
+
+def draw_routing_algorithm_flow():
+    fig, ax = plt.subplots(figsize=(8, 10))
+    ax.axis('off')
+    
+    def add_box(x, y, w, h, text, color, shape='rect'):
+        if shape == 'rect':
+            ax.add_patch(patches.Rectangle((x, y), w, h, fill=True, color=color, ec='black', lw=2))
+        elif shape == 'diamond':
+            ax.add_patch(patches.Polygon([[x+w/2, y], [x+w, y+h/2], [x+w/2, y+h], [x, y+h/2]], fill=True, color=color, ec='black', lw=2))
+        elif shape == 'round':
+            ax.add_patch(patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05", fill=True, color=color, ec='black', lw=2))
+        ax.text(x+w/2, y+h/2, text, ha='center', va='center', fontsize=10, fontweight='bold')
+
+    add_box(0.3, 0.85, 0.4, 0.1, '1. Request Arrives\nIdentify Phase (Prefill/Decode)', '#bbdefb', 'round')
+    add_box(0.3, 0.70, 0.4, 0.1, '2. Filter Candidates\nDrop SLO/Thermal Violations', '#ffcc80', 'rect')
+    add_box(0.3, 0.55, 0.4, 0.1, '3. Fetch Adaptive Weights\n(Based on Grid Carbon/Power)', '#c8e6c9', 'rect')
+    add_box(0.3, 0.40, 0.4, 0.1, '4. Multi-Objective Score\n$S = w_L S_L + w_E S_E + w_C S_C - S_K$', '#e1bee7', 'rect')
+    add_box(0.3, 0.25, 0.4, 0.1, '5. Endpoint Selection\nReturn highest scored Endpoint $p^*$', '#cfd8dc', 'round')
+    
+    # Arrows
+    for y in [0.85, 0.70, 0.55, 0.40]:
+        ax.annotate('', xy=(0.5, y-0.05), xytext=(0.5, y), arrowprops=dict(facecolor='black', shrink=0.05, width=2))
+    
+    # Rejected flow
+    ax.annotate('', xy=(0.85, 0.75), xytext=(0.7, 0.75), arrowprops=dict(facecolor='red', shrink=0.05, width=2))
+    ax.text(0.775, 0.77, 'Violations', ha='center', color='red', fontsize=9)
+    add_box(0.85, 0.70, 0.15, 0.1, 'Drop\nRequest', '#ffcdd2', 'round')
+    
+    plt.title('Algorithm 1: Phase-Aware Routing Pipeline', fontsize=14, fontweight='bold')
+    plt.savefig('docs/diagrams/routing_algorithm_flow.png', bbox_inches='tight', dpi=300)
+    plt.close()
+
 if __name__ == "__main__":
     print("Generating extra diagrams...")
     draw_epsilon_constraint()
     draw_system_components()
+    draw_phase_aware_weights()
+    draw_routing_algorithm_flow()
     print("Diagrams successfully generated in docs/diagrams/")
