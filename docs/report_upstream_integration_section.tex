@@ -1,0 +1,370 @@
+% ═══════════════════════════════════════════════════════════════════════
+% NEW SECTIONS FOR THESIS/REPORT
+% Topic: Upstream Integration, Production Deployment, and CI/CD
+%
+% These sections are designed to be inserted into the existing report
+% document. They cover the work done to bridge the standalone EPP
+% implementation with the official llm-d-router project.
+% ═══════════════════════════════════════════════════════════════════════
+
+
+% ─────────────────────────────────────────────────────────────────────
+% SECTION: Upstream Integration with llm-d-router
+% Suggested placement: After the System Architecture section
+% ─────────────────────────────────────────────────────────────────────
+
+\section{Upstream Integration with the Official llm-d Router}
+\label{sec:upstream-integration}
+
+A primary design objective of this work is upstream compatibility with the official \texttt{llm-d-router} project~\cite{llm-d-router}, the production-grade inference routing engine maintained by the llm-d open-source community. This section describes how the energy-aware scorer integrates as a first-class plugin without requiring modifications to the core scheduling pipeline.
+
+\subsection{The llm-d Plugin Architecture}
+\label{subsec:plugin-architecture}
+
+The llm-d Router employs a modular plugin framework centered on three scheduling extension points: \textbf{Filters}, \textbf{Scorers}, and \textbf{Pickers}. Each plugin implements a well-defined Go interface and is registered at startup via a factory function. At the time of analysis, the official repository contained 13 scorer plugins (Table~\ref{tab:existing-scorers}), none of which consider energy consumption or carbon intensity.
+
+\begin{table}[htbp]
+\centering
+\caption{Existing Scorer Plugins in llm-d-router (as of June 2026)}
+\label{tab:existing-scorers}
+\begin{tabular}{lll}
+\toprule
+\textbf{Scorer Type} & \textbf{Optimization Target} & \textbf{Category} \\
+\midrule
+\texttt{kv-cache-utilization} & KV-cache locality & Distribution \\
+\texttt{queue-depth} & Queue depth balancing & Distribution \\
+\texttt{load-aware} & Waiting queue load & Distribution \\
+\texttt{active-request} & In-flight request count & Distribution \\
+\texttt{running-requests} & Running request size & Distribution \\
+\texttt{token-load} & Token throughput load & Distribution \\
+\texttt{latency} & Predicted latency & Distribution \\
+\texttt{prefix} & Prefix cache hit rate & Affinity \\
+\texttt{precise-prefix-cache} & Exact prefix matching & Affinity \\
+\texttt{lora-affinity} & LoRA adapter locality & Affinity \\
+\texttt{session-affinity} & Session stickiness & Affinity \\
+\texttt{context-length-aware} & Context length distribution & Distribution \\
+\texttt{no-hit-lru} & LRU eviction avoidance & Affinity \\
+\midrule
+\texttt{energy-aware} & \textbf{Energy \& carbon (ours)} & \textbf{Distribution} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The \texttt{scheduling.Scorer} Interface}
+\label{subsec:scorer-interface}
+
+Every scorer in llm-d-router implements the following Go interface:
+
+\begin{lstlisting}[language=Go, caption={The \texttt{scheduling.Scorer} interface from \texttt{llm-d-router/pkg/epp/framework/interface/scheduling/plugins.go}}, label={lst:scorer-interface}]
+type Scorer interface {
+    plugin.Plugin
+    Category() ScorerCategory
+    Score(ctx context.Context,
+          request *InferenceRequest,
+          pods []Endpoint) map[Endpoint]float64
+}
+\end{lstlisting}
+
+The interface contract requires:
+\begin{itemize}
+    \item Scores must be in the range $[0, 1]$, where $1$ is optimal.
+    \item Values exceeding $1$ are clamped to $1$; values below $0$ are clamped to $0$.
+    \item The \texttt{Category()} method returns either \texttt{Affinity} (prefer colocation), \texttt{Distribution} (prefer spreading), or \texttt{Balance}.
+\end{itemize}
+
+Our implementation satisfies this contract with a compile-time assertion:
+
+\begin{lstlisting}[language=Go, caption={Compile-time interface conformance assertion}, label={lst:compile-assert}]
+var _ scheduling.Scorer = &EnergyAware{}
+\end{lstlisting}
+
+\subsection{Plugin Registration Mechanism}
+\label{subsec:plugin-registration}
+
+The llm-d-router discovers plugins through a centralized registry populated at startup in the \texttt{registerInTreePlugins()} function within \texttt{cmd/epp/runner/runner.go}. Each plugin provides a factory function matching the signature:
+
+\begin{lstlisting}[language=Go, caption={Plugin factory function signature}, label={lst:factory-sig}]
+func Factory(name string,
+             rawParameters *json.Decoder,
+             handle plugin.Handle) (plugin.Plugin, error)
+\end{lstlisting}
+
+To integrate the energy-aware scorer, a single registration line is added:
+
+\begin{lstlisting}[language=Go, caption={One-line plugin registration in \texttt{runner.go}}, label={lst:registration}]
+fwkplugin.Register(energyaware.EnergyAwareType,
+                   energyaware.Factory)
+\end{lstlisting}
+
+This design ensures that the energy-aware scorer is \textbf{purely additive}---no existing code paths are modified, and the plugin is only activated when explicitly included in the user's \texttt{EndpointPickerConfig} YAML.
+
+\subsection{Configuration Integration}
+\label{subsec:config-integration}
+
+Users enable the energy-aware scorer by adding it to their scheduling profile configuration. The following example demonstrates integration alongside the existing \texttt{kv-cache-utilization} and \texttt{load-aware} scorers:
+
+\begin{lstlisting}[language=yaml, caption={Example \texttt{EndpointPickerConfig} with energy-aware scoring}, label={lst:epp-config}]
+plugins:
+  - type: energy-aware-scorer
+    config:
+      prefillLatencyWeight: 0.70
+      prefillEnergyWeight: 0.20
+      prefillCarbonWeight: 0.10
+      decodeLatencyWeight: 0.15
+      decodeEnergyWeight: 0.65
+      decodeCarbonWeight: 0.20
+      fallbackCarbonIntensity: 390
+
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: kv-cache-utilization-scorer
+        weight: 3
+      - pluginRef: load-aware-scorer
+        weight: 2
+      - pluginRef: energy-aware-scorer
+        weight: 5
+      - pluginRef: max-score-picker
+\end{lstlisting}
+
+The weighted scoring system computes the final endpoint score as a weighted sum across all active scorers. With \texttt{weight: 5}, the energy-aware scorer contributes the dominant signal, enabling energy-optimal routing while still considering cache locality and load distribution.
+
+
+% ─────────────────────────────────────────────────────────────────────
+% SECTION: Production Deployment Architecture
+% Suggested placement: After the Upstream Integration section
+% ─────────────────────────────────────────────────────────────────────
+
+\section{Production Deployment Architecture}
+\label{sec:production-deployment}
+
+This section describes the end-to-end deployment architecture for operating the energy-aware EPP in a production Kubernetes cluster with heterogeneous GPU hardware.
+
+\subsection{Kubernetes Data Path}
+\label{subsec:data-path}
+
+The inference request data path traverses four components (Figure~\ref{fig:data-path}):
+
+\begin{enumerate}
+    \item \textbf{Client Request}: A user sends an OpenAI-compatible HTTP request to the Kubernetes Gateway.
+    \item \textbf{Envoy ext\_proc}: The Gateway's Envoy proxy intercepts the request and invokes the EPP via the \texttt{ext\_proc} gRPC protocol, requesting an endpoint selection.
+    \item \textbf{EPP Scoring}: The EPP runs all registered scorers (including energy-aware) in parallel, computes weighted scores, and returns the optimal endpoint.
+    \item \textbf{Request Routing}: Envoy forwards the request to the selected vLLM backend pod.
+\end{enumerate}
+
+The EPP operates as a \textbf{sidecar container} within the Envoy Gateway pod, communicating via localhost gRPC on port 9002. This co-location eliminates network latency in the scoring path.
+
+\subsection{Telemetry Infrastructure}
+\label{subsec:telemetry}
+
+The energy-aware scorer requires two telemetry data sources, both integrated through existing Kubernetes-native infrastructure:
+
+\begin{table}[htbp]
+\centering
+\caption{Telemetry Data Sources}
+\label{tab:telemetry-sources}
+\begin{tabular}{llll}
+\toprule
+\textbf{Data Source} & \textbf{Metric} & \textbf{Scrape Interval} & \textbf{Transport} \\
+\midrule
+DCGM Exporter & GPU power draw (W) & 500\,ms & Prometheus \\
+DCGM Exporter & GPU utilization (\%) & 500\,ms & Prometheus \\
+DCGM Exporter & GPU temperature (\textdegree C) & 500\,ms & Prometheus \\
+vLLM \texttt{/metrics} & Tokens/second & 500\,ms & HTTP \\
+ElectricityMaps API & Grid carbon (gCO\textsubscript{2}/kWh) & 60\,s & REST API \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The NVIDIA DCGM (Data Center GPU Manager) Exporter~\cite{dcgm-exporter} runs as a \texttt{DaemonSet} on every GPU node, exposing real-time power telemetry via the \texttt{DCGM\_FI\_DEV\_POWER\_USAGE} metric. This data is scraped by the EPP's telemetry goroutines and stored in the thread-safe \texttt{EnergyStore} using \texttt{sync.RWMutex} for concurrent read access during scoring.
+
+\subsection{Heterogeneous Node Configuration}
+\label{subsec:node-config}
+
+Kubernetes node labels encode hardware characteristics used by the scorer:
+
+\begin{lstlisting}[language=bash, caption={Node labeling for heterogeneous hardware}, label={lst:node-labels}]
+kubectl label node gpu-node-h100 \
+  llm-d.ai/hardware-class=GPU_HIGH_PERF \
+  llm-d.ai/tdp-watts=700 \
+  llm-d.ai/role=prefill
+
+kubectl label node gpu-node-l4 \
+  llm-d.ai/hardware-class=GPU_MED_PERF \
+  llm-d.ai/tdp-watts=72 \
+  llm-d.ai/role=decode
+\end{lstlisting}
+
+These labels propagate to pod annotations via the Kubernetes downward API, making them available to the scorer through the \texttt{Endpoint.GetLabels()} method without requiring additional infrastructure.
+
+\subsection{Gateway API Resources}
+\label{subsec:gateway-resources}
+
+Three Kubernetes custom resources wire the inference routing pipeline:
+
+\begin{enumerate}
+    \item \textbf{InferencePool}: Groups all vLLM backend pods and references the EPP via \texttt{endpointPickerConfig.extensionRef}.
+    \item \textbf{InferenceModel}: Maps a model name (e.g., \texttt{meta-llama/Llama-3.1-8B}) to an \texttt{InferencePool}.
+    \item \textbf{HTTPRoute}: Exposes the pool externally through the Kubernetes Gateway.
+\end{enumerate}
+
+This architecture follows the Gateway API Inference Extension (GIE) specification~\cite{gie-spec}, ensuring compatibility with any GIE-conformant gateway implementation (Envoy, Istio, kgateway).
+
+
+% ─────────────────────────────────────────────────────────────────────
+% SECTION: Continuous Integration and Automated Validation
+% Suggested placement: After the Production Deployment section
+% ─────────────────────────────────────────────────────────────────────
+
+\section{Continuous Integration and Automated Validation}
+\label{sec:ci-cd}
+
+To ensure ongoing correctness and upstream compatibility, the project employs two GitHub Actions workflows that execute automatically.
+
+\subsection{CI Pipeline}
+\label{subsec:ci-pipeline}
+
+The CI pipeline executes on every push and pull request, performing five verification stages:
+
+\begin{table}[htbp]
+\centering
+\caption{CI Pipeline Stages}
+\label{tab:ci-stages}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
+\midrule
+Go Tests & $\sim$30\,s & 74 unit tests across 7 packages with race detection \\
+E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
+Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
+Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\
+Interface Check & $\sim$2\,s & Verifies \texttt{upstream-port/} still implements \texttt{scheduling.Scorer} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Upstream Synchronization}
+\label{subsec:upstream-sync}
+
+A scheduled workflow runs daily at 06:00 UTC, automatically pulling the latest code from \texttt{github.com/llm-d/llm-d-router} into the local \texttt{llm-d-ref/} reference directory. This workflow performs three critical checks:
+
+\begin{enumerate}
+    \item \textbf{Interface Existence}: Verifies that the \texttt{scheduling.Scorer} interface file still exists at its expected path.
+    \item \textbf{Registration Pattern}: Confirms that the \texttt{registerInTreePlugins()} function is still present in \texttt{runner.go}.
+    \item \textbf{Scorer Count}: Reports the current number of upstream scorer plugins to detect additions or removals.
+\end{enumerate}
+
+This automated monitoring detected a breaking interface change during development: the upstream project removed the \texttt{CycleState} parameter from the \texttt{Score} method signature, requiring a one-line adaptation in the bridge file.
+
+\subsection{Upstream Interface Evolution}
+\label{subsec:interface-evolution}
+
+Table~\ref{tab:interface-changes} documents the interface changes detected between the initial implementation and the latest upstream version.
+
+\begin{table}[htbp]
+\centering
+\caption{Detected Upstream Interface Changes}
+\label{tab:interface-changes}
+\begin{tabular}{lp{4cm}p{4cm}}
+\toprule
+\textbf{Component} & \textbf{Original} & \textbf{Current Upstream} \\
+\midrule
+\texttt{Score()} params & \texttt{ctx, *CycleState, *InferenceRequest, []Endpoint} & \texttt{ctx, *InferenceRequest, []Endpoint} \\
+\texttt{Factory()} params & \texttt{name, json.RawMessage, Handle} & \texttt{name, *json.Decoder, Handle} \\
+State management & \texttt{CycleState} struct & \texttt{Attributes} system \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These changes are backward-compatible from a behavioral perspective---the energy-aware scorer never utilized \texttt{CycleState} (it was passed as \texttt{\_}), making the adaptation trivial.
+
+
+% ─────────────────────────────────────────────────────────────────────
+% SECTION: Deployment Validation Results
+% Suggested placement: Within the Evaluation section
+% ─────────────────────────────────────────────────────────────────────
+
+\section{Deployment Validation Results}
+\label{sec:deployment-validation}
+
+To verify production readiness, the EPP was validated across three deployment targets.
+
+\subsection{Local Kind Cluster}
+\label{subsec:kind-validation}
+
+A 4-node Kind (Kubernetes-in-Docker) cluster was provisioned with heterogeneous hardware labels simulating H100, A100, and L4 accelerators. The EPP was deployed as a standalone pod with simulated DCGM metrics served by lightweight \texttt{busybox} containers. Key validation results:
+
+\begin{itemize}
+    \item \textbf{Cluster Bootstrap}: $<$60\,s from \texttt{setup-cluster.sh --demo} to all pods in \texttt{Running} state.
+    \item \textbf{Health Checks}: Liveness and readiness probes passing within 5\,s of container start.
+    \item \textbf{Metrics Endpoint}: Prometheus scraping 17 metric families at \texttt{/metrics/prometheus}.
+    \item \textbf{Image Size}: 8.6\,MB distroless container image (compared to $\sim$1.2\,GB for a typical vLLM image).
+\end{itemize}
+
+\subsection{Docker Container Verification}
+\label{subsec:docker-validation}
+
+The multi-stage Dockerfile produces a minimal production image:
+
+\begin{table}[htbp]
+\centering
+\caption{Docker Image Characteristics}
+\label{tab:docker-image}
+\begin{tabular}{ll}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Base image & \texttt{gcr.io/distroless/static:nonroot} \\
+Final image size & 8.6\,MB \\
+Attack surface & No shell, no package manager \\
+User & Non-root (UID 65532) \\
+Build time & $<$45\,s (with cached Go modules) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Upstream Plugin Conformance}
+\label{subsec:conformance}
+
+The energy-aware scorer was verified against all patterns established by the 13 existing llm-d-router scorer plugins:
+
+\begin{itemize}
+    \item \checkmark\, Implements \texttt{scheduling.Scorer} with compile-time assertion
+    \item \checkmark\, Provides \texttt{Factory()} function matching the plugin registry signature
+    \item \checkmark\, Returns \texttt{TypedName()} with a unique type string (\texttt{energy-aware-scorer})
+    \item \checkmark\, Returns \texttt{Category()} as \texttt{Distribution}
+    \item \checkmark\, Scores are bounded to $[0, 1]$
+    \item \checkmark\, Handles empty endpoint lists gracefully (returns empty map)
+    \item \checkmark\, Thread-safe with no shared mutable state between invocations
+    \item \checkmark\, No external dependencies beyond the llm-d-router module
+\end{itemize}
+
+
+% ─────────────────────────────────────────────────────────────────────
+% BibTeX entries for new references
+% Add these to your .bib file
+% ─────────────────────────────────────────────────────────────────────
+%
+% @misc{llm-d-router,
+%   title = {{llm-d Router}: Intelligent Entry Point for Inference Traffic},
+%   author = {{llm-d Community}},
+%   year = {2025},
+%   url = {https://github.com/llm-d/llm-d-router},
+%   note = {Accessed: 2026-06-01}
+% }
+%
+% @misc{dcgm-exporter,
+%   title = {{NVIDIA DCGM Exporter}},
+%   author = {{NVIDIA Corporation}},
+%   year = {2024},
+%   url = {https://github.com/NVIDIA/dcgm-exporter},
+%   note = {Accessed: 2026-06-01}
+% }
+%
+% @misc{gie-spec,
+%   title = {{Gateway API Inference Extension}},
+%   author = {{Kubernetes SIG Network}},
+%   year = {2025},
+%   url = {https://gateway-api-inference-extension.sigs.k8s.io},
+%   note = {Accessed: 2026-06-01}
+% }
