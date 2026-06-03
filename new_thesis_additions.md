@@ -435,3 +435,113 @@ For **Addition 6 (Welford)**, add:
 \label{fig:welford_ewma}
 \end{figure}
 ```
+
+---
+
+## UPDATED TABLES
+
+The following existing tables in your thesis need to be updated to reflect the new features:
+
+### 1. Update Table: Adaptive Weight Configurations
+**Location: Chapter 3, Section D (around line 875)**
+*Updates: Added the 3 new CRD Forced Modes (CarbonMinimization, Latency, CostReduction).*
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption{Adaptive Weight Configurations and Forced CRD States}
+\label{tab:weight_modes}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|p{5cm}|}
+\hline
+\textbf{Operating Mode} & \textbf{Latency ($w_L$)} & \textbf{Energy ($w_E$)} & \textbf{Carbon ($w_C$)} & \textbf{Trigger Condition} \\ \hline
+Normal (Prefill) & 0.60 & 0.20 & 0.20 & Grid $I_{grid} < 200$ gCO$_2$/kWh \\ \hline
+Normal (Decode) & 0.20 & 0.50 & 0.30 & Grid $I_{grid} < 200$ gCO$_2$/kWh \\ \hline
+Carbon-Critical & 0.10 & 0.40 & 0.50 & Grid $I_{grid} \geq 500$ gCO$_2$/kWh \\ \hline
+Emergency & 0.00 & 1.00 & 0.00 & Cluster Power $\geq$ Safe Budget \\ \hline
+\textbf{CRD: CarbonMinimization} & \textbf{0.10} & \textbf{0.40} & \textbf{0.50} & \textbf{Forced via Kubernetes API} \\ \hline
+\textbf{CRD: Latency} & \textbf{0.60} & \textbf{0.20} & \textbf{0.20} & \textbf{Forced via Kubernetes API} \\ \hline
+\textbf{CRD: CostReduction} & \textbf{0.00} & \textbf{1.00} & \textbf{0.00} & \textbf{Forced via Kubernetes API} \\ \hline
+\end{tabular}
+}
+\end{table}
+```
+
+### 2. Update Table: Telemetry Data Sources
+**Location: Implementation Details (around line 2839)**
+*Updates: Added the zero-overhead Linux eBPF tracker and Intel RAPL.*
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption{Telemetry Data Sources}
+\label{tab:telemetry-sources}
+\begin{tabular}{llll}
+\toprule
+\textbf{Data Source} & \textbf{Metric} & \textbf{Scrape Interval} & \textbf{Transport} \\
+\midrule
+DCGM Exporter & GPU power draw \& temp & 500\,ms & Prometheus \\
+Intel RAPL & CPU power draw & 500\,ms & Prometheus \\
+\textbf{Linux TC eBPF Hook} & \textbf{Tokens/second} & \textbf{Zero-overhead} & \textbf{Kernel bpf() Map} \\
+ElectricityMaps API & Grid carbon (gCO\textsubscript{2}/kWh) & 60\,s & REST API \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
+
+### 3. Update Table: Existing Scorer Plugins in llm-d-router
+**Location: Upstream Integration (around line 2643)**
+*Updates: Added the new RDMA Locality Scorer.*
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption{Existing Scorer Plugins in llm-d-router (as of June 2026)}
+\label{tab:existing-scorers}
+\begin{tabular}{lll}
+\toprule
+\textbf{Scorer Type} & \textbf{Optimization Target} & \textbf{Category} \\
+\midrule
+\texttt{kv-cache-utilization} & KV-cache locality & Distribution \\
+\texttt{queue-depth} & Queue depth balancing & Distribution \\
+\texttt{load-aware} & Waiting queue load & Distribution \\
+\texttt{active-request} & In-flight request count & Distribution \\
+\texttt{running-requests} & Running request size & Distribution \\
+\texttt{token-load} & Token throughput load & Distribution \\
+\texttt{latency} & Predicted latency & Distribution \\
+\texttt{prefix} & Prefix cache hit rate & Affinity \\
+\texttt{precise-prefix-cache} & Exact prefix matching & Affinity \\
+\texttt{lora-affinity} & LoRA adapter locality & Affinity \\
+\texttt{session-affinity} & Session stickiness & Affinity \\
+\texttt{context-length-aware} & Context length distribution & Distribution \\
+\texttt{no-hit-lru} & LRU eviction avoidance & Affinity \\
+\midrule
+\textbf{\texttt{rdma-locality} (ours)} & \textbf{InfiniBand/NUMA topology} & \textbf{Affinity} \\
+\textbf{\texttt{energy-aware} (ours)} & \textbf{Energy \& carbon} & \textbf{Distribution} \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
+
+### 4. Update Table: CI Pipeline Stages
+**Location: CI Pipeline (around line 2904)**
+*Updates: Updated unit test counts to reflect the new codebase scale.*
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption{CI Pipeline Stages}
+\label{tab:ci-stages}
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
+\midrule
+Go Tests & $\sim$35\,s & \textbf{143 unit tests across 9 packages with race detection} \\
+E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
+Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
+Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\
+Interface Check & $\sim$2\,s & Verifies \texttt{upstream-port/} still implements \texttt{scheduling.Scorer} \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
