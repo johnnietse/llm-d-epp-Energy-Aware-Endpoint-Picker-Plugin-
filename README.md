@@ -234,6 +234,30 @@ On clean grids (e.g., France nuclear @ 55 gCO2/kWh), embodied carbon dominates a
 | `/metrics/energy` | GET | JSON: profiles, external signals, adaptive mode |
 | `/metrics/prometheus` | GET | 17 Prometheus metric families (text format) |
 
+## 🔮 Next-Generation Roadmap
+
+The current architecture is production-ready for H100, A100, L4, and Qualcomm Cloud AI 100 clusters. The following extensions represent the bleeding edge of AI infrastructure research (2026+) and map directly to new `llm-d-router` plugin interfaces:
+
+### 1. Liquid Cooling (CDU) Telemetry
+As next-generation chips exceed 1,000W TDP (e.g., NVIDIA Blackwell, Tenstorrent), air cooling becomes physically insufficient. The `ThermalThrottlingFilter` currently monitors chip-level temperatures via DCGM.
+
+**Planned Extension:** Integrate Coolant Distribution Unit (CDU) telemetry into the `EnergyStore` — monitoring liquid flow rates and inlet/outlet water temperatures to route workloads to racks with optimal thermal headroom, preventing hotspot formation at the facility level.
+
+### 2. Prefix-Aware KV-Cache Routing
+The current EPP calculates energy penalties for cross-node KV-cache transfers but does not track prefix locality.
+
+**Planned Extension:** Implement cache-aware routing by tracking which GPUs already hold specific prompt prefixes in local VRAM. When multiple users query the same document, the router forces all requests to the node with the cached prefix, achieving near-100% cache hit rates and bypassing the entire prefill phase.
+
+### 3. CXL (Compute Express Link) Memory Scoring
+Current hardware profiles assume fixed per-GPU VRAM capacity (e.g., 80GB HBM3).
+
+**Planned Extension:** Build a `CXLLocalityScorer` that accounts for disaggregated memory pools accessible over PCIe/CXL interconnects. Nodes with high-bandwidth access to shared CXL memory pools would receive boosted scores for memory-intensive models that exceed local VRAM capacity.
+
+### 4. Speculative Decoding Co-Scheduling
+Speculative decoding (draft-then-verify) is becoming a standard technique for 2–3× decode speedup.
+
+**Planned Extension:** Extend the `EnergyAwareScorer` to detect speculative decoding workloads and co-schedule them onto heterogeneous nodes containing both a low-power ASIC (for the lightweight draft model) and a high-performance GPU (for the verifier model) on the same PCIe bus, minimizing inter-device transfer latency.
+
 ## License
 
 This project is part of a possible thesis research. See LICENSE for details.
