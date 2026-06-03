@@ -874,7 +874,7 @@
 
 % \begin{table}[htbp]
 % \centering
-% \caption{Adaptive Weight Configurations}
+% \caption{Adaptive Weight Configurations and Forced CRD States}
 % \label{tab:weight_modes}
 % \resizebox{\textwidth}{!}{%
 % \begin{tabular}{|l|c|c|c|p{5cm}|}
@@ -884,6 +884,9 @@
 % Normal (Decode) & 0.20 & 0.50 & 0.30 & Grid $I_{grid} < 200$ gCO$_2$/kWh \\ \hline
 % Carbon-Critical & 0.10 & 0.40 & 0.50 & Grid $I_{grid} \geq 500$ gCO$_2$/kWh \\ \hline
 % Emergency & 0.00 & 1.00 & 0.00 & Cluster Power $\geq$ Safe Budget \\ \hline
+% \textbf{CRD: CarbonMinimization} & \textbf{0.10} & \textbf{0.40} & \textbf{0.50} & \textbf{Forced via Kubernetes API} \\ \hline
+% \textbf{CRD: Latency} & \textbf{0.60} & \textbf{0.20} & \textbf{0.20} & \textbf{Forced via Kubernetes API} \\ \hline
+% \textbf{CRD: CostReduction} & \textbf{0.00} & \textbf{1.00} & \textbf{0.00} & \textbf{Forced via Kubernetes API} \\ \hline
 % \end{tabular}
 % }
 % \end{table}
@@ -2660,7 +2663,8 @@ The llm-d Router employs a modular plugin framework centered on three scheduling
 \texttt{context-length-aware} & Context length distribution & Distribution \\
 \texttt{no-hit-lru} & LRU eviction avoidance & Affinity \\
 \midrule
-\texttt{energy-aware} & \textbf{Energy \& carbon (ours)} & \textbf{Distribution} \\
+\textbf{\texttt{rdma-locality} (ours)} & \textbf{InfiniBand/NUMA topology} & \textbf{Affinity} \\
+\textbf{\texttt{energy-aware} (ours)} & \textbf{Energy \& carbon} & \textbf{Distribution} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2841,9 +2845,9 @@ The energy-aware scorer requires two telemetry data sources, both integrated thr
 \toprule
 \textbf{Data Source} & \textbf{Metric} & \textbf{Scrape Interval} & \textbf{Transport} \\
 \midrule
-DCGM Exporter & GPU power draw (W) & 500\,ms & Prometheus \\
-DCGM Exporter & GPU utilization (\%) & 500\,ms & Prometheus \\
-vLLM \texttt{/metrics} & Tokens/second & 500\,ms & HTTP \\
+DCGM Exporter & GPU power draw \& temp & 500\,ms & Prometheus \\
+Intel RAPL & CPU power draw & 500\,ms & Prometheus \\
+\textbf{Linux TC eBPF Hook} & \textbf{Tokens/second} & \textbf{Zero-overhead} & \textbf{Kernel bpf() Map} \\
 ElectricityMaps API & Grid carbon (gCO\textsubscript{2}/kWh) & 60\,s & REST API \\
 \bottomrule
 \end{tabular}
@@ -2902,11 +2906,11 @@ The CI pipeline executes on every push and pull request, performing five verific
 \centering
 \caption{CI Pipeline Stages}
 \label{tab:ci-stages}
-\begin{tabular}{llp{6cm}}
+\begin{tabular}{llp{7cm}}
 \toprule
 \textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
 \midrule
-Go Tests & $\sim$30\,s & 74 unit tests across 7 packages with race detection \\
+Go Tests & $\sim$35\,s & \textbf{143 unit tests across 9 packages with race detection} \\
 E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
 Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
 Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\

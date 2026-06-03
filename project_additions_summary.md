@@ -75,3 +75,20 @@ Based on the requirements for modern Bare-Metal, HPC, and AI Infrastructure, the
 |-----------|----------|-------------|
 | **InferenceObjective Informer** | `pkg/config/inference_objective_watcher.go` | Built a full `client-go` Informer loop to dynamically reconcile Gateway API Inference Extension CRDs (`InferenceObjective`). Allows cluster admins to pivot between "CarbonMinimization", "Latency", and "CostReduction" states instantly without YAML restarts. |
 | **Adaptive Force States** | `pkg/adaptive/weight_controller.go` | Modified the Adaptive Controller to accept external forcing signals from the Kubernetes API, bridging autonomous metrics with human-in-the-loop control logic. |
+
+## 📝 Thesis Core Document Updates
+
+Because of the massive architectural changes, the original thesis report (`June_3_2026_research_report.md`) was directly updated to maintain perfect parity with the codebase:
+
+### Regenerated Core Architecture Diagrams
+Three core diagrams were completely regenerated via Python Matplotlib scripts to include the new data sources and network components:
+1. `architecture.png`: Now includes Linux eBPF, Slurm SPANK, and KubeRay Autoscaler.
+2. `scheduling_pipeline.png`: Now includes Thermal Throttling Filter and RDMA Locality Scorer.
+3. `telemetry_goroutine_model.png`: Now includes eBPF Map Reader, Welford's Variance, and Time-Aware EWMA.
+
+### Updated Core Tables
+Four core tables were updated directly in the LaTeX source of the report:
+1. **Adaptive Weight Configurations**: Added the 3 new CRD Forced Modes (`CarbonMinimization`, `Latency`, `CostReduction`).
+2. **Telemetry Data Sources**: Added Linux TC eBPF Hook (Zero-overhead) and Intel RAPL.
+3. **Existing Scorer Plugins**: Added `rdma-locality` (ours) alongside `energy-aware`.
+4. **CI Pipeline Stages**: Updated test coverage metric from 74 to **143 unit tests across 9 packages**.
