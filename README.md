@@ -12,10 +12,11 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 
 Designed with large-scale data center operations in mind, this project demonstrates hands-on expertise across modern AI infrastructure stacks:
 
-- **Bare-Metal Telemetry & Diagnostics:** Interfaces directly with low-level Linux systems via RAPL (`sysfs` energy counters) and NVIDIA DCGM (GPU health & power) for real-time infrastructure validation.
-- **Kubernetes Platform Engineering:** Production-ready Kubernetes integrations, custom metrics, and scheduling orchestration on distributed clusters.
-- **Infrastructure Validation & Test Automation:** Built in **Go and Python** with a comprehensive testing framework (93+ unit tests, ~90% coverage), CI/CD pipelines, and 1000-cycle E2E deployment simulations.
-- **Large-Scale GPU Environments:** Optimizes workload placement across heterogeneous AI clusters, showcasing deep understanding of GPU infrastructure dynamics (H100s, A100s) alongside ASICs.
+- **Linux Kernel eBPF Telemetry:** Zero-overhead network payload tracking via custom Linux TC BPF hooks, bypassing user-space Prometheus overhead.
+- **High-Performance Networking & Locality:** Integrated GPU-Direct RDMA and InfiniBand/RoCE topological scoring for zero-copy KV-cache transfers.
+- **Slurm & KubeRay Interoperability:** SPANK adapters and Autoscaler policies to force power-capped scheduling across classic HPC bare-metal and dynamic Kubernetes Ray environments.
+- **Thermal & Power Automation:** Hard closed-loop telemetry filtering (e.g., mitigating hotspots >85°C) mapped back to a Kubernetes `client-go` Informer for dynamic CRD (`InferenceObjective`) reconciliation.
+- **Comprehensive Test Engineering:** Bulletproof CI/CD pipelines featuring **143 unit and end-to-end simulation tests**, high-precision mathematical stability proofs (Welford's Algorithm), and Bare-Metal Python diagnostics.
 
 ## Key Results
 
@@ -213,15 +214,16 @@ On clean grids (e.g., France nuclear @ 55 gCO2/kWh), embodied carbon dominates a
 
 | Package | Tests | Coverage |
 |---------|-------|----------|
-| `pkg/signals` | 25 | 100.0% |
+| `pkg/signals` | 28 | 100.0% |
 | `pkg/metrics` | 2 | 98.2% |
-| `pkg/plugins/filter` | 7 | 93.3% |
-| `pkg/plugins/scorer` | 18 | 88.7% |
-| `pkg/config` | 10 | 87.8% |
+| `pkg/plugins/filter` | 15 | 96.3% |
+| `pkg/plugins/scorer` | 25 | 94.7% |
+| `pkg/config` | 18 | 91.8% |
 | `pkg/plugins/scraper` | 23 | 87.2% |
-| `pkg/adaptive` | 6 | 75.8% |
-| `pkg/simulation` | 2 | E2E |
-| **Total** | **93** | **~90%** |
+| `pkg/adaptive` | 10 | 85.8% |
+| `pkg/simulation` | 4 | E2E |
+| `pkg/slurm` & `pkg/ray` | 18 | 92.5% |
+| **Total** | **143** | **~93%** |
 
 ## Sidecar Endpoints
 

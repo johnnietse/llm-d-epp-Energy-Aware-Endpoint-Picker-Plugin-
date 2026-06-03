@@ -69,3 +69,9 @@ Based on the requirements for modern Bare-Metal, HPC, and AI Infrastructure, the
 |-----------|----------|-------------|
 | **eBPF Zero-Overhead Token Tracker** | `pkg/ebpf/token_tracker.c` | A raw C Linux Traffic Control (TC) hook that counts LLM egress TCP payload bytes directly in kernel memory, bypassing Prometheus entirely. |
 | **Microsecond Digital Low-Pass Filter** | `pkg/signals/energy_store.go` | Implemented Time-Aware EWMA and Welford's Online Algorithm to filter noisy GPU telemetry down to the exact microsecond. |
+
+### 5. Kubernetes Operator Pattern & CRD Reconciliation
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **InferenceObjective Informer** | `pkg/config/inference_objective_watcher.go` | Built a full `client-go` Informer loop to dynamically reconcile Gateway API Inference Extension CRDs (`InferenceObjective`). Allows cluster admins to pivot between "CarbonMinimization", "Latency", and "CostReduction" states instantly without YAML restarts. |
+| **Adaptive Force States** | `pkg/adaptive/weight_controller.go` | Modified the Adaptive Controller to accept external forcing signals from the Kubernetes API, bridging autonomous metrics with human-in-the-loop control logic. |
