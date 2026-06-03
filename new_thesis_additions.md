@@ -369,3 +369,69 @@ Add the following new bullet points to the existing contributions list:
 ```latex
 Beyond the core routing pipeline, the system extends its reach into cross-environment orchestration through a Slurm SPANK adapter for bare-metal HPC scheduling, a KubeRay carbon-aware autoscaler policy for Ray clusters, and a Linux eBPF Traffic Control hook for zero-overhead kernel-level token throughput tracking. A Kubernetes Operator pattern utilizing \texttt{client-go} Informers enables dynamic reconciliation of \texttt{InferenceObjective} CRDs, allowing cluster administrators to pivot between Carbon-Critical, Latency-Optimized, and Cost-Reduction modes without pod restarts.
 ```
+
+---
+
+## NEW FIGURES — Generated & Saved to `docs/diagrams/`
+
+The following 5 publication-quality figures have been generated and saved. Replace the ASCII `\begin{verbatim}` placeholders in the LaTeX with these `\includegraphics` references:
+
+| # | Figure | File Path | Replaces | LaTeX |
+|---|--------|-----------|----------|-------|
+| 1 | eBPF Token Tracker Data Path | `docs/diagrams/ebpf_datapath.png` | Addition 1 ASCII diagram | `\includegraphics[width=0.8\textwidth]{docs/diagrams/ebpf_datapath.png}` |
+| 2 | Cross-Environment Architecture | `docs/diagrams/cross_env_architecture.png` | Addition 4 ASCII diagram | `\includegraphics[width=0.8\textwidth]{docs/diagrams/cross_env_architecture.png}` |
+| 3 | RDMA Locality Scoring Topology | `docs/diagrams/rdma_locality_scoring.png` | New figure for Addition 2 | `\includegraphics[width=0.8\textwidth]{docs/diagrams/rdma_locality_scoring.png}` |
+| 4 | CRD Reconciliation Loop | `docs/diagrams/crd_reconciliation_loop.png` | New figure for Addition 5 | `\includegraphics[width=0.8\textwidth]{docs/diagrams/crd_reconciliation_loop.png}` |
+| 5 | Welford Signal Processing | `docs/diagrams/welford_signal_processing.png` | New figure for Addition 6 | `\includegraphics[width=0.8\textwidth]{docs/diagrams/welford_signal_processing.png}` |
+
+### LaTeX Include Examples
+
+For **Addition 1 (eBPF)**, replace the ASCII `\begin{verbatim}...\end{verbatim}` block with:
+```latex
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/ebpf_datapath.png}
+\caption{eBPF Token Tracker data path. The BPF program executes in kernel space with zero userspace context switches.}
+\label{fig:ebpf_datapath}
+\end{figure}
+```
+
+For **Addition 2 (RDMA)**, add:
+```latex
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/rdma_locality_scoring.png}
+\caption{RDMA Locality Scoring: Standard Ethernet vs GPU-Direct RDMA/InfiniBand network topology and corresponding score bonuses.}
+\label{fig:rdma_scoring}
+\end{figure}
+```
+
+For **Addition 4 (Cross-Environment)**, replace the ASCII diagram with:
+```latex
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth,keepaspectratio]{docs/diagrams/cross_env_architecture.png}
+\caption{Cross-environment orchestration: the EnergyStore serves as a unified telemetry hub consumed by Kubernetes, Slurm, and Ray scheduling adapters.}
+\label{fig:cross_env}
+\end{figure}
+```
+
+For **Addition 5 (CRD Watcher)**, add:
+```latex
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/crd_reconciliation_loop.png}
+\caption{Kubernetes Operator CRD reconciliation loop: InferenceObjective changes propagate through the client-go Informer to dynamically force Adaptive FSM states.}
+\label{fig:crd_reconciliation}
+\end{figure}
+```
+
+For **Addition 6 (Welford)**, add:
+```latex
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/welford_signal_processing.png}
+\caption{Welford's Time-Aware EWMA: raw DCGM sensor jitter ($\pm$5W) is smoothed to microsecond precision with a $\tau$=100ms time constant. Shaded band shows $\pm 1\sigma$ variance estimate.}
+\label{fig:welford_ewma}
+\end{figure}
+```
