@@ -15,11 +15,11 @@ Your `upstream-port/` directory now contains production-ready files that map 1:1
 ### Scorer Interface
 
 ```diff
-- // YOUR CURRENT CODE (pkg/plugins/scorer/energy_aware_scorer.go)
+- // YOUR OLD CODE (pkg/plugins/scorer/energy_aware_scorer.go)
 - func (s *EnergyAwareScorer) ScorePods(phase signals.InferencePhase, pods []PodInfo) map[string]float64
 
-+ // UPSTREAM INTERFACE (scheduling.Scorer)
-+ func (s *EnergyAware) Score(ctx context.Context, cycleState *scheduling.CycleState,
++ // YOUR NEW PORTED CODE (Matches Upstream scheduling.Scorer perfectly)
++ func (s *EnergyAware) Score(ctx context.Context,
 +     request *scheduling.InferenceRequest, endpoints []scheduling.Endpoint) map[scheduling.Endpoint]float64
 ```
 
@@ -27,12 +27,12 @@ Your `upstream-port/` directory now contains production-ready files that map 1:1
 1. `PodInfo` → `scheduling.Endpoint` (has `.GetMetadata().Labels` and `.GetMetrics()`)
 2. `phase signals.InferencePhase` → inferred from `request.RequestSizeBytes`
 3. Return key: `string` (pod name) → `scheduling.Endpoint` (the object itself)
-4. Added `context.Context` and `*CycleState` (standard upstream args, can be ignored)
+4. Added `context.Context` (standard upstream args). Note: `*CycleState` was removed in recent upstream versions, and your code natively handles this!
 
 ### Plugin Identity
 
 ```diff
-- // YOUR CURRENT CODE
+- // YOUR OLD CODE
 - func (s *EnergyAwareScorer) Name() string { return s.name }
 
 + // UPSTREAM INTERFACE (plugin.Plugin)
@@ -47,18 +47,18 @@ Your `upstream-port/` directory now contains production-ready files that map 1:1
 ### Plugin Construction
 
 ```diff
-- // YOUR CURRENT CODE
+- // YOUR OLD CODE
 - func NewEnergyAwareScorer(name string, store *signals.EnergyStore,
 -     config EnergyAwareScorerConfig) *EnergyAwareScorer
 
-+ // UPSTREAM PATTERN (Factory function)
-+ func Factory(name string, rawParameters json.RawMessage,
++ // YOUR NEW PORTED CODE (Matches Upstream Factory perfectly)
++ func Factory(name string, rawParameters *json.Decoder,
 +     handle plugin.Handle) (plugin.Plugin, error)
 ```
 
 **What changed:**
 1. `*signals.EnergyStore` dependency removed → energy data now comes from pod labels
-2. Config struct → `json.RawMessage` (parsed inside Factory)
+2. Config struct → `*json.Decoder` (parsed directly inside Factory)
 3. Returns `(plugin.Plugin, error)` instead of concrete type
 
 ### Data Access

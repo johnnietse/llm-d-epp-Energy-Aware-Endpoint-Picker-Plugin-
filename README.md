@@ -8,6 +8,15 @@ An energy-aware endpoint picker plugin (EPP) for the [llm-d inference scheduler]
 
 **Integrated with** [Gateway API Inference Extension (GIE) v1.5.0](https://github.com/kubernetes-sigs/gateway-api-inference-extension) - implements the real `scheduling.Filter` and `scheduling.Scorer` interfaces for production deployment.
 
+## 🚀 AI Infrastructure & Automation Highlights
+
+Designed with large-scale data center operations in mind, this project demonstrates hands-on expertise across modern AI infrastructure stacks:
+
+- **Bare-Metal Telemetry & Diagnostics:** Interfaces directly with low-level Linux systems via RAPL (`sysfs` energy counters) and NVIDIA DCGM (GPU health & power) for real-time infrastructure validation.
+- **Kubernetes Platform Engineering:** Production-ready Kubernetes integrations, custom metrics, and scheduling orchestration on distributed clusters.
+- **Infrastructure Validation & Test Automation:** Built in **Go and Python** with a comprehensive testing framework (93+ unit tests, ~90% coverage), CI/CD pipelines, and 1000-cycle E2E deployment simulations.
+- **Large-Scale GPU Environments:** Optimizes workload placement across heterogeneous AI clusters, showcasing deep understanding of GPU infrastructure dynamics (H100s, A100s) alongside ASICs.
+
 ## Key Results
 
 ### Phase-Aware Routing (E2E Simulation - 1,000 cycles)
@@ -60,8 +69,10 @@ Our plugin implements the real Gateway API Inference Extension interfaces:
 | Adapter | GIE Interface | Wraps | Category |
 |---------|--------------|-------|----------|
 | `GIEFilterAdapter` | `scheduling.Filter` | `EnergyBudgetFilter` | Hard constraint |
-| `GIEScorerAdapter` | `scheduling.Scorer` | `EnergyAwareScorer` | Balance |
+| `GIEFilterAdapter` | `scheduling.Filter` | `ThermalThrottlingFilter` | Hard constraint |
+| `GIEScorerAdapter` | `scheduling.Scorer` | `EnergyAwareScorer` | Distribution |
 | `GIECarbonScorerAdapter` | `scheduling.Scorer` | `CarbonIntensityScorer` | Distribution |
+| `GIERdmaScorerAdapter` | `scheduling.Scorer` | `RDMALocalityScorer` | Affinity |
 
 ### Telemetry Concurrency Model
 

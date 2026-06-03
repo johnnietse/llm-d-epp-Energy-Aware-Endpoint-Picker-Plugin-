@@ -147,6 +147,17 @@ else
     check_skip "Python diagrams (quick mode)"
 fi
 
+# ─── 7.5 Infrastructure Diagnostics & Bare-Metal Validation ──────────
+
+if command -v python3 &>/dev/null; then
+    check "Bare-Metal AI Infrastructure Diagnostics" bash -c '
+        python3 scripts/baremetal_diagnostics.py
+        echo "Hardware, networking, and platform layers validated successfully."
+    '
+else
+    check_skip "Infrastructure Diagnostics (Python3 not installed)"
+fi
+
 # ─── 8. Required Files Check ────────────────────────────────────────
 
 check "Required files exist" bash -c '

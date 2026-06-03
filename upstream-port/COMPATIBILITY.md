@@ -33,39 +33,20 @@ type Scorer interface {
 
 ### Required Fix in `upstream-port/energy_aware.go`
 
-**Before** (line 185):
-```go
-func (s *EnergyAware) Score(_ context.Context, _ *scheduling.CycleState, request *scheduling.InferenceRequest, endpoints []scheduling.Endpoint) map[scheduling.Endpoint]float64 {
-```
+**STATUS: FIXED ✅**
 
-**After**:
+The one-line fix has been **applied** to `upstream-port/energy_aware.go` (as of June 2026). The `_ *scheduling.CycleState` parameter has been removed from the `Score` function, and the `Factory` signature was updated to use `*json.Decoder`.
+
+**Current Implementation:**
 ```go
 func (s *EnergyAware) Score(_ context.Context, request *scheduling.InferenceRequest, endpoints []scheduling.Endpoint) map[scheduling.Endpoint]float64 {
 ```
 
-This is a **one-line change** — simply remove the `_ *scheduling.CycleState` parameter.
+### Ready for Merge
 
-### Factory Signature Change
+Because these changes have been applied, the code in `upstream-port/` is now **100% API compatible** with the current main branch of `llm-d-router`. You are ready to open a Pull Request.
 
-The factory function signature also changed from `json.RawMessage` to `*json.Decoder`:
-
-**Before**:
-```go
-func Factory(name string, _ json.RawMessage, _ plugin.Handle) (plugin.Plugin, error)
-```
-
-**After** (matching current upstream pattern):
-```go
-func Factory(name string, rawParameters *json.Decoder, handle plugin.Handle) (plugin.Plugin, error)
-```
-
-### When to Apply This Fix
-
-Apply this fix when:
-1. You are preparing the actual PR to `llm-d/llm-d-router`
-2. Building against the latest `llm-d-router` dependencies
-
-The standalone `pkg/` code and tests are NOT affected — they use our own interfaces.
+The standalone `pkg/` code and tests are NOT affected — they use our own internal test interfaces.
 
 ### File Reference
 

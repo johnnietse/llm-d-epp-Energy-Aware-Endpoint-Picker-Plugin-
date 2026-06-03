@@ -171,6 +171,39 @@ func (c *AdaptiveController) CurrentMode() Mode {
 	return c.mode
 }
 
+// ForceMode forces the controller into a specific operational mode,
+// overriding the autonomous sensor-based evaluation.
+func (c *AdaptiveController) ForceMode(mode Mode) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Compute adjusted weights for the new mode
+	prefill, decode := c.computeWeights(mode)
+
+	oldMode := c.mode
+	c.mode = mode
+	c.current = WeightSnapshot{
+		Timestamp:       time.Now(),
+		Mode:            mode,
+		PrefillWeights:  prefill,
+		DecodeWeights:   decode,
+		Reason:          fmt.Sprintf("Externally forced via Kubernetes CRD: %s", mode),
+	}
+	c.history = append(c.history, c.current)
+	if len(c.history) > 1000 {
+		c.history = c.history[len(c.history)-1000:]
+	}
+
+	if mode != oldMode {
+		log.Printf("[AdaptiveController] FORCED Mode Transition: %s -> %s", oldMode, mode)
+	}
+
+	// Notify scorer of new weights
+	if c.callback != nil {
+		c.callback(prefill, decode)
+	}
+}
+
 // CurrentSnapshot returns the current weight state.
 func (c *AdaptiveController) CurrentSnapshot() WeightSnapshot {
 	c.mu.RLock()

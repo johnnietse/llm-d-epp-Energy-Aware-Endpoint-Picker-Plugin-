@@ -42,3 +42,30 @@ Based on web research, the following data sources and methodologies were incorpo
 ## Total Diagram Inventory
 
 After all additions, the `docs/diagrams/` directory now contains **~18 publication-quality diagrams** covering every major concept in the thesis.
+
+## 🚀 Tenstorrent Data Center Automation & Test Engineer Additions
+
+Based on the requirements for modern Bare-Metal, HPC, and AI Infrastructure, the following advanced tooling was added to directly support hardware-layer routing, diagnostics, and Slurm/Ray interoperability:
+
+### 1. High-Performance Networking & Locality
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **RDMA / InfiniBand Locality Scorer** | `pkg/plugins/scorer/rdma_locality_scorer.go` | Boosts scores for nodes with GPU-Direct RDMA, InfiniBand/RoCE, and optimized NUMA pinning. Essential for cross-node KV-cache transfers during Decode phases. |
+| **Bare-Metal Telemetry Updates** | `pkg/signals/types.go` | Added `HasRDMA` and `NUMAOptimized` flags to the core `EnergyProfile`. |
+
+### 2. Thermal Management & PUE Optimization
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **Thermal Throttling Filter** | `pkg/plugins/filter/thermal_filter.go` | Data center automation logic that actively prevents LLM routing to GPUs exceeding physical thermal limits (e.g., >85°C), mitigating hot spots and cooling overhead. |
+
+### 3. Slurm & KubeRay Cross-Compatibility
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **Slurm SPANK Adapter** | `pkg/slurm/spank_adapter.go` | Adapts the EnergyStore to classic HPC environments, forcing Slurm to schedule bare-metal jobs based on power/thermals rather than raw CPU availability. |
+| **KubeRay Autoscaler Policy** | `pkg/ray/autoscaler_policy.go` | Prevents KubeRay from scaling up high-power GPU worker groups during carbon-heavy grid times, enforcing ASIC delegation. |
+
+### 4. Linux Kernel eBPF Telemetry & Signal Processing
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **eBPF Zero-Overhead Token Tracker** | `pkg/ebpf/token_tracker.c` | A raw C Linux Traffic Control (TC) hook that counts LLM egress TCP payload bytes directly in kernel memory, bypassing Prometheus entirely. |
+| **Microsecond Digital Low-Pass Filter** | `pkg/signals/energy_store.go` | Implemented Time-Aware EWMA and Welford's Online Algorithm to filter noisy GPU telemetry down to the exact microsecond. |

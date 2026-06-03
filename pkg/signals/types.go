@@ -68,14 +68,30 @@ type EnergyProfile struct {
 	// Sourced from DCGM (GPU) or RAPL (CPU/ASIC) metrics scraping.
 	CurrentPower_W float64 `json:"currentPowerW"`
 
+	// PowerVariance_W is the running variance in power draw to measure signal noise over short intervals.
+	PowerVariance_W float64 `json:"powerVarianceW"`
+
 	// EnergyPerToken_mJ is the exponentially weighted moving average (EWMA)
 	// of energy consumed per output token, in millijoules.
 	// Computed as: (power_watts × duration_per_token_s) × 1000
 	EnergyPerToken_mJ float64 `json:"energyPerTokenMJ"`
 
+	// EnergyPerTokenVariance is the variance in the EWMA, allowing statistical confidence bounds for precision scheduling.
+	EnergyPerTokenVariance float64 `json:"energyPerTokenVariance"`
+
 	// Utilization is the GPU/accelerator utilization ratio (0.0 to 1.0).
 	// Used by the EnergyBudgetFilter to exclude overloaded pods.
 	Utilization float64 `json:"utilization"`
+
+	// Temperature_C is the real-time GPU/ASIC die temperature in Celsius.
+	// Used by ThermalThrottlingFilter to prevent data center hot spots.
+	Temperature_C float64 `json:"temperatureC"`
+
+	// HasRDMA indicates if the pod's node has GPU Direct RDMA or InfiniBand enabled.
+	HasRDMA bool `json:"hasRDMA"`
+
+	// NUMAOptimized indicates if the GPU is pinned to the correct NUMA node for zero-copy memory access.
+	NUMAOptimized bool `json:"numaOptimized"`
 
 	// TokensPerSecond is the current output token throughput.
 	// Used to compute energy-per-token and for latency estimation.
@@ -86,6 +102,9 @@ type EnergyProfile struct {
 
 	// LastUpdated is the timestamp of the last metrics scrape for this pod.
 	LastUpdated time.Time `json:"lastUpdated"`
+
+	// LastUpdatedMicro is the high-precision UNIX microsecond timestamp for ultra-short latency tracking.
+	LastUpdatedMicro int64 `json:"lastUpdatedMicro"`
 }
 
 // ExternalSignals holds cluster/region-level external signals that affect

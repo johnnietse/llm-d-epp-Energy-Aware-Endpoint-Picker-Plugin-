@@ -63,18 +63,27 @@ plugins:
   parameters:
     fallbackCarbonIntensity: 390.0
 
+- type: thermal-throttling-filter
+  parameters:
+    maxTemperatureC: 85.0
+
+- type: rdma-locality-scorer
+
 # ─── Scheduling Profiles ─────────────────────────────────────────────
 schedulingProfiles:
 - name: prefill
   plugins:
   # Filters (sequential, order matters)
   - pluginRef: prefill-filter
+  - pluginRef: thermal-throttling-filter
   - pluginRef: energy-budget-filter
   # Picker
   - pluginRef: max-score-picker
   # Scorers (weighted, higher weight = more influence)
   - pluginRef: load-aware-scorer
     weight: 50     # Load is important for prefill (avoid hot pods)
+  - pluginRef: rdma-locality-scorer
+    weight: 40     # Network topology and RDMA matters for prefill/decode multi-node
   - pluginRef: energy-aware-scorer
     weight: 20     # Energy is secondary for prefill (TTFT matters more)
   - pluginRef: carbon-intensity-scorer
@@ -84,12 +93,15 @@ schedulingProfiles:
   plugins:
   # Filters
   - pluginRef: decode-filter
+  - pluginRef: thermal-throttling-filter
   - pluginRef: energy-budget-filter
   # Picker
   - pluginRef: max-score-picker
   # Scorers
   - pluginRef: load-aware-scorer
     weight: 20     # Load is secondary for decode
+  - pluginRef: rdma-locality-scorer
+    weight: 45     # RDMA is critical for KV cache sync in continuous decode
   - pluginRef: energy-aware-scorer
     weight: 60     # Energy is DOMINANT for decode (core thesis contribution)
   - pluginRef: carbon-intensity-scorer

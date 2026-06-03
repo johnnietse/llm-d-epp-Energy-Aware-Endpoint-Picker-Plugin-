@@ -38,11 +38,46 @@ func NewEnergyStore(staleDuration time.Duration) *EnergyStore {
 }
 
 // UpdateProfile inserts or updates the energy profile for a pod.
-// Called by scrapers on each scrape interval (typically every 1-2 seconds).
+// Called by scrapers on each scrape interval. Implements high-frequency
+// time-aware exponential smoothing for microsecond-level precision.
 func (s *EnergyStore) UpdateProfile(profile EnergyProfile) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	profile.LastUpdated = time.Now()
+
+	now := time.Now()
+	profile.LastUpdated = now
+	profile.LastUpdatedMicro = now.UnixMicro()
+
+	// High-Precision Digital Low-Pass Filter (Time-Aware EWMA)
+	if prev, exists := s.profiles[profile.PodName]; exists {
+		// Calculate precise time delta in microseconds
+		deltaMicro := float64(profile.LastUpdatedMicro - prev.LastUpdatedMicro)
+		
+		if deltaMicro > 0 {
+			// tau is the time constant (e.g., 100,000 microseconds = 100ms)
+			// alpha = dt / (tau + dt) provides mathematically sound smoothing independent of scrape jitter
+			tau := 100000.0 
+			alpha := deltaMicro / (tau + deltaMicro)
+			if alpha > 1.0 { 
+				alpha = 1.0 
+			}
+
+			// Welford's online algorithm for Power EWMA & Variance
+			powerDiff := profile.CurrentPower_W - prev.CurrentPower_W
+			profile.CurrentPower_W = prev.CurrentPower_W + (alpha * powerDiff)
+			profile.PowerVariance_W = (1.0 - alpha) * (prev.PowerVariance_W + (alpha * powerDiff * powerDiff))
+
+			// Welford's online algorithm for EnergyPerToken EWMA & Variance
+			eptDiff := profile.EnergyPerToken_mJ - prev.EnergyPerToken_mJ
+			profile.EnergyPerToken_mJ = prev.EnergyPerToken_mJ + (alpha * eptDiff)
+			profile.EnergyPerTokenVariance = (1.0 - alpha) * (prev.EnergyPerTokenVariance + (alpha * eptDiff * eptDiff))
+		} else {
+			// Zero delta means instantaneous duplicate; preserve variance
+			profile.PowerVariance_W = prev.PowerVariance_W
+			profile.EnergyPerTokenVariance = prev.EnergyPerTokenVariance
+		}
+	}
+
 	s.profiles[profile.PodName] = &profile
 }
 

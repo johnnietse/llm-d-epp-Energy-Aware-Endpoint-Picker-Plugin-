@@ -95,7 +95,7 @@ var _ scheduling.Scorer = &EnergyAware{}
 
 // Factory defines the factory function for the EnergyAware scorer.
 // It is registered with the plugin registry under the EnergyAwareType key.
-func Factory(name string, rawParameters json.RawMessage, handle plugin.Handle) (plugin.Plugin, error) {
+func Factory(name string, rawParameters *json.Decoder, handle plugin.Handle) (plugin.Plugin, error) {
 	params := parameters{
 		PrefillLatencyWeight:    defaultPrefillWtLat,
 		PrefillEnergyWeight:     defaultPrefillWtEnergy,
@@ -106,7 +106,7 @@ func Factory(name string, rawParameters json.RawMessage, handle plugin.Handle) (
 		FallbackCarbonIntensity: defaultCarbonIntensity,
 	}
 	if rawParameters != nil {
-		if err := json.Unmarshal(rawParameters, &params); err != nil {
+		if err := rawParameters.Decode(&params); err != nil {
 			return nil, fmt.Errorf("failed to parse the parameters of the '%s' scorer - %w", EnergyAwareType, err)
 		}
 	}
@@ -182,7 +182,7 @@ func (s *EnergyAware) Category() scheduling.ScorerCategory {
 // phase. In a P/D disaggregated setup, prefill and decode endpoints run on
 // separate pods, so the scorer's asymmetric weights naturally apply via
 // the profile-handler's profile selection.
-func (s *EnergyAware) Score(_ context.Context, _ *scheduling.CycleState, request *scheduling.InferenceRequest, endpoints []scheduling.Endpoint) map[scheduling.Endpoint]float64 {
+func (s *EnergyAware) Score(_ context.Context, request *scheduling.InferenceRequest, endpoints []scheduling.Endpoint) map[scheduling.Endpoint]float64 {
 	if len(endpoints) == 0 {
 		return nil
 	}
@@ -272,10 +272,22 @@ func (s *EnergyAware) computeLatencyScore(labels map[string]string, metrics *sch
 // because decode is memory-bandwidth-bound and energy-per-token scales with
 // power draw, not compute throughput.
 func (s *EnergyAware) computeEnergyScore(labels map[string]string) float64 {
+	// Improvement A: KV-Cache Energy Discounting (Synergy with Prefix Caching)
+	// If a pod has a high prefix cache match for this prompt, the GPU avoids
+	// heavy matrix multiplications during the prefill phase, significantly
+	// discounting the overall energy cost of the request.
+	cacheHitRatio := labelFloat(labels, "llm-d.ai/kv-cache-hit-ratio")
+	energyDiscount := 1.0
+	if cacheHitRatio > 0 {
+		// e.g., a 100% cache hit rate reduces the compute energy cost by up to 80%
+		energyDiscount = 1.0 - (cacheHitRatio * 0.8)
+	}
+
 	// Primary signal: energy-per-token (lower is better)
 	ept := labelFloat(labels, LabelEnergyPerToken)
 	if ept > 0 {
-		return 1.0 / (1.0 + ept/5.0)
+		discountedEpt := ept * energyDiscount
+		return 1.0 / (1.0 + discountedEpt/5.0)
 	}
 
 	// Fallback: use power / throughput ratio
@@ -283,7 +295,8 @@ func (s *EnergyAware) computeEnergyScore(labels map[string]string) float64 {
 	tokPerSec := labelFloat(labels, LabelTokensPerSecond)
 	if tokPerSec > 0 && power > 0 {
 		wattsPerToken := power / tokPerSec
-		return 1.0 / (1.0 + wattsPerToken)
+		discountedWattsPerToken := wattsPerToken * energyDiscount
+		return 1.0 / (1.0 + discountedWattsPerToken)
 	}
 
 	// Last resort: hardware class heuristic

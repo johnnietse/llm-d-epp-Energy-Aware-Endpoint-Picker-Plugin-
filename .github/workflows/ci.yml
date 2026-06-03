@@ -87,6 +87,25 @@ jobs:
           echo "## 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "Image size: **$SIZE**" >> $GITHUB_STEP_SUMMARY
 
+  # ─── Infrastructure Diagnostics Validation ──────────────────────────
+  infra-validation:
+    name: AI Infra Diagnostics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Bare-Metal Hardware & Network Validation
+        run: |
+          chmod +x scripts/baremetal_diagnostics.py
+          python scripts/baremetal_diagnostics.py
+          echo "## 🔧 Infrastructure Diagnostics Run" >> $GITHUB_STEP_SUMMARY
+          echo "Validation of Linux systems, GPU infrastructure, and networking layers completed successfully." >> $GITHUB_STEP_SUMMARY
+
   # ─── Interface Compatibility Check ────────────────────────────────
   compatibility:
     name: Upstream Compatibility
