@@ -1,8 +1,6 @@
 module github.com/johnnie/energy-aware-epp
 
-go 1.25.7
-
-toolchain go1.26.0
+go 1.22.0
 
 require sigs.k8s.io/gateway-api-inference-extension v1.5.0
 
