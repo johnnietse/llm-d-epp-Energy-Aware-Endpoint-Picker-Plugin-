@@ -44,7 +44,7 @@ After this first manual run, it will **automatically run daily at 6:00 AM UTC**.
 ### CI Pipeline (`ci.yml`)
 | Job | What it checks | Triggers on |
 |-----|----------------|-------------|
-| **Go Tests** | All 74+ unit tests + 1000-cycle E2E simulation | Every push & PR |
+| **Go Tests** | All 112 unit tests + 1000-cycle E2E simulation | Every push & PR |
 | **Build Binary** | Go binary compiles cleanly | Every push & PR |
 | **Docker Build** | Dockerfile produces valid image | Every push & PR |
 | **Upstream Compatibility** | `upstream-port/` still implements `scheduling.Scorer` correctly | Every push & PR |

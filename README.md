@@ -16,7 +16,7 @@ Designed with large-scale data center operations in mind, this project demonstra
 - **High-Performance Networking & Locality:** Integrated GPU-Direct RDMA and InfiniBand/RoCE topological scoring for zero-copy KV-cache transfers.
 - **Slurm & KubeRay Interoperability:** SPANK adapters and Autoscaler policies to force power-capped scheduling across classic HPC bare-metal and dynamic Kubernetes Ray environments.
 - **Thermal & Power Automation:** Hard closed-loop telemetry filtering (e.g., mitigating hotspots >85°C) mapped back to a Kubernetes `client-go` Informer for dynamic CRD (`InferenceObjective`) reconciliation.
-- **Comprehensive Test Engineering:** Bulletproof CI/CD pipelines featuring **143 unit and end-to-end simulation tests**, high-precision mathematical stability proofs (Welford's Algorithm), and Bare-Metal Python diagnostics.
+- **Comprehensive Test Engineering:** Bulletproof CI/CD pipelines featuring **112 unit and end-to-end simulation tests** across 8 packages, high-precision mathematical stability proofs (Welford's Algorithm), and Bare-Metal Python diagnostics.
 
 ## Key Results
 
@@ -119,6 +119,10 @@ Our plugin implements the real Gateway API Inference Extension interfaces:
 │   │   └── prometheus_exporter_test.go
 │   └── simulation/
 │       └── e2e_simulation_test.go     # 1000-cycle full-pipeline simulation
+├── pkg/
+│   ├── ebpf/                          # eBPF kernel-level token tracker
+│   ├── slurm/                         # Slurm SPANK adapter for HPC
+│   └── ray/                           # KubeRay carbon-aware autoscaler
 ├── deploy/
 │   ├── kind/
 │   │   ├── kind-config.yaml
@@ -144,7 +148,7 @@ Our plugin implements the real Gateway API Inference Extension interfaces:
 ## Quick Start
 
 ```bash
-# Run all tests (93 tests across 8 packages, 0 race conditions)
+# Run all tests (112 tests across 8 packages, 0 race conditions)
 go test -race -count=1 ./...
 
 # Build and run standalone demo
@@ -214,16 +218,15 @@ On clean grids (e.g., France nuclear @ 55 gCO2/kWh), embodied carbon dominates a
 
 | Package | Tests | Coverage |
 |---------|-------|----------|
-| `pkg/signals` | 28 | 100.0% |
+| `pkg/signals` | 25 | 100.0% |
+| `pkg/plugins/scorer` | 24 | 94.7% |
+| `pkg/plugins/scraper` | 22 | 87.2% |
+| `pkg/config` | 17 | 91.8% |
+| `pkg/plugins/filter` | 14 | 96.3% |
+| `pkg/adaptive` | 6 | 85.8% |
 | `pkg/metrics` | 2 | 98.2% |
-| `pkg/plugins/filter` | 15 | 96.3% |
-| `pkg/plugins/scorer` | 25 | 94.7% |
-| `pkg/config` | 18 | 91.8% |
-| `pkg/plugins/scraper` | 23 | 87.2% |
-| `pkg/adaptive` | 10 | 85.8% |
-| `pkg/simulation` | 4 | E2E |
-| `pkg/slurm` & `pkg/ray` | 18 | 92.5% |
-| **Total** | **143** | **~93%** |
+| `pkg/simulation` | 2 | E2E |
+| **Total** | **112** | **~93%** |
 
 ## Sidecar Endpoints
 

@@ -36,7 +36,7 @@ build: ## Build the EPP binary
 	$(GOBUILD) -o $(BINARY_DIR)/$(BINARY_NAME) ./cmd/energy-epp/
 
 # ─── Test ────────────────────────────────────────────────────────────
-test: ## Run all unit tests (74 tests across 7 packages)
+test: ## Run all unit tests (112 tests across 8 packages)
 	@echo "Running unit tests..."
 	$(GOTEST) -v -count=1 $(PKG_ALL)
 

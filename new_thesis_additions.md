@@ -17,7 +17,7 @@ After a full audit of the codebase against the thesis (`June_3_2026_research_rep
 | 7 | Welford's Algorithm + Time-Aware EWMA | `pkg/signals/energy_store.go` (lines 51-78) | Replace/expand Ch.4 telemetry section |
 | 8 | Adaptive Force States (External API) | `pkg/adaptive/weight_controller.go` | Expand Ch.3 FSM section |
 | 9 | Next-Generation Roadmap (CDU/CXL/Prefix/Speculative) | `README.md` | New section in Ch.7 (Future Work) |
-| 10 | Test count outdated (74 → 143 tests, 8 → 9 packages) | CI pipeline | Update Ch.4 and CI section |
+| 10 | Test count outdated (74 → 112 tests, 7 → 8 packages) | CI pipeline | Update Ch.4 and CI section |
 
 ---
 
@@ -177,7 +177,7 @@ In Slurm's topology-aware scheduling, lower weights receive higher priority. Thi
 \subsection{KubeRay Carbon-Aware Autoscaler Policy}
 \label{subsec:impl_ray}
 
-Ray clusters managed by the KubeRay operator scale worker groups based on pending task queues. The \texttt{EnergyAwareRayAutoscaler} (\texttt{pkg/ray/autoscaler\_policy.go}) intercepts scale-up decisions and conditionally blocks the provisioning of high-power GPU worker groups during carbon-critical grid periods.
+Ray clusters managed by the KubeRay operator scale worker groups based on pending task queues. The \texttt{EnergyAwareRayAutoscaler} (\texttt{pkg/ray/autoscaler\_policy.go}) intercepts scale-up decisions and conditionally blocks the provisioning of high-power GPU worker groups during carbon-high grid periods.
 
 \begin{lstlisting}[language=Go, caption={KubeRay autoscaler: carbon-aware scale-up gate}]
 func (r *EnergyAwareRayAutoscaler) ShouldScaleUp(
@@ -245,7 +245,7 @@ func (w *ObjectiveWatcher) handleObjectiveChange(obj *InferenceObjective) {
 
 This architecture enables three operational modes to be activated via a single \texttt{kubectl apply}:
 \begin{itemize}
-    \item \textbf{CarbonMinimization}: Forces the FSM into Carbon-Critical mode, aggressively routing all traffic to low-power ASICs regardless of autonomous grid signal readings.
+    \item \textbf{CarbonMinimization}: Forces the FSM into Carbon-High mode, aggressively routing all traffic to low-power ASICs regardless of autonomous grid signal readings.
     \item \textbf{Latency}: Restores Normal mode with standard phase-aware weight vectors, prioritizing TTFT/TPOT SLOs.
     \item \textbf{CostReduction}: Activates Load-Shedding mode, minimizing total cluster power draw to reduce OpEx during peak electricity pricing periods.
 \end{itemize}
@@ -335,7 +335,7 @@ Replace:
 ```
 With:
 ```
-143 unit tests across 9 packages with race detection
+112 unit tests across 8 packages with race detection
 ```
 
 Also update the package architecture section to include the new packages:
@@ -367,7 +367,7 @@ Add the following new bullet points to the existing contributions list:
 **The Abstract should mention the new infrastructure scope. Add after the "five key architectural innovations" paragraph:**
 
 ```latex
-Beyond the core routing pipeline, the system extends its reach into cross-environment orchestration through a Slurm SPANK adapter for bare-metal HPC scheduling, a KubeRay carbon-aware autoscaler policy for Ray clusters, and a Linux eBPF Traffic Control hook for zero-overhead kernel-level token throughput tracking. A Kubernetes Operator pattern utilizing \texttt{client-go} Informers enables dynamic reconciliation of \texttt{InferenceObjective} CRDs, allowing cluster administrators to pivot between Carbon-Critical, Latency-Optimized, and Cost-Reduction modes without pod restarts.
+Beyond the core routing pipeline, the system extends its reach into cross-environment orchestration through a Slurm SPANK adapter for bare-metal HPC scheduling, a KubeRay carbon-aware autoscaler policy for Ray clusters, and a Linux eBPF Traffic Control hook for zero-overhead kernel-level token throughput tracking. A Kubernetes Operator pattern utilizing \texttt{client-go} Informers enables dynamic reconciliation of \texttt{InferenceObjective} CRDs, allowing cluster administrators to pivot between Carbon-High, Latency-Optimized, and Cost-Reduction modes without pod restarts.
 ```
 
 ---
@@ -455,10 +455,11 @@ The following existing tables in your thesis need to be updated to reflect the n
 \begin{tabular}{|l|c|c|c|p{5cm}|}
 \hline
 \textbf{Operating Mode} & \textbf{Latency ($w_L$)} & \textbf{Energy ($w_E$)} & \textbf{Carbon ($w_C$)} & \textbf{Trigger Condition} \\ \hline
-Normal (Prefill) & 0.60 & 0.20 & 0.20 & Grid $I_{grid} < 200$ gCO$_2$/kWh \\ \hline
-Normal (Decode) & 0.20 & 0.50 & 0.30 & Grid $I_{grid} < 200$ gCO$_2$/kWh \\ \hline
-Carbon-Critical & 0.10 & 0.40 & 0.50 & Grid $I_{grid} \geq 500$ gCO$_2$/kWh \\ \hline
-Emergency & 0.00 & 1.00 & 0.00 & Cluster Power $\geq$ Safe Budget \\ \hline
+Normal (Prefill) & 0.60 & 0.20 & 0.20 & Grid $100 \leq I_{grid} < 500$ gCO$_2$/kWh \\ \hline
+Normal (Decode) & 0.20 & 0.50 & 0.30 & Grid $100 \leq I_{grid} < 500$ gCO$_2$/kWh \\ \hline
+Green & Latency $\times 1.5$ & -- & -- & Grid $I_{grid} < 100$ gCO$_2$/kWh \\ \hline
+Carbon-High & 0.10 & 0.40 & 0.50 & Grid $I_{grid} \geq 500$ gCO$_2$/kWh \\ \hline
+Load-Shed & 0.00 & 1.00 & 0.00 & Cluster Power $\geq 85\%$ Budget \\ \hline
 \textbf{CRD: CarbonMinimization} & \textbf{0.10} & \textbf{0.40} & \textbf{0.50} & \textbf{Forced via Kubernetes API} \\ \hline
 \textbf{CRD: Latency} & \textbf{0.60} & \textbf{0.20} & \textbf{0.20} & \textbf{Forced via Kubernetes API} \\ \hline
 \textbf{CRD: CostReduction} & \textbf{0.00} & \textbf{1.00} & \textbf{0.00} & \textbf{Forced via Kubernetes API} \\ \hline
@@ -536,7 +537,7 @@ ElectricityMaps API & Grid carbon (gCO\textsubscript{2}/kWh) & 60\,s & REST API 
 \toprule
 \textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
 \midrule
-Go Tests & $\sim$35\,s & \textbf{143 unit tests across 9 packages with race detection} \\
+Go Tests & $\sim$35\,s & \textbf{112 unit tests across 8 packages with race detection} \\
 E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
 Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
 Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\

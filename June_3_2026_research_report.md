@@ -1571,7 +1571,7 @@ Currently, datacenter operators must choose between two suboptimal extremes: uti
 \section{Research Hypothesis}
 \label{sec:intro_hypothesis}
 
-This research posits that by decomposing LLM inference into its fundamental prefill and decode phases, and applying Pareto multi-objective optimization theory via an \(\epsilon\)-constraint framework, a Kubernetes-native scheduler can aggressively optimize the energy-per-token and Software Carbon Intensity (SCI) of a heterogeneous cluster without violating deterministic bounds on Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT). Furthermore, it is hypothesized that the integration of an Adaptive Finite State Machine (FSM) can allow the routing logic to autonomously respond to macro-level grid carbon signals, enabling spatial load-shifting within the cluster to minimize absolute emissions during carbon-critical periods.
+This research posits that by decomposing LLM inference into its fundamental prefill and decode phases, and applying Pareto multi-objective optimization theory via an \(\epsilon\)-constraint framework, a Kubernetes-native scheduler can aggressively optimize the energy-per-token and Software Carbon Intensity (SCI) of a heterogeneous cluster without violating deterministic bounds on Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT). Furthermore, it is hypothesized that the integration of an Adaptive Finite State Machine (FSM) can allow the routing logic to autonomously respond to macro-level grid carbon signals, enabling spatial load-shifting within the cluster to minimize absolute emissions during carbon-high periods.
 
 \section{Research Objectives}
 \label{sec:intro_objectives}
@@ -1859,7 +1859,7 @@ A critical design challenge in such control loops is "flapping"—rapidly oscill
 \begin{equation}
 S_{t+1} = 
 \begin{cases} 
-\text{Carbon-Critical}, & \text{if } I_{grid}(t) > \tau_{upper} \\
+\text{Carbon-High}, & \text{if } I_{grid}(t) > \tau_{upper} \\
 \text{Normal}, & \text{if } I_{grid}(t) < \tau_{lower} \\
 S_t, & \text{otherwise}
 \end{cases}
@@ -1867,7 +1867,7 @@ S_t, & \text{otherwise}
 Where $\tau_{upper} = 500$ gCO$_2$/kWh and $\tau_{lower} = 450$ gCO$_2$/kWh. 
 
 \subsection{Dynamic Voltage and Frequency Scaling (DVFS) Synergy}
-When the FSM enters \textit{Emergency} mode (due to a cluster-wide power budget violation), the EPP is mathematically designed to trigger host-level Dynamic Voltage and Frequency Scaling (DVFS) APIs. By aggressively sweeping the GPU core frequencies down during the memory-bound decode phase, the system can extract up to 42\% additional absolute energy savings, forcefully keeping the datacenter within safe thermal operating limits.
+When the FSM enters \textit{Load-Shed} mode (due to a cluster-wide power budget violation exceeding 85\% of the configured limit), the EPP is mathematically designed to trigger host-level Dynamic Voltage and Frequency Scaling (DVFS) APIs. By aggressively sweeping the GPU core frequencies down during the memory-bound decode phase, the system can extract up to 42\% additional absolute energy savings, forcefully keeping the datacenter within safe thermal operating limits.
 
 
 \chapter{Implementation Details}
@@ -2140,7 +2140,7 @@ To test the robustness of the Adaptive FSM, the cluster was subjected to a simul
 \label{fig:eval_adaptive}
 \end{figure}
 
-Figure \ref{fig:eval_adaptive} demonstrates the FSM accurately traversing from \textit{Normal} to \textit{Carbon-Critical} modes. The integration of the Schmitt trigger hysteresis effectively prevented state flapping when the carbon signal hovered near the 500 gCO$_2$/kWh threshold, ensuring consistent sub-weight configurations.
+Figure \ref{fig:eval_adaptive} demonstrates the FSM accurately traversing from \textit{Normal} to \textit{Carbon-High} and \textit{Load-Shed} modes. The integration of the Schmitt trigger hysteresis effectively prevented state flapping when the carbon signal hovered near the 500 gCO$_2$/kWh threshold, ensuring consistent sub-weight configurations.
 
 \section{Micro-benchmarks and Latency Overhead}
 \label{sec:eval_overhead}
@@ -2798,15 +2798,16 @@ Where $C_{\max}$ is typically 800 gCO\textsubscript{2}/kWh (representing a heavi
 \section{Adaptive Control State Machine}
 \label{sec:adaptive-fsm}
 
-While static weight vectors handle routine variations in workload, extreme grid conditions require macro-level shifts in routing logic. We implemented a Finite State Machine (FSM) controller that evaluates grid conditions every 60 seconds and transitions the system between three states:
+While static weight vectors handle routine variations in workload, extreme grid conditions require macro-level shifts in routing logic. We implemented a Finite State Machine (FSM) controller that evaluates grid conditions every 30 seconds and transitions the system between four states:
 
 \begin{enumerate}
-    \item \textbf{NORMAL State}: Carbon intensity is below the 75th percentile historical average. The system uses standard configured weight vectors (\texttt{prefillLatencyWeight}, etc.).
-    \item \textbf{GREEN State}: Carbon intensity drops below the 25th percentile (e.g., peak solar generation). The FSM temporarily boosts $w_C$ to maximize carbon savings while clean energy is abundant.
-    \item \textbf{CARBON-CRITICAL State}: Carbon intensity spikes above the 90th percentile (e.g., peaker coal plants active). The FSM engages the \texttt{energy-budget-filter} aggressively, entirely dropping the most power-hungry nodes (e.g., H100s) from the candidate pool $E$, forcing all traffic to L4s or low-power ASICs regardless of queue depth.
+    \item \textbf{NORMAL State}: Carbon intensity is between the low and high thresholds ($100 < C < 500$ gCO\textsubscript{2}/kWh) and cluster power is within budget. The system uses standard configured weight vectors (\texttt{prefillLatencyWeight}, etc.).
+    \item \textbf{GREEN State}: Carbon intensity drops below 100 gCO\textsubscript{2}/kWh (e.g., peak solar generation or nuclear-heavy grids). The FSM relaxes energy constraints and allows latency-optimized routing, boosting $w_L$ by 1.5$\times$ while reducing $w_C$ by 0.3$\times$.
+    \item \textbf{CARBON-HIGH State}: Carbon intensity spikes above 500 gCO\textsubscript{2}/kWh (e.g., peaker coal plants active). The FSM increases $w_C$ by 2.0--2.5$\times$, reducing latency weight by 0.3--0.5$\times$ to aggressively route to low-power hardware.
+    \item \textbf{LOAD-SHED State}: Cluster total power exceeds 85\% of the configured power budget (\texttt{maxClusterPowerW}). The FSM boosts $w_E$ by 3.0$\times$ and reduces $w_L$ to 0.1--0.3$\times$, maximizing energy efficiency regardless of latency impact.
 \end{enumerate}
 
-This FSM guarantees that the cluster respects global carbon constraints without requiring human operator intervention.
+All adjusted weight vectors are re-normalized to sum to 1.0 after scaling, ensuring score compatibility with the $[0, 1]$ bounds required by the \texttt{scheduling.Scorer} interface. This FSM guarantees that the cluster respects both carbon and power constraints without requiring human operator intervention.
 
 % ------------------------------------------------------------
 % SECTION: Production Deployment Architecture
@@ -2910,7 +2911,7 @@ The CI pipeline executes on every push and pull request, performing five verific
 \toprule
 \textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
 \midrule
-Go Tests & $\sim$35\,s & \textbf{143 unit tests across 9 packages with race detection} \\
+Go Tests & $\sim$35\,s & \textbf{112 unit tests across 8 packages with race detection} \\
 E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
 Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
 Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\

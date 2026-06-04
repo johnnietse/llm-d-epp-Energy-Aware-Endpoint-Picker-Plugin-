@@ -232,7 +232,7 @@ have fundamentally different resource profiles.
 ## Evidence
 
 I have a working prototype with:
-- 93 unit tests, all passing
+- 112 unit tests, all passing
 - 1,000-cycle E2E simulation showing correct routing
 - Real A100 power profiles from Queen's University HPC
 

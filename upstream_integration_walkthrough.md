@@ -94,7 +94,7 @@ sequenceDiagram
 
     Note over DCGM,Carbon: Background: Telemetry flows continuously
     DCGM->>EPP: GPU power=550W, util=70% (every 500ms)
-    Carbon->>EPP: Grid carbon=220 gCO₂/kWh (every 60s)
+    Carbon->>EPP: Grid carbon=220 gCO₂/kWh (every 5m)
     
     User->>Envoy: POST /v1/chat/completions
     Envoy->>EPP: gRPC ext_proc: "Pick an endpoint"

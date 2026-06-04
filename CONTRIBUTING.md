@@ -30,7 +30,7 @@ go test -v ./pkg/...
 
 ```
 pkg/
-├── adaptive/        # FSM controller (Normal/Carbon-Critical/Green modes)
+├── adaptive/        # FSM controller (Normal/Carbon-High/Load-Shed/Green modes)
 ├── config/          # GIE-compatible plugin configuration
 ├── metrics/         # Prometheus metrics (17 families)
 ├── plugins/

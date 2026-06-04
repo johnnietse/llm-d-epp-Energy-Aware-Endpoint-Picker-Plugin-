@@ -21,7 +21,7 @@ flowchart LR
     Envoy -->|"gRPC: Pick endpoint"| EPP
     EPP -->|"Read metrics"| Store
     Store ---|"Scraped every 500ms"| DCGM
-    Store ---|"Scraped every 60s"| Carbon
+    Store ---|"Scraped every 5m"| Carbon
     EPP -->|"Return: L4 pod"| Envoy
     Envoy -->|"Route request"| L4
     
@@ -192,7 +192,7 @@ These metrics flow into the thread-safe **EnergyStore** (`sync.RWMutex`):
 
 ```
 DCGM (500ms) ──Write Lock──→ EnergyStore ←──Read Lock── Scoring Thread 1
-Carbon API (60s) ─────────→              ←──Read Lock── Scoring Thread 2
+Carbon API (5m) ──────────→              ←──Read Lock── Scoring Thread 2
                                          ←──Read Lock── Scoring Thread N
 ```
 
@@ -258,7 +258,7 @@ If the grid carbon intensity suddenly jumps (e.g., evening peak when gas plants 
 
 ```
 [20:00] Grid carbon: 180 gCO₂/kWh → Mode: NORMAL
-[20:15] Grid carbon: 520 gCO₂/kWh → Mode: CARBON-CRITICAL ⚠️
+[20:15] Grid carbon: 520 gCO₂/kWh → Mode: CARBON-HIGH ⚠️
         Weights shift: w_C increases from 0.30 → 0.57
         L4 scores even higher (lowest absolute power = lowest carbon)
         

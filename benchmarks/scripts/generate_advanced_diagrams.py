@@ -50,10 +50,10 @@ def draw_regional_carbon_comparison():
     bars = ax.bar(regions, avg_intensity, color=colors, edgecolor='black', linewidth=0.8)
 
     # Threshold lines
-    ax.axhline(y=200, color='orange', linestyle='--', linewidth=1.5,
-               label='Normal → Carbon-Critical (200 gCO₂/kWh)')
+    ax.axhline(y=100, color='green', linestyle='--', linewidth=1.5,
+               label='Green Threshold (100 gCO₂/kWh)')
     ax.axhline(y=500, color='red', linestyle='--', linewidth=1.5,
-               label='Carbon-Critical Threshold (500 gCO₂/kWh)')
+               label='Carbon-High Threshold (500 gCO₂/kWh)')
 
     # Value labels
     for bar, val in zip(bars, avg_intensity):
@@ -129,9 +129,10 @@ def draw_adaptive_fsm_detailed():
 
     # State boxes
     states = {
-        'normal': {'pos': (0.15, 0.65), 'color': '#c8e6c9', 'text': 'NORMAL MODE\n\n$w_L=0.40, w_E=0.35, w_C=0.25$\nBalanced scoring'},
-        'carbon': {'pos': (0.55, 0.65), 'color': '#fff9c4', 'text': 'CARBON-CRITICAL\n\n$w_L=0.20, w_E=0.35, w_C=0.45$\nMax carbon avoidance'},
-        'emergency': {'pos': (0.35, 0.15), 'color': '#ffcdd2', 'text': 'EMERGENCY MODE\n\n$w_L=0.10, w_E=0.70, w_C=0.20$\nMin absolute power'},
+        'green': {'pos': (0.35, 0.82), 'color': '#a5d6a7', 'text': 'GREEN MODE\n\n$w_L=0.60, w_E=0.35, w_C=0.05$\nMax performance'},
+        'normal': {'pos': (0.15, 0.50), 'color': '#c8e6c9', 'text': 'NORMAL MODE\n\n$w_L=0.40, w_E=0.35, w_C=0.25$\nBalanced scoring'},
+        'carbon': {'pos': (0.55, 0.50), 'color': '#fff9c4', 'text': 'CARBON-HIGH\n\n$w_L=0.20, w_E=0.35, w_C=0.45$\nMax carbon avoidance'},
+        'load_shed': {'pos': (0.35, 0.15), 'color': '#ffcdd2', 'text': 'LOAD-SHED MODE\n\n$w_L=0.10, w_E=0.70, w_C=0.20$\nMin absolute power'},
     }
 
     for name, s in states.items():
@@ -143,34 +144,46 @@ def draw_adaptive_fsm_detailed():
                 fontsize=9, fontweight='bold')
 
     # Transition arrows with labels
-    # Normal → Carbon-Critical
-    ax.annotate('', xy=(0.55, 0.8), xytext=(0.45, 0.8),
+    # Normal → Carbon-High
+    ax.annotate('', xy=(0.55, 0.65), xytext=(0.45, 0.65),
                 arrowprops=dict(facecolor='orange', shrink=0.05, width=2.5, headwidth=10))
-    ax.text(0.5, 0.93, '$I_{grid} \\geq 500$\ngCO₂/kWh', ha='center', fontsize=9,
+    ax.text(0.5, 0.70, '$I_{grid} \\geq 500$', ha='center', fontsize=9,
             color='darkorange', fontweight='bold')
 
-    # Carbon-Critical → Normal
-    ax.annotate('', xy=(0.45, 0.7), xytext=(0.55, 0.7),
+    # Carbon-High → Normal
+    ax.annotate('', xy=(0.45, 0.55), xytext=(0.55, 0.55),
                 arrowprops=dict(facecolor='green', shrink=0.05, width=2.5, headwidth=10))
-    ax.text(0.5, 0.62, '$I_{grid} < 200$\ngCO₂/kWh', ha='center', fontsize=9,
+    ax.text(0.5, 0.45, '$I_{grid} < 100$', ha='center', fontsize=9,
             color='green', fontweight='bold')
 
-    # Normal → Emergency
-    ax.annotate('', xy=(0.4, 0.4), xytext=(0.25, 0.65),
-                arrowprops=dict(facecolor='red', shrink=0.05, width=2.5, headwidth=10))
-    ax.text(0.15, 0.48, '$P_{cluster} \\geq$\n$P_{budget}$', ha='center', fontsize=9,
-            color='red', fontweight='bold')
-
-    # Carbon-Critical → Emergency
-    ax.annotate('', xy=(0.55, 0.4), xytext=(0.7, 0.65),
-                arrowprops=dict(facecolor='red', shrink=0.05, width=2.5, headwidth=10))
-    ax.text(0.82, 0.48, '$P_{cluster} \\geq$\n$P_{budget}$', ha='center', fontsize=9,
-            color='red', fontweight='bold')
-
-    # Emergency → Normal
-    ax.annotate('', xy=(0.2, 0.65), xytext=(0.35, 0.4),
+    # Normal → Green
+    ax.annotate('', xy=(0.40, 0.82), xytext=(0.30, 0.75),
                 arrowprops=dict(facecolor='green', shrink=0.05, width=2.5, headwidth=10))
-    ax.text(0.15, 0.35, '$P < P_{budget}$\n& $I < 200$', ha='center', fontsize=9,
+    ax.text(0.25, 0.82, '$I_{grid} < 100$', ha='center', fontsize=9,
+            color='green', fontweight='bold')
+
+    # Green → Normal
+    ax.annotate('', xy=(0.35, 0.75), xytext=(0.45, 0.82),
+                arrowprops=dict(facecolor='orange', shrink=0.05, width=2.5, headwidth=10))
+    ax.text(0.48, 0.82, '$I_{grid} \\geq 100$', ha='center', fontsize=9,
+            color='darkorange', fontweight='bold')
+
+    # Any → Load-Shed (from Normal)
+    ax.annotate('', xy=(0.4, 0.4), xytext=(0.25, 0.5),
+                arrowprops=dict(facecolor='red', shrink=0.05, width=2.5, headwidth=10))
+    ax.text(0.15, 0.38, '$P_{cluster} \\geq$\n$P_{budget}$', ha='center', fontsize=9,
+            color='red', fontweight='bold')
+
+    # Any → Load-Shed (from Carbon-High)
+    ax.annotate('', xy=(0.55, 0.4), xytext=(0.7, 0.5),
+                arrowprops=dict(facecolor='red', shrink=0.05, width=2.5, headwidth=10))
+    ax.text(0.82, 0.38, '$P_{cluster} \\geq$\n$P_{budget}$', ha='center', fontsize=9,
+            color='red', fontweight='bold')
+
+    # Load-Shed → Normal
+    ax.annotate('', xy=(0.2, 0.5), xytext=(0.35, 0.4),
+                arrowprops=dict(facecolor='green', shrink=0.05, width=2.5, headwidth=10))
+    ax.text(0.15, 0.25, '$P < P_{budget}$\n& $I < 500$', ha='center', fontsize=9,
             color='green', fontweight='bold')
 
     plt.title('Adaptive Weight Controller — Finite State Machine\n(Section III.D)',

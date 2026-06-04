@@ -57,7 +57,7 @@ go build -o bin/energy-epp.exe ./cmd/energy-epp/
 → Binary size: 51 MB (Windows; ~8.6 MB as Linux distroless container)
 ```
 
-### ✅ Core Test Suite: ALL PASS (74 tests across 7 packages)
+### ✅ Core Test Suite: ALL PASS (112 tests across 8 packages)
 
 ```
 ok  github.com/johnnie/energy-aware-epp/pkg/adaptive      0.434s
@@ -124,7 +124,7 @@ This package requires the external `llm-d-router` dependency which isn't vendore
 | **Dockerfile** | ✅ Valid multi-stage build | Targets `gcr.io/distroless/static-debian12:nonroot` |
 | **K8s Deployments** | ✅ Valid YAML with probes | 3 Deployments + Service with liveness/readiness probes |
 | **Prometheus metrics** | ✅ Annotations present | `prometheus.io/scrape: "true"` on all pods |
-| **Scoring pipeline** | ✅ Fully tested | 74 unit tests + 1000-cycle E2E simulation passing |
+| **Scoring pipeline** | ✅ Fully tested | 112 unit tests + 1000-cycle E2E simulation passing |
 | **Adaptive FSM** | ✅ Fully tested | Mode transitions verified with real carbon data |
 | **SCI Calculator** | ✅ Matches GSF spec | Cross-region sensitivity validated |
 | **Helm chart** | ✅ Present | `deploy/helm/` directory exists |
@@ -149,7 +149,7 @@ This package requires the external `llm-d-router` dependency which isn't vendore
 2. **The math is correct** — SCI calculations, weight normalization, and epsilon-constraint filtering are all unit-tested
 3. **Hardware specs are real** — All TDP, memory, and architecture data matches official NVIDIA/Qualcomm datasheets
 4. **The 17.4% energy savings claim is mathematically sound** — Given the verified energy-per-token ratios (H100: 308.7mJ vs L4: 285.9mJ), routing decode traffic to L4 over round-robin demonstrably reduces average energy consumption
-5. **The FSM correctly responds to carbon signals** — Verified transitions between Normal, Carbon-Critical, and Green modes
+5. **The FSM correctly responds to carbon signals** — Verified transitions between Normal, Carbon-High, Load-Shed, and Green modes
 
 ### What would need real-world deployment to FULLY validate:
 1. **Actual energy measurements** under production load (current values are from published spec sheets, not in-situ NVML readings)

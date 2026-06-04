@@ -449,7 +449,7 @@ python -m vllm.entrypoints.openai.api_server_benchmark \
 > **Key thesis argument**: The EPP plugin code, scoring algorithms, adaptive controller, and observability stack are **identical** between local validation and production. The only difference is the data source (simulated profiles vs. real DCGM/RAPL telemetry). This validates the architecture's portability.
 
 ### Claims
-1. **Implementation is complete and validated** — 93+ tests, 0 data races, 8 packages
+1. **Implementation is complete and validated** — 112 tests, 0 data races, 8 packages
 2. **Scoring algorithms are correct** — E2E simulation proves phase-aware routing (99.8% prefill, 100% decode accuracy)
 3. **SCI methodology is ISO-compliant** — Hardware-specific embodied carbon amortization
 4. **Architecture is production-ready** — Containerized, health-checked, Prometheus-instrumented

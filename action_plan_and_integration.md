@@ -144,7 +144,7 @@ efficiency. With heterogeneous hardware (e.g., H100 + A100-power-capped
 - Adaptive weight controller (adjusts scoring based on grid carbon intensity)
 
 ## Implementation
-I have a working prototype with 93 unit tests and 1,000-cycle E2E simulation:
+I have a working prototype with 112 unit tests and 1,000-cycle E2E simulation:
 https://github.com/johnnie/energy-aware-epp
 
 Key files:

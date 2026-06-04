@@ -8,7 +8,7 @@
 |---|---------|------|---------|
 | 1 | **Regional Carbon Intensity** | `regional_carbon_comparison.png` | Bar chart of 10 global regions with FSM threshold lines (200 & 500 gCO₂/kWh). Shows why routing decisions change based on geography. |
 | 2 | **DVFS Power-Frequency Curve** | `dvfs_power_frequency_curve.png` | Dual-axis plot showing the decode-phase "sweet spot" where lowering GPU frequency saves energy with negligible latency impact (~42% savings). |
-| 3 | **Adaptive FSM (Detailed)** | `adaptive_fsm_detailed.png` | Full state diagram showing Normal → Carbon-Critical → Emergency mode transitions with exact weight vectors ($w_L, w_E, w_C$) for each state. |
+| 3 | **Adaptive FSM (Detailed)** | `adaptive_fsm_detailed.png` | Full state diagram showing Normal → Carbon-High → Load-Shed → Green mode transitions with exact weight vectors ($w_L, w_E, w_C$) for each state. |
 | 4 | **Energy-Delay Product Scatter** | `edp_scatter_analysis.png` | EDP scatter plot comparing H100/A100/A100-Capped/L4 with iso-EDP contour curves. Visualizes the energy-latency tradeoff. |
 | 5 | **Cost per Million Tokens** | `cost_per_million_tokens.png` | Bar chart comparing cloud inference cost (USD/MTok) across 5 hardware types using real cloud pricing × throughput. |
 | 6 | **Workload Radar Chart** | `workload_characterization_radar.png` | Radar chart profiling 4 benchmark traces (Chatbot, Code Gen, Summarization, Burst) across 5 dimensions. |
@@ -91,4 +91,4 @@ Four core tables were updated directly in the LaTeX source of the report:
 1. **Adaptive Weight Configurations**: Added the 3 new CRD Forced Modes (`CarbonMinimization`, `Latency`, `CostReduction`).
 2. **Telemetry Data Sources**: Added Linux TC eBPF Hook (Zero-overhead) and Intel RAPL.
 3. **Existing Scorer Plugins**: Added `rdma-locality` (ours) alongside `energy-aware`.
-4. **CI Pipeline Stages**: Updated test coverage metric from 74 to **143 unit tests across 9 packages**.
+4. **CI Pipeline Stages**: Updated test coverage metric to **112 unit tests across 8 packages** (note: `pkg/slurm`, `pkg/ray`, and `pkg/ebpf` have implementation code but no test files yet).

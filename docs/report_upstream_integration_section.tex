@@ -180,15 +180,16 @@ Where $C_{\max}$ is typically 800 gCO\textsubscript{2}/kWh (representing a heavi
 \section{Adaptive Control State Machine}
 \label{sec:adaptive-fsm}
 
-While static weight vectors handle routine variations in workload, extreme grid conditions require macro-level shifts in routing logic. We implemented a Finite State Machine (FSM) controller that evaluates grid conditions every 60 seconds and transitions the system between three states:
+While static weight vectors handle routine variations in workload, extreme grid conditions require macro-level shifts in routing logic. We implemented a Finite State Machine (FSM) controller that evaluates grid conditions every 30 seconds and transitions the system between four states:
 
 \begin{enumerate}
-    \item \textbf{NORMAL State}: Carbon intensity is below the 75th percentile historical average. The system uses standard configured weight vectors (\texttt{prefillLatencyWeight}, etc.).
-    \item \textbf{GREEN State}: Carbon intensity drops below the 25th percentile (e.g., peak solar generation). The FSM temporarily boosts $w_C$ to maximize carbon savings while clean energy is abundant.
-    \item \textbf{CARBON-CRITICAL State}: Carbon intensity spikes above the 90th percentile (e.g., peaker coal plants active). The FSM engages the \texttt{energy-budget-filter} aggressively, entirely dropping the most power-hungry nodes (e.g., H100s) from the candidate pool $E$, forcing all traffic to L4s or low-power ASICs regardless of queue depth.
+    \item \textbf{NORMAL State}: Carbon intensity is between the low and high thresholds ($100 < C < 500$ gCO\textsubscript{2}/kWh) and cluster power is within budget. The system uses standard configured weight vectors (\texttt{prefillLatencyWeight}, etc.).
+    \item \textbf{GREEN State}: Carbon intensity drops below 100 gCO\textsubscript{2}/kWh (e.g., peak solar generation or nuclear-heavy grids). The FSM relaxes energy constraints and allows latency-optimized routing, boosting $w_L$ by 1.5$\times$ while reducing $w_C$ by 0.3$\times$.
+    \item \textbf{CARBON-HIGH State}: Carbon intensity spikes above 500 gCO\textsubscript{2}/kWh (e.g., peaker coal plants active). The FSM increases $w_C$ by 2.0--2.5$\times$, reducing latency weight by 0.3--0.5$\times$ to aggressively route to low-power hardware.
+    \item \textbf{LOAD-SHED State}: Cluster total power exceeds 85\% of the configured power budget (\texttt{maxClusterPowerW}). The FSM boosts $w_E$ by 3.0$\times$ and reduces $w_L$ to 0.1--0.3$\times$, maximizing energy efficiency regardless of latency impact.
 \end{enumerate}
 
-This FSM guarantees that the cluster respects global carbon constraints without requiring human operator intervention.
+All adjusted weight vectors are re-normalized to sum to 1.0 after scaling, ensuring score compatibility with the $[0, 1]$ bounds required by the \texttt{scheduling.Scorer} interface. This FSM guarantees that the cluster respects both carbon and power constraints without requiring human operator intervention.
 
 % ─────────────────────────────────────────────────────────────────────
 % SECTION: Production Deployment Architecture
@@ -293,7 +294,7 @@ The CI pipeline executes on every push and pull request, performing five verific
 \toprule
 \textbf{Stage} & \textbf{Runtime} & \textbf{Validation} \\
 \midrule
-Go Tests & $\sim$30\,s & 74 unit tests across 7 packages with race detection \\
+Go Tests & $\sim$35\,s & \textbf{112 unit tests across 8 packages with race detection} \\
 E2E Simulation & $\sim$5\,s & 1000-cycle routing simulation (99.8\% prefill, 100\% decode accuracy) \\
 Build Binary & $\sim$10\,s & Verifies clean compilation of \texttt{cmd/energy-epp/} \\
 Docker Build & $\sim$45\,s & Validates multi-stage Dockerfile producing 8.6\,MB distroless image \\

@@ -17,7 +17,7 @@ Large Language Model (LLM) inference is rapidly becoming one of the largest cons
 
 The system implements five key innovations: (1) a **phase-aware energy scorer** with distinct weight vectors for prefill and decode phases, (2) an **SLO constraint filter** that enforces Time-To-First-Token and Time-Per-Output-Token bounds as hard constraints, (3) a **KV-cache transfer energy model** that accounts for disaggregated serving overheads, (4) a **Software Carbon Intensity (SCI) calculator** aligned with the Green Software Foundation specification, and (5) an **adaptive weight controller** that dynamically adjusts scoring weights based on real-time carbon grid signals.
 
-The plugin is implemented in Go (8 packages, 252 test executions, zero data races), containerised as an 8.6 MB distroless Docker image, and validated in a Kubernetes Kind cluster with 3 heterogeneous pods simulating GPU and ASIC accelerators. Simulation results demonstrate that energy-aware routing reduces estimated energy consumption by 38–62% for decode workloads compared to hardware-agnostic round-robin scheduling, while maintaining latency SLO compliance.
+The plugin is implemented in Go (8 packages, 112 unit tests, zero data races), containerised as an 8.6 MB distroless Docker image, and validated in a Kubernetes Kind cluster with 3 heterogeneous pods simulating GPU and ASIC accelerators. Simulation results demonstrate that energy-aware routing reduces estimated energy consumption by 17.4% on average and up to 32.3% for decode-heavy workloads compared to hardware-agnostic round-robin scheduling, while maintaining latency SLO compliance.
 
 **Keywords**: LLM inference, energy efficiency, Kubernetes, Gateway API, heterogeneous computing, carbon-aware scheduling, disaggregated serving
 
@@ -263,9 +263,10 @@ The controller runs every 30 seconds and adjusts scoring weights based on extern
 
 | Mode | Trigger | Prefill Weights (L/E/C) | Decode Weights (L/E/C) |
 |------|---------|------------------------|----------------------|
-| **Normal** | CO₂ < 200 gCO₂/kWh | 0.60 / 0.20 / 0.20 | 0.20 / 0.50 / 0.30 |
-| **Carbon-Critical** | CO₂ ≥ 500 gCO₂/kWh | 0.30 / 0.30 / 0.40 | 0.10 / 0.40 / 0.50 |
-| **Emergency** | Cluster power > budget | 0.20 / 0.50 / 0.30 | 0.10 / 0.60 / 0.30 |
+| **Normal** | 100 ≤ CO₂ < 500 gCO₂/kWh, power within budget | 0.60 / 0.20 / 0.20 | 0.20 / 0.50 / 0.30 |
+| **Green** | CO₂ < 100 gCO₂/kWh (nuclear/solar peak) | Latency ×1.5 boost | Latency ×1.5 boost |
+| **Carbon-High** | CO₂ ≥ 500 gCO₂/kWh | Carbon ×2.0–2.5 boost | Carbon ×2.0–2.5 boost |
+| **Load-Shed** | Cluster power > 85% budget | Energy ×3.0 boost, Latency suppressed | Energy ×3.0 boost, Latency suppressed |
 
 This enables the system to automatically shift routing preferences during high-carbon grid periods (e.g., coal peak hours in Germany) without manual intervention.
 
@@ -341,7 +342,7 @@ type EnergyStore struct {
     stale     time.Duration              // staleness threshold
 }
 ```
-All scrapers write to the store; all scorers read from it. `sync.RWMutex` ensures zero data races (verified with `-race` flag across all 252 test executions).
+All scrapers write to the store; all scorers read from it. `sync.RWMutex` ensures zero data races (verified with `-race` flag across all 112 test executions).
 
 #### 4.3.2 BatchScorerPlugin (Normalisation-Aware Interface)
 The GIE scorer interface calls `Score()` per-pod, but our scorers require min-max normalisation across the full candidate set. We introduced `BatchScorerPlugin`:
@@ -389,15 +390,15 @@ Each pod exposes 4 endpoints:
 
 | Package | Test Count | Key Scenarios |
 |---------|-----------|---------------|
-| `pkg/signals` | 39 | Store concurrency, SCI computation, stale eviction |
-| `pkg/plugins/scorer` | 67 | Phase weighting, normalisation, heuristic fallback, carbon scoring, KV-cache |
-| `pkg/plugins/filter` | 33 | Power budget, SLO TTFT/TPOT, queue depth, heterogeneous clusters |
-| `pkg/plugins/scraper` | 47 | DCGM parsing, RAPL parsing, Carbon API responses, error handling |
-| `pkg/config` | 35 | GIE adapters, batch scoring, full pipeline, label parsing |
-| `pkg/adaptive` | 14 | Mode transitions, weight adjustments, concurrent access |
-| `pkg/metrics` | 5 | Prometheus export, registry isolation |
-| `pkg/simulation` | 12 | E2E heterogeneous cluster simulation |
-| **Total** | **252** | **0 failures, 0 data races** |
+| `pkg/signals` | 25 | Store concurrency, SCI computation, stale eviction, token economics |
+| `pkg/plugins/scorer` | 24 | Phase weighting, normalisation, heuristic fallback, carbon scoring, KV-cache, RDMA locality |
+| `pkg/plugins/filter` | 14 | Power budget, SLO TTFT/TPOT, queue depth, thermal throttling |
+| `pkg/plugins/scraper` | 22 | DCGM parsing, RAPL parsing, Carbon API responses, error handling |
+| `pkg/config` | 17 | GIE adapters, batch scoring, full pipeline, InferenceObjective CRD |
+| `pkg/adaptive` | 6 | Mode transitions, weight adjustments, concurrent access |
+| `pkg/metrics` | 2 | Prometheus export, registry isolation |
+| `pkg/simulation` | 2 | E2E heterogeneous cluster simulation |
+| **Total** | **112** | **0 failures, 0 data races** |
 
 ---
 
@@ -501,7 +502,7 @@ Using the SCI formulation from Section 3.4 across six grid regions:
 | US-CAL (220 gCO2/kWh) | 17,519 | 19,072 | 23,425 | 25.2% |
 | Poland (680 gCO2/kWh) | 54,120 | 58,923 | 72,363 | 25.2% |
 
-The L4 consistently achieves the lowest SCI across all regions. The **absolute savings scale linearly** with carbon intensity: deploying in Poland (680 gCO2/kWh) saves 18,243 gCO2e/1M tokens by routing to L4 instead of A100, versus only 809 gCO2e/1M tokens in Ontario (30 gCO2/kWh). This validates the adaptive controller's carbon-critical mode.
+The L4 consistently achieves the lowest SCI across all regions. The **absolute savings scale linearly** with carbon intensity: deploying in Poland (680 gCO2/kWh) saves 18,243 gCO2e/1M tokens by routing to L4 instead of A100, versus only 809 gCO2e/1M tokens in Ontario (30 gCO2/kWh). This validates the adaptive controller's Carbon-High mode.
 
 ### 5.8 Adaptive Controller Behaviour
 
@@ -509,10 +510,10 @@ The L4 consistently achieves the lowest SCI across all regions. The **absolute s
 
 The adaptive controller was verified over a simulated 12-hour operational period. As grid carbon intensity fluctuates, the Finite State Machine (FSM) transitions the routing policy to minimise the carbon footprint and adhere to power budgets:
 
-1. **Normal Mode (0-4h)**: Grid carbon is steady at ~350 gCO₂/kWh. Energy, latency, and carbon weights are balanced.
-2. **Carbon-Critical Mode (4-7h)**: A spike in grid carbon intensity (e.g., fossil fuel peaking plants coming online) triggers the transition to Carbon-Critical mode. The scorer drastically increases the weight of the carbon and energy sub-scorers (0.50 and 0.40 respectively), shifting traffic aggressively towards the L4 GPUs to minimise absolute energy consumption.
-3. **Emergency Mode (Hour 6)**: An unexpected spike in request load causes the total cluster power to exceed the predefined safety budget. The controller immediately overrides the carbon policy and enters Emergency mode, throttling throughput-heavy nodes and favouring energy-efficient routing regardless of carbon intensity, until the power budget violation is resolved.
-4. **Recovery (8-12h)**: Renewables come online, dropping carbon intensity below 200 gCO₂/kWh, restoring Normal operations.
+1. **Normal Mode (0-4h)**: Grid carbon is steady at ~350 gCO₂/kWh (between 100–500 thresholds). Energy, latency, and carbon weights use the configured base vectors.
+2. **Carbon-High Mode (4-7h)**: A spike in grid carbon intensity (≥ 500 gCO₂/kWh, e.g., fossil fuel peaking plants coming online) triggers the transition to Carbon-High mode. The controller increases the carbon weight by 2.0–2.5×, shifting traffic aggressively towards the L4 GPUs to minimise absolute energy consumption.
+3. **Load-Shed Mode (Hour 6)**: An unexpected spike in request load causes the total cluster power to exceed 85% of the configured power budget. The controller enters Load-Shed mode, boosting energy weight by 3.0× and suppressing latency weight, favouring energy-efficient routing regardless of carbon intensity until the power budget violation is resolved.
+4. **Green Mode / Recovery (8-12h)**: Renewables come online, dropping carbon intensity below 100 gCO₂/kWh. The FSM enters Green mode, relaxing energy constraints and boosting latency weight by 1.5× to favour performance during clean-grid periods.
 
 This temporal awareness guarantees that the routing layer contributes dynamically to workload carbon shifting, a capability absent in standard Kubernetes schedulers.
 
@@ -537,7 +538,7 @@ Increasing the L4 fraction from 0% to 100% reduces fleet-average energy per toke
 
 ![Carbon Sensitivity](docs/figures/fig9_carbon_sensitivity.png)
 
-The L4 advantage widens at higher carbon intensities: L4 saves 809 gCO2e/1M tokens vs A100 in Ontario (30 gCO2/kWh) but 18,243 gCO2e/1M tokens in Poland (680 gCO2/kWh). This validates the adaptive controller's carbon-critical mode.
+The L4 advantage widens at higher carbon intensities: L4 saves 809 gCO2e/1M tokens vs A100 in Ontario (30 gCO2/kWh) but 18,243 gCO2e/1M tokens in Poland (680 gCO2/kWh). This validates the adaptive controller's Carbon-High mode.
 
 #### 5.9.4 Failure Rate Under Load
 
@@ -608,7 +609,7 @@ This thesis presented the design, implementation, and evaluation of an energy-aw
 2. **An ε-constraint SLO filter** that enforces latency bounds as hard constraints before energy optimisation, following Pareto multi-objective optimisation theory
 3. **A KV-cache transfer energy model** that accounts for the energy cost of disaggregated serving, based on Splitwise (ISCA '24) and Mooncake research
 4. **An ISO-aligned SCI calculator** that quantifies per-token carbon footprint including hardware embodied emissions
-5. **A production-ready implementation** in Go with 252 test executions, zero data races, containerised as an 8.6 MB image, and validated in Kubernetes
+5. **A production-ready implementation** in Go with 112 unit tests across 8 packages, zero data races, containerised as an 8.6 MB image, and validated in Kubernetes
 
 ### 6.2 Limitations
 

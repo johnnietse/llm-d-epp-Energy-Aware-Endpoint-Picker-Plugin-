@@ -27,7 +27,7 @@
 | Component | Status | Files |
 |-----------|--------|-------|
 | EPP binary (Go, builds for linux/amd64) | ✅ Complete | [cmd/energy-epp/](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/cmd/energy-epp) |
-| Scoring algorithms (energy, carbon, SCI) | ✅ 93 tests pass | [pkg/plugins/](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/pkg/plugins) |
+| Scoring algorithms (energy, carbon, SCI) | ✅ 112 tests pass | [pkg/plugins/](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/pkg/plugins) |
 | GIE v1.5.0 interface adapters | ✅ Compile-time verified | [pkg/config/gie_adapter.go](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/pkg/config/gie_adapter.go) |
 | Adaptive weight controller | ✅ 4-mode FSM | [pkg/adaptive/](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/pkg/adaptive) |
 | Prometheus metrics exporter (17 families) | ✅ | [pkg/metrics/](file:///c:/Users/Johnnie/Documents/Energy_aware_token_level_routing_forheterogeneous_LLM_inference_in_kubernetes_design_implementation_and_evaluation_of_an_llm_d_endpoint_picker_plugin/pkg/metrics) |

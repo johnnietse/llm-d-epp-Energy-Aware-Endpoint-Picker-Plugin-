@@ -3,7 +3,7 @@
 # These profiles define the real-time and average carbon intensity
 # (gCO2eq/kWh) for regions referenced in the thesis evaluation.
 # Used by:
-#   1. The Adaptive Weight Controller FSM — to trigger Normal/Carbon-Critical
+#   1. The Adaptive Weight Controller FSM — to trigger Normal/Green/Carbon-High/Load-Shed
 #      mode transitions based on grid carbon signals.
 #   2. The SCI Calculator — to compute Software Carbon Intensity per-pod.
 #   3. Benchmark scripts — to simulate regional routing decisions.
@@ -141,14 +141,15 @@ regions:
 # These thresholds map directly to the Adaptive Weight Controller FSM
 # defined in Section III.D of the thesis:
 #
-#   Normal Mode:       grid_carbon < normal_threshold
-#   Carbon-Critical:   grid_carbon >= carbon_critical_threshold
-#   Emergency Mode:    cluster_power >= emergency_power_budget_kw
+#   Normal Mode:       100 <= grid_carbon < 500 (balanced weights)
+#   Green Mode:        grid_carbon < green_threshold (latency boost)
+#   Carbon-High:       grid_carbon >= carbon_high_threshold (carbon boost)
+#   Load-Shed Mode:    cluster_power >= load_shed_power_budget_kw (energy boost)
 #
 fsm_thresholds:
-  normal_threshold_gco2_kwh: 200
-  carbon_critical_threshold_gco2_kwh: 500
-  emergency_power_budget_kw: 50
+  green_threshold_gco2_kwh: 100
+  carbon_high_threshold_gco2_kwh: 500
+  load_shed_power_budget_kw: 50
 
 # ─── Regional Carbon Savings Summary ──────────────────────────────────
 #

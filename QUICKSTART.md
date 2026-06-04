@@ -30,7 +30,7 @@ The fastest way to verify the project works:
 git clone https://github.com/johnnietse/llm-d-epp-Energy-Aware-Endpoint-Picker-Plugin-.git
 cd llm-d-epp-Energy-Aware-Endpoint-Picker-Plugin-
 
-# Run all Go unit tests (74 tests across 7 packages)
+# Run all Go unit tests (112 tests across 8 packages)
 go test -v -count=1 ./pkg/...
 
 # Run the 1000-cycle end-to-end simulation
@@ -252,7 +252,7 @@ Output goes to `docs/diagrams/` and `docs/figures/`.
 .
 ├── cmd/energy-epp/          # Main binary entry point
 ├── pkg/
-│   ├── adaptive/            # FSM controller (Normal/Carbon-Critical/Green)
+│   ├── adaptive/            # FSM controller (Normal/Carbon-High/Load-Shed/Green)
 │   ├── config/              # GIE-compatible plugin configuration
 │   ├── metrics/             # Prometheus metrics (17 families)
 │   ├── plugins/
