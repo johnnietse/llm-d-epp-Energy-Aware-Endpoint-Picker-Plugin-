@@ -1,5 +1,15 @@
 # Upstream Interface Compatibility Notes
 
+> **Status as of 2026-09-17: NOT compatible.** Copying `energy_aware.go` and
+> `energy_aware_test.go` into `llm-d-router` at `e149f34f`
+> (`pkg/epp/framework/plugins/scheduling/scorer/energyaware/`) fails to
+> build: `scheduling.Metrics` is undefined (endpoint metrics moved to the
+> data layer), and the tests call `Score` with the removed `CycleState`
+> argument. This directory's `go.mod` also declares no dependencies, so it
+> does not build standalone. The "Ready for Merge" section below is out of
+> date. The replacement design is in `docs/plan/technical-plan-v2-2026-09.md`
+> (out-of-tree plugin module against a pinned upstream commit).
+
 ## ⚠️ Interface Change Detected
 
 As of the latest pull from `llm-d/llm-d-router` (synced 2026-06-01), the `scheduling.Scorer` interface has been updated. The `CycleState` parameter was **removed**.

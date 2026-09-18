@@ -761,7 +761,7 @@ This directory contains a **single-file, production-ready scorer** designed to b
 | Phase Detection | Uses `request.RequestSizeBytes > 4096` heuristic (large body → prefill) |
 | KV-Cache Synergy | Includes **KV-Cache Energy Discounting** — high cache hit ratio reduces energy score penalty by up to 80% |
 
-`COMPATIBILITY.md` tracks upstream API changes (e.g., removal of `CycleState` parameter from `Score()`) and confirms the current code is **100% API compatible** with the `llm-d-router` main branch.
+`COMPATIBILITY.md` tracks upstream API changes (e.g., removal of `CycleState` parameter from `Score()`). As of 2026-09-17 this directory does **not** build against `llm-d-router` main (see `COMPATIBILITY.md`); the replacement design is in `docs/plan/technical-plan-v2-2026-09.md`.
 
 ---
 
