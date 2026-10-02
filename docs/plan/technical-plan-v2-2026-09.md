@@ -6,7 +6,8 @@ Status: proposal (v2, consolidated 2026-09-18). Supersedes
 
 **Summary.** Build an energy-aware endpoint scorer for the llm-d router as an
 out-of-tree plugin module, drive it with GPU energy counters, and evaluate it
-on real A100s under Slurm (Frontenac) using upstream's no-Kubernetes mode.
+on the QHPC club's Frontenac node (2x NVIDIA L4) under Slurm, using
+upstream's no-Kubernetes mode.
 The scorer estimates the marginal energy a request adds to each endpoint,
 including prefix-cache hits, and picks the cheapest endpoint that stays
 within SLO. The first target is a 5-page workshop paper (HotCarbon); a
@@ -35,8 +36,10 @@ instead of load or cache signals alone?
   energy computed from measured idle power in three states (loaded idle,
   vLLM sleep mode, no process), because on a shared HPC cluster a released
   GPU stays powered on.
-- **H4 (optional, cloud).** On a mixed-GPU pool the same scorer shifts decode
-  load toward the more efficient GPU type without SLO loss.
+- **H4 (heterogeneous pool).** On a mixed L4 + RTX 6000 Ada pool (4.2x TDP
+  ratio, same architecture) the scorer shifts decode load toward the more
+  efficient GPU without SLO loss. Core hypothesis if CAC grants the RTX 6000
+  nodes; otherwise deferred to cloud.
 
 Each hypothesis maps to one figure. If H1 fails, the paper becomes a
 measurement paper on why online energy models for routing are unreliable.
@@ -51,8 +54,8 @@ measurement paper.
 
 | Tier | Contents |
 |---|---|
-| Workshop (HotCarbon, 5 pages) | H1; H2 on BF16 replicas with the GPU-tier prefix-cache term; static SLO caps; packing and oracle baselines; H3 on Slurm. |
-| Full paper (later) | Learned SLO constraint via the latency predictor; mixed precision / mixed TP pools; intra-node P/D; CPU-RAM KV tier; H100 curves; cloud mixed-GPU run (H4). |
+| Workshop (HotCarbon, 5 pages) | H1 on 2x L4; H2 with the GPU-tier prefix-cache term; static SLO caps; packing and oracle baselines; H3 (2-to-1 scale-down); H4 if RTX 6000 nodes arrive in time. |
+| Full paper (later) | Learned SLO constraint via the latency predictor; FP8 vs BF16 pools (both GPUs are Ada, so FP8 is native); intra-node P/D; CPU-RAM KV tier; A100 or H100 curves; larger fleets. |
 
 ## 2. Engineering design
 
@@ -122,7 +125,10 @@ the plugin packages into the tree later.
 |---|---|---|---|
 | EPP on Slurm | Yes | Upstream `docs/discovery.md`, "Running EPP with file discovery (no Kubernetes)". | `InferenceObjective` is inactive in file mode; workshop tier does not need it. |
 | Custom EPP binary | Yes | `cmd/epp/main.go` is a thin wrapper over `runner.NewRunner()`; plugins register via `fwkplugin.Register`. | Upstream API churn: pin a commit, bump deliberately. |
-| vLLM on Frontenac | Yes | Repo scripts ran vLLM on `gpubase_*` with A100 40GB via Apptainer. | 40GB limits model size: 8B at TP1, 14B at TP2. |
+| vLLM on frnt201 | Yes | Apptainer available; L4 is a supported vLLM target. | 24 GB limits models to about 3B-7B; use FP8 for headroom. |
+| Long-running services | Yes | QHPC jobs on frnt201 run up to 14 days (CAC #17312). | Keep a watchdog; jobs still end at the limit. |
+| Exclusive node for measurements | Needs a reservation | CAC: "we can set up a recurring reservation ... so that jobs from the general queue are not scheduled on frnt201 during those periods". | Without it, 6h general jobs and Ryan Grant's group share the GPUs and corrupt energy data. Request benchmarking windows. |
+| Hardware heterogeneity | Likely, free | CAC: "If you require additional GPU resources, we can look into adding more RTX 6000 nodes for QHPC." | Ask now; it converts H4 from a paid cloud experiment into an on-prem one. |
 | Energy telemetry without root | Likely | NVML energy counter reads do not need root; Zeus uses them on Volta and newer. | `dcgm-exporter` may need privileges; own NVML exporter is the default on Slurm. |
 | Measurement accuracy | Yes, with method | ~25% sensor sampling on A100/H100; SC24 practices bring error to ~5%. | Long steady-state runs, repeated trials, Zeus cross-check. |
 | SLO constraint | Yes (workshop tier) | `endpoint-attribute-filter` thresholds on metrics the EPP already has. | Learned predictor deferred: extra services, early-stage docs. |
@@ -140,6 +146,10 @@ the plugin packages into the tree later.
 ranks highest.
 (b) Energy closure: exporter counter deltas match an independent Zeus
 measurement window within a stated tolerance.
+(c) Sensor behaviour on L4: run the `GPU_Power_Benchmark` microbenchmark
+from the SC24 study to measure this GPU's sampling period and rise time.
+A100/H100 sample about 25% of the time; L4's behaviour is not published, and
+the measurement method depends on it.
 
 **H1 measurements.** Power and latency vs running requests and tokens in
 flight; J/token vs prefix-hit ratio; idle power in three states. Pin each
@@ -150,12 +160,14 @@ ShareGPT / LMSYS-style prompt lengths; a long-context (summarization) mix, a
 short (chat) mix, and a prefix-sharing mix (multi-turn chat, shared system
 prompts) so the cache term is exercised.
 
-**Models.** Llama-3.1-8B-Instruct (BF16, TP1); Qwen2.5-14B-Instruct (BF16,
-TP2); full-paper tier adds an AWQ-INT4 variant. Check Hugging Face license
-terms before use.
+**Models (sized for 24 GB L4).** Llama-3.2-3B-Instruct and
+Qwen2.5-7B-Instruct, BF16 and FP8 (Ada supports FP8 natively on both GPU
+types). An 8B model at BF16 leaves little KV-cache room on 24 GB. Check
+Hugging Face license terms before use.
 
-**Pools on one DGX node.** Workshop tier: homogeneous BF16 replicas.
-Full-paper tier: mixed TP1/TP2, mixed BF16/AWQ-INT4, intra-node P/D.
+**Pools.** Workshop tier: 2x L4, one vLLM per GPU, identical configuration;
+plus the mixed L4 + RTX 6000 pool for H4 when available. Full-paper tier:
+mixed BF16/FP8, intra-node P/D, larger fleets.
 
 **Baselines.**
 1. Default llm-d config (prefix-cache + load/kv-utilization scorers).
@@ -202,19 +214,45 @@ mixed-GPU figures.
 
 ### 5.2 Hardware
 
+Primary platform is the QHPC club's contributed Frontenac node, confirmed by
+CAC ticket #17312 (2026-10).
+
 | Tier | What | Cost | Needed for |
 |---|---|---|---|
 | Dev machine | Laptop with at least 100 GB free disk (about 3.6 GB free on C: as of 2026-09-17), 16 GB+ RAM, WSL2 | free; clear disk first | building, simulator, analysis |
-| Frontenac | 1 DGX A100 node (8x A100 40GB) via `gpubase_*`, Apptainer | free (allocation) | H1-H3 |
-| DRAC (optional) | H100 80GB on Fir / Nibi / Rorqual / Trillium through a supervisor's allocation | free with sponsor | second GPU generation for H1 |
-| Cloud (optional) | GKE with two GPU node pools (for example A100 + L4) | estimate a few hundred USD; set a billing cap | H4, Kubernetes demo |
+| **frnt201 (QHPC, `sg6079000`)** | 1 node: **2x NVIDIA L4** (72W TDP, 24GB GDDR6, Ada, native FP8), 64 CPU cores, 256 GB RAM. QHPC jobs up to **14 days** (general users capped at 6h); partition `gpu-rgrant`. Project storage 950 GB, home 500 GB/user. | free (club allocation) | H1, H2, H3, Experiment 0 |
+| **RTX 6000 Ada nodes (request)** | CAC offered to add RTX 6000 Ada nodes for QHPC: 300W TDP, 48GB, same Ada architecture and FP8 support as L4 | free if granted | **H4 heterogeneity (4.2x TDP ratio, same architecture)** |
+| Personal Frontenac account (verify) | `gpubase_*` DGX A100 40GB, if the account still has it | free | A100 curves as a second generation (Ampere, no FP8) |
+| DRAC (optional) | H100 80GB on Fir / Nibi / Rorqual / Trillium through a supervisor's allocation | free with sponsor | third GPU generation for H1 |
+| Cloud (fallback only) | GKE with two GPU node pools | a few hundred USD; billing cap | H4 if no second on-prem GPU type |
+
+**Why this platform suits the paper.** L4 and RTX 6000 Ada share an
+architecture, so the same vLLM build, kernels and FP8 path apply, while TDP
+differs 4.2x (72W vs 300W) and memory 2x. That is a cleaner energy
+heterogeneity axis than A100-versus-cloud, and it is free. The 14-day job
+limit removes the "can we run long services" risk, and a node reservation
+gives exclusive access, which energy measurements need.
+
+**Constraints this platform imposes.**
+- 24 GB on L4: models must be small. Use Llama-3.2-3B-Instruct and
+  Qwen2.5-7B-Instruct (BF16 or FP8); an 8B model at BF16 leaves little KV
+  cache room on 24 GB.
+- 2 GPUs means 2 endpoints: enough for H1/H2 and a 2-to-1 scale-down in H3,
+  but fleet-size claims must stay modest until more nodes are added.
+- Without a reservation, general users run up to 6h jobs on the same node,
+  and a user from Ryan Grant's group runs on the L4 GPUs. Co-tenancy would
+  corrupt energy measurements, so measurement runs need a reservation window.
 
 ### 5.3 People and process
 
 - Supervisor sign-off on the RQ, scope tier, and venue.
-- CAC ticket: maximum job length; InfiniBand between DGX nodes; NVML energy
-  counters readable by users; container runtime policy; long-running
-  services inside jobs.
+- QHPC club: confirm membership on `sg6079000` and agree with the
+  co-presidents how research runs share the node with workshops.
+- CAC ticket (building on #17312): request recurring **reservation windows
+  for benchmarking** (exclusive node, outside club meeting times); ask for
+  the **RTX 6000 Ada node** CAC offered; confirm NVML energy counters are
+  readable without root on frnt201; confirm container runtime policy and the
+  current CPU/GPU allocation end dates.
 - Hugging Face account with accepted model licenses; request access to
   `ml-energy/benchmark-v3` (gated).
 - Check whether Queen's has a student cluster-competition team or HPC club
@@ -294,8 +332,17 @@ Related work -> Conclusion.
 - H1 fails (poor fit): per-endpoint lookup tables from profiling runs, or
   publish the measurement result.
 - Gate fails (savings over packing below ~5%): measurement paper.
-- Frontenac forbids long-running services or container networking inside
-  jobs: move real-hardware runs to DRAC or cloud.
+- No reservation granted: energy runs are polluted by co-tenant jobs.
+  Mitigation: run inside the club's reserved window, detect foreign
+  processes with `nvidia-smi` before and during each run, and discard
+  contaminated runs.
+- Club scheduling conflict: workshops have priority on the node. Agree a
+  calendar with the co-presidents and keep runs scriptable so they fit
+  between sessions.
+- Only 2 GPUs: fleet-level claims stay modest; H3 is a 2-to-1 scale-down
+  unless RTX 6000 nodes arrive.
+- Frontenac forbids container networking inside jobs: move real-hardware
+  runs to a personal A100 allocation, DRAC or cloud.
 - Upstream rejects the scorer: keep the out-of-tree module; the paper does
   not depend on the merge.
 - Prior work with the same idea appears: search arXiv and llm-d issues
