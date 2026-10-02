@@ -36,10 +36,10 @@ instead of load or cache signals alone?
   energy computed from measured idle power in three states (loaded idle,
   vLLM sleep mode, no process), because on a shared HPC cluster a released
   GPU stays powered on.
-- **H4 (heterogeneous pool).** On a mixed L4 + RTX 6000 Ada pool (4.2x TDP
-  ratio, same architecture) the scorer shifts decode load toward the more
-  efficient GPU without SLO loss. Core hypothesis if CAC grants the RTX 6000
-  nodes; otherwise deferred to cloud.
+- **H4 (heterogeneous pool).** On a mixed **L4 (frnt201) + L40S (frnt206)**
+  pool (roughly 4-5x TDP ratio, both Ada, both FP8) the scorer shifts decode
+  load toward the more efficient GPU without SLO loss. Both nodes already
+  exist in `gpubase_6hrs`, so this needs no new hardware and no cloud spend.
 
 Each hypothesis maps to one figure. If H1 fails, the paper becomes a
 measurement paper on why online energy models for routing are unreliable.
@@ -214,45 +214,86 @@ mixed-GPU figures.
 
 ### 5.2 Hardware
 
-Primary platform is the QHPC club's contributed Frontenac node, confirmed by
-CAC ticket #17312 (2026-10).
+Measured on Frontenac 2026-10-02 from account `sa6079052` (Slurm queries, not
+assumptions). CAC ticket #17312 supplies the QHPC policy context.
+
+**Blocker: this account currently cannot submit any job.** `id` returns
+`sa6079052 slurm_workers frnt_user login_nodes` with no `sg6079000` Unix
+group, so:
+- `srun -p cpubase_6hrs` fails with "User's group not permitted to use this
+  partition";
+- any `-A sg6079000*` job fails with "You are not a member of the specified
+  account sg6079000";
+- `/global/teaching-project/sg6079000` returns "Permission denied".
+The Slurm association `sg6079000_cpu` still exists for the account (with
+`RawUsage` from past jobs), and CAC noted in #17312 that "some users have
+been removed from the teaching account". Also, the GPU association
+`sg6079000_gpu` lists `sa6079001, sa6079009, sa6079011, sa6079019,
+sa6079049, sa6079053, hpc6079` and **not** `sa6079052`. Both need fixing
+before any experiment runs (see `cac-access-request.md`).
+
+**Measured cluster inventory (GPU nodes, `sinfo`):**
+
+| Node(s) | GPUs | Notes |
+|---|---|---|
+| frnt201 | 2x **L4** | 128 CPU threads (2x32 cores), 250 GB RAM, features `L4,rgrant,intel,avx512`. Partitions: `gpu-L4`, `gpubase_interac`, `gpubase_6hrs`. QHPC's "gpu-rgrant" does not exist as a partition; `gpu-L4` is the node's own partition and shows `MaxTime=06:00:00`, so the 14-day limit from #17312 must come from a QOS not visible here and needs confirming. |
+| frnt206 | 2x **L40S** | Same partitions as frnt201. Ada like L4, FP8 capable, roughly 300-350 W against L4's 72 W. **This is the heterogeneous pair for H4, available today, no new hardware needed.** |
+| frnt140-147 | 2x **A30** each | Feature `power_ipmi`: node-level IPMI power is exposed here and nowhere else. Use for the secondary node-level energy check. Ampere, 165 W, no FP8. |
+| frnt107 | 1x A100 | 379 GB RAM |
+| frnt154, frnt190-191 | 8x A100 | `gpubase_6hrs` |
+| frnt148-153, 163-187 | 4x RTX 6000 | also the `teaching` partition (1-day limit) |
+| frnt155 | 8x RTX 6000 | |
+| frnt156 | 8x RTX 8000 | |
+| frnt110 | 1x V100 | Volta: lowest generation with the NVML energy counter |
+
+Partition access is `AllowAccounts=ALL`, so the gate is the account
+association and Unix group, not the partition.
 
 | Tier | What | Cost | Needed for |
 |---|---|---|---|
-| Dev machine | Laptop with at least 100 GB free disk (about 3.6 GB free on C: as of 2026-09-17), 16 GB+ RAM, WSL2 | free; clear disk first | building, simulator, analysis |
-| **frnt201 (QHPC, `sg6079000`)** | 1 node: **2x NVIDIA L4** (72W TDP, 24GB GDDR6, Ada, native FP8), 64 CPU cores, 256 GB RAM. QHPC jobs up to **14 days** (general users capped at 6h); partition `gpu-rgrant`. Project storage 950 GB, home 500 GB/user. | free (club allocation) | H1, H2, H3, Experiment 0 |
-| **RTX 6000 Ada nodes (request)** | CAC offered to add RTX 6000 Ada nodes for QHPC: 300W TDP, 48GB, same Ada architecture and FP8 support as L4 | free if granted | **H4 heterogeneity (4.2x TDP ratio, same architecture)** |
-| Personal Frontenac account (verify) | `gpubase_*` DGX A100 40GB, if the account still has it | free | A100 curves as a second generation (Ampere, no FP8) |
-| DRAC (optional) | H100 80GB on Fir / Nibi / Rorqual / Trillium through a supervisor's allocation | free with sponsor | third GPU generation for H1 |
-| Cloud (fallback only) | GKE with two GPU node pools | a few hundred USD; billing cap | H4 if no second on-prem GPU type |
+| Dev machine | Laptop, at least 100 GB free disk, 16 GB+ RAM, WSL2 | free | building, simulator, analysis |
+| frnt201 (2x L4) | 72 W class, 24 GB, Ada, FP8 | free once access restored | H1, H2, H3 |
+| frnt206 (2x L40S) | 300-350 W class, 48 GB, Ada, FP8 | free once access restored | H4 heterogeneous pool |
+| frnt140-147 (2x A30) | 165 W, 24 GB, `power_ipmi` | free | node-level energy validation |
+| Larger pools (A100, RTX 6000) | 4-8 GPUs per node | free, 6 h limit | fleet-size experiments, H3 at larger scale |
 
-**Why this platform suits the paper.** L4 and RTX 6000 Ada share an
-architecture, so the same vLLM build, kernels and FP8 path apply, while TDP
-differs 4.2x (72W vs 300W) and memory 2x. That is a cleaner energy
-heterogeneity axis than A100-versus-cloud, and it is free. The 14-day job
-limit removes the "can we run long services" risk, and a node reservation
-gives exclusive access, which energy measurements need.
+Home directory: 500 GB quota, 45 GB used. Project directory: 950 GB (needs
+group membership). Modules: `apptainer/1.4.5`, `python/3.10-3.14`,
+`cuda/11.6.1` (old; the vLLM container supplies its own CUDA, so only the
+host driver version matters, still to be read from a GPU node).
+
+Superseded assumption: the earlier plan's "DGX A100 via `gpubase_*`" came
+from this repo's old scripts, not from the live cluster.
+
+**Why this platform suits the paper.** L4 and L40S share the Ada
+architecture, so the same vLLM build, kernels and FP8 path apply on both,
+while TDP differs by roughly 4-5x (72 W against 300-350 W) and memory by 2x.
+That is a clean energy-heterogeneity axis, it is free, and it exists on the
+cluster today. The A30 nodes add node-level IPMI power for validating the
+GPU-counter measurements.
 
 **Constraints this platform imposes.**
-- 24 GB on L4: models must be small. Use Llama-3.2-3B-Instruct and
-  Qwen2.5-7B-Instruct (BF16 or FP8); an 8B model at BF16 leaves little KV
-  cache room on 24 GB.
-- 2 GPUs means 2 endpoints: enough for H1/H2 and a 2-to-1 scale-down in H3,
-  but fleet-size claims must stay modest until more nodes are added.
-- Without a reservation, general users run up to 6h jobs on the same node,
-  and a user from Ryan Grant's group runs on the L4 GPUs. Co-tenancy would
-  corrupt energy measurements, so measurement runs need a reservation window.
+- 24 GB on L4: models stay small. Llama-3.2-3B-Instruct and
+  Qwen2.5-7B-Instruct, BF16 or FP8; 8B at BF16 leaves little KV-cache room.
+- 2 GPUs per node: H1/H2 and a 2-to-1 scale-down for H3. Larger fleets need
+  the 4-8 GPU A100 or RTX 6000 nodes, at a 6 h job limit.
+- GPU partitions show a 6 h limit; experiment runs are minutes, so this is
+  workable, but a long-lived service needs either the QHPC QOS (to be
+  confirmed) or job chaining.
+- Nodes are shared unless reserved, and #17312 notes another group already
+  runs on the L4 GPUs. Co-tenancy corrupts energy measurements, so each run
+  records co-tenant processes and contaminated runs are discarded.
 
 ### 5.3 People and process
 
 - Supervisor sign-off on the RQ, scope tier, and venue.
-- QHPC club: confirm membership on `sg6079000` and agree with the
-  co-presidents how research runs share the node with workshops.
-- CAC ticket (building on #17312): request recurring **reservation windows
-  for benchmarking** (exclusive node, outside club meeting times); ask for
-  the **RTX 6000 Ada node** CAC offered; confirm NVML energy counters are
-  readable without root on frnt201; confirm container runtime policy and the
-  current CPU/GPU allocation end dates.
+- **CAC ticket, blocking everything** (draft in `cac-access-request.md`):
+  restore `sa6079052` to the `sg6079000` Unix group, add the account to the
+  `sg6079000_gpu` association, confirm the QHPC job-length QOS, and ask about
+  reservation windows for measurement runs.
+- QHPC club: confirm membership with the co-presidents and agree how research
+  runs share frnt201 with workshops.
+- Supervisor sign-off on the RQ, scope tier, and venue.
 - Hugging Face account with accepted model licenses; request access to
   `ml-energy/benchmark-v3` (gated).
 - Check whether Queen's has a student cluster-competition team or HPC club
