@@ -390,6 +390,83 @@ Related work -> Conclusion.
   monthly; the differentiators are real-system integration, the cache-aware
   model, and the packing baseline.
 
+## 11. First measurements (2026-10-03, Frontenac `frnt152`, Quadro RTX 6000)
+
+Run `h1-12302438`: vLLM 0.30.0, Qwen2.5-1.5B-Instruct, 6 load levels x 75 s x 2
+trials, energy from the NVML counter, token counts from vLLM's own Prometheus
+counters. Raw data: `~/energy-epp/results/h1-12302438/` on `hpc6081`.
+
+| concurrency | power (W) | gen tok/s | J/token | p95 latency (s) |
+|---|---|---|---|---|
+| idle, no process | 22.0 | - | - | - |
+| idle, model resident | 54.6 | - | - | - |
+| 1 | 190.0 / 215.3 | 130 | 1.458 / 1.652 | 0.98 |
+| 2 | 188.4 / 197.6 | 224 | 0.841 / 0.882 | 1.15 |
+| 4 | 196.2 / 197.3 | 436 | 0.450 / 0.453 | 1.18 |
+| 8 | 203.2 / 199.6 | 839 | 0.242 / 0.238 | 1.22 |
+| 16 | 208.5 / 206.0 | 1544 | 0.135 / 0.133 | 1.34 |
+| 32 | 211.7 / 210.0 | 2693 | 0.0784 / 0.0782 | 1.53 |
+
+### 11.1 H1 as written is refuted; the real structure is simpler
+
+`P(b) = P_idle + k_b*b` fits badly: **R^2 = 0.37**, max residual 17.7 W. The
+reason is visible in the table: once the endpoint is active, power barely
+moves. Across a **32x** range of load, active power stays at
+**202 +/- 8 W (13% spread)**, while throughput rises **20.7x**.
+
+What does hold, exactly:
+
+- **J/token = P_active / throughput(b)**, reproduced to **0.0% error** on every
+  one of the 12 measurements. Energy per token is governed by the throughput
+  curve, not by a power-vs-load curve.
+- **Activation dominates.** Idle (model resident) 54.6 W -> active 190 W is
+  **+135 W**, against **+0.46 W** for one more concurrent request: a factor of
+  **293**.
+- **Model residency is not free.** Bare idle 22.0 W -> model loaded 54.6 W is
+  **+32.6 W**, which is what vLLM sleep mode can reclaim (relevant to H3).
+- **Batching dominates efficiency.** J/token improves **21x** from c=1 to c=32
+  (1.65 -> 0.078), larger than the 3-5x reported by ML.ENERGY for larger models
+  on datacenter parts, and p95 latency grows only 0.98 s -> 1.53 s.
+
+### 11.2 Revised model for the scorer
+
+Replace the linear power model with:
+
+```
+P_endpoint(active) ~= P_active            (constant per GPU, model, precision, TP)
+marginal energy of a request = L_tokens * P_active / throughput(b)
+plus, if the endpoint is idle:   + (P_active - P_idle) * duration
+```
+
+So the scorer needs a measured **throughput-vs-load curve** per configuration
+and a single `P_active` constant, not a per-request power slope. This is less
+to estimate online, and the activation term is what drives routing decisions.
+
+### 11.3 Consequences for the plan
+
+- **H1 restated** (section 1): predict J/token from the throughput curve at
+  constant active power, and report the activation step separately. The old
+  linear form stays in the paper as a negative result with its R^2.
+- **The consolidation claim gets stronger.** Routing to an already-active
+  endpoint costs ~0.46 W; waking an idle one costs ~135 W. The go/no-go gate
+  should compare policies primarily on how often they activate idle endpoints.
+- **H3 gains a second lever**: sleep mode reclaims the 32.6 W of model
+  residency on top of avoided activation.
+- **Prefix sharing needs investigation before it is claimed.** At c=8 the
+  shared-prefix workload was slightly *worse* (0.2566 vs 0.2423 J/token, 777 vs
+  839 tok/s). Either prefix caching is not enabled in this vLLM configuration
+  or the longer shared prompt costs more prefill than the cache saves. Resolve
+  with `--enable-prefix-caching` explicitly and a cache-hit-rate check before
+  building the cache term into the scorer.
+
+### 11.4 Caveats
+
+Single GPU model (Quadro RTX 6000, 250 W limit), one small model (1.5B), fixed
+128-token outputs, closed-loop load, 2 trials. The activation and batching
+effects are large enough to survive these limits, but the absolute numbers are
+specific to this configuration. A30 and L4 runs, and a 7B model, are the next
+measurements.
+
 ---
 
 ## Appendix A. Changes from v1
