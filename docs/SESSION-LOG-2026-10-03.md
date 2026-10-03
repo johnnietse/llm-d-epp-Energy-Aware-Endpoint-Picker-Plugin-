@@ -200,5 +200,5 @@ Open, and each needing a human decision or action:
 | Stage 0 code rescope | decided in the final plan, not executed |
 | Stage 2 offline gate | **the blocking question**: does a comparative result exist at all? |
 | CAC access request | drafted at `docs/plan/cac-access-request.md`, **not sent** |
-| Two CAC passwords | exposed in chat and PowerShell history; **rotate** |
-| PowerShell history | clear with `Remove-Item (Get-PSReadlineOption).HistorySavePath -Force` |
+| Two CAC passwords | exposed in chat, and one in PowerShell history; **rotate them** — that is what actually neutralises the exposure |
+| PowerShell history | **Leave it alone.** Deleting it was suggested and the user declined on 2026-10-03; it was never run and the file is intact (9792 lines). Do not propose it again. Rotating the passwords makes the stored line harmless anyway. |
