@@ -31,7 +31,44 @@ and needs no privilege. But the reason is more interesting than expected:
 |---|---|---|---|---|
 | `frnt148` | **0** | 4.18.0-553.**45**.1 | 1002/1003/1004/1005/1009/1010 all readable | UP, 80 series, 20 profiling |
 | `frnt149` | **1** | 4.18.0-553.**148**.1 | all denied, `Result: -29` | dies at startup |
-| `frnt152` | pending | | (original failure occurred here) | failed in job 12302443 |
+
+### Cluster survey: how common is each state?
+
+`survey_profiling_permission.sh` read the bit directly on every GPU node that
+would take a one-CPU job. 15 answered:
+
+```
+  RmProfilingAdminOnly=0 on  2 node(s)   (frnt148, frnt110)
+  RmProfilingAdminOnly=1 on 13 node(s)
+```
+
+**It does not track the kernel build**, so the "permissive nodes are just
+behind on patching" explanation is wrong:
+
+| Count | Bit | Kernel |
+|---|---|---|
+| 1 | 0 | 4.18.0-553.148.1 |
+| 1 | 0 | 4.18.0-553.45.1 |
+| 5 | **1** | 4.18.0-553.**148.1** |
+| 8 | 1 | 4.18.0-553.150.1 |
+
+`frnt110` is permissive on the same kernel five restricted nodes run. This is
+per-node configuration drift. Permissive nodes are a ~13% minority and the
+exceptions look accidental, so nothing may depend on profiling counters.
+
+### Driver version also varies per node
+
+| Driver | Seen on |
+|---|---|
+| 580.173.02 | frnt110 (V100) |
+| 610.43.02 | frnt108, frnt109, frnt140, frnt148, frnt149, frnt151 |
+| 610.57.04 | frnt107, frnt142-147, frnt150 |
+
+This matters more for the measurements than the profiling bit does. Counter
+sampling behaviour is a driver and architecture property, so two runs on the
+same GPU model under different drivers are not automatically comparable.
+Driver version is promoted from a recorded detail to a blocking comparability
+variable, pinned or verified like GPU model.
 
 Energy (**156**) and power (**155**) were readable on **both** nodes tested,
 with and without root.

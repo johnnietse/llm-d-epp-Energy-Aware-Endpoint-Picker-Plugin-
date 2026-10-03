@@ -521,9 +521,51 @@ Three consequences, in order of importance:
    disappear at the next reboot. Anything load-bearing has to rest on NVML,
    which worked everywhere, or on DCGM 155/156, which also worked everywhere.
 
-A third node, `frnt152`, is queued; it was where the original failure occurred,
-so its expected value is 1. The table will be completed when it runs. Whatever
-it reports, the conclusion above already follows from two nodes disagreeing.
+#### 12.1.1 How widespread is it? A cluster survey
+
+Rather than wait for one `--exclusive` node to drain, `RmProfilingAdminOnly`
+was read directly on every GPU node that would accept a one-CPU job
+(`experiments/scripts/survey_profiling_permission.sh`). 15 nodes answered.
+
+```
+  RmProfilingAdminOnly=0 on  2 node(s)   (frnt148, frnt110)
+  RmProfilingAdminOnly=1 on 13 node(s)
+```
+
+**The kernel hypothesis in 12.1 is refuted.** The setting does not track the
+kernel build:
+
+| Count | Bit | Kernel |
+|---|---|---|
+| 1 | 0 | 4.18.0-553.148.1 |
+| 1 | 0 | 4.18.0-553.45.1 |
+| 5 | **1** | 4.18.0-553.**148.1** |
+| 8 | 1 | 4.18.0-553.150.1 |
+
+`frnt110` is permissive on exactly the kernel that five restricted nodes run.
+So this is per-node configuration drift, not patch lag, and the permissive
+nodes are a ~13% minority. The practical conclusion is unchanged but firmer:
+**nothing may depend on profiling counters**, because the default state of this
+cluster is to deny them and the exceptions look accidental.
+
+#### 12.1.2 Driver version also varies per node
+
+The same survey turned up a second non-uniformity I had assumed away. Three
+driver versions are in service simultaneously:
+
+| Driver | Seen on |
+|---|---|
+| 580.173.02 | frnt110 (V100) |
+| 610.43.02 | frnt108, frnt109, frnt140, frnt148, frnt149, frnt151 |
+| 610.57.04 | frnt107, frnt142-147, frnt150 |
+
+This matters more than the profiling bit does for our actual measurements. The
+SC24 result the plan already cites (energy-counter sampling behaviour differs
+by architecture) is a *driver and hardware* property, so two runs on the same
+GPU model under different drivers are not automatically comparable. Driver
+version was already in `instruments.txt`; what changes is that it must be
+treated as a **blocking** comparability variable rather than a recorded detail,
+and pinned with `-w` or verified post hoc, exactly like GPU model.
 
 ### 12.2 Two errors of mine, corrected
 
@@ -652,10 +694,40 @@ hardware on Frontenac:
 
 | Previously simulated | Real equivalent on the cluster |
 |---|---|
-| Fleet of 8 endpoints | `frnt154` (8x A100) or `frnt155` (8x RTX 6000), one vLLM per GPU |
-| 16+ endpoints | multi-node job across `frnt148-153` (4x RTX 6000 each) |
-| Hardware heterogeneity | six real GPU types: A30, RTX 6000, RTX 8000, A100, L4, L40S, V100, pinned with `-C` |
-| "Oracle" policy | computed **post hoc from measured runs**, not simulated: the best assignment the measured curves allow. This is analysis of real data, not a model of physics. |
+| Fleet of 8 endpoints | `frnt154`, `frnt190` or `frnt191` (8x A100 each; the latter two are DGX), `frnt155` (8x RTX 6000), `frnt156` (8x RTX 8000). One vLLM per GPU. |
+| 16+ endpoints | multi-node job across the 4-GPU RTX 6000 pool, which is large: `frnt148-153` and `frnt158-187` |
+| Hardware heterogeneity | seven real GPU types, pinned with `-C` or `-w` |
+| "Oracle" policy | computed **post hoc from measured runs**, not simulated: the best assignment the measured curves allow. Analysis of real data, not a model of physics. |
+
+Full inventory, from `sinfo` on 2026-10-03:
+
+| Type | Nodes | GPUs/node | Notes |
+|---|---|---|---|
+| A100 | `frnt154`, `frnt190`, `frnt191` | 8 | `frnt190/191` are DGX; `frnt154` is `ingenuity` |
+| A100 | `frnt107` | 1 | |
+| RTX 6000 | `frnt148-153`, `frnt158-187` | 4 | the large pool |
+| RTX 6000 | `frnt155` | 8 | |
+| RTX 6000 | `frnt108`, `frnt109` | 2 | |
+| RTX 8000 | `frnt156` | 8 | |
+| A30 | `frnt140-147` | 2 | **the only `power_ipmi` nodes** |
+| V100 | `frnt110` | 1 | driver 580.173.02, unlike the rest |
+| L4 | `frnt201` | 2 | QHPC club node, `rgrant` |
+| L40S | `frnt206` | 2 | |
+
+Three separate 8x A100 nodes is more fleet capacity than the plan assumed, and
+`frnt156` (8x RTX 8000) adds a GPU type the earlier draft did not know was
+available at that width. This removes the last argument for simulated fleets:
+consolidation and spread policies can be compared on 8 real endpoints of one
+model, and on 8 of a second model, without leaving the cluster.
+
+Two cautions that the survey in 12.1.1 and 12.1.2 impose on this table:
+
+- **Driver version varies per node**, so a "same GPU model" comparison across
+  nodes must check driver equality, not just model.
+- The A30 nodes are the only ones advertising `power_ipmi`, so if CAC enables
+  energy accounting, the independent cross-check exists **only** on A30. Any
+  experiment that needs the cross-check should therefore be designed to run on
+  A30, even though the RTX 6000 pool is larger.
 
 The only modelling that remains is the offline *bound* used at the go/no-go
 gate, and it is explicitly a planning instrument, never a reported result.
