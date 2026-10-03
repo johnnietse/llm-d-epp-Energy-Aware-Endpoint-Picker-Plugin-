@@ -60,17 +60,31 @@ Two related questions, for planning research runs on the club's node:
    frnt206, the L40S node) for benchmarking? I am happy to schedule these at
    low-usage times and to keep them short.
 
-5. **Per-job energy accounting.** `scontrol show config` reports
-   `AcctGatherEnergyType = (null)`, so `sacct` returns `ConsumedEnergy=0`.
-   Several nodes (frnt140-147) advertise a `power_ipmi` feature. Would it be
-   possible to enable IPMI energy accounting on those nodes? It would give
-   per-job node-level energy, which is exactly the independent check my
-   measurements need alongside the GPU counters.
-6. **GPU power limit.** On frnt148 the RTX 6000 reports a 150-250 W range but
-   `nvidia-smi -pl` returns "Insufficient Permissions". Being able to run a
-   node with a lowered limit (or having you pre-apply one on a reserved node)
-   would let me compare identical GPUs at two power envelopes, which is a much
-   cleaner experiment than comparing different GPU models.
+5. **Per-job energy accounting on frnt140-147.** `scontrol show config` reports
+   `AcctGatherEnergyType = (null)`, and `sacct` duly returns
+   `ConsumedEnergy=0` for my jobs. The hardware path looks to be in place
+   already: on a compute node, `/dev/ipmi0` exists as
+   `crw------- 1 root root 243, 0`, and frnt140-147 advertise a `power_ipmi`
+   feature. Since `slurmd` runs as root, enabling
+   `AcctGatherEnergyType=acct_gather_energy/ipmi` on those nodes would expose
+   per-job node energy through `sacct` without granting any user direct access
+   to the BMC. That would give me an independent check on the GPU energy
+   counters, which is the single most useful thing for the validity of my
+   measurements. I am not asking for access to `/dev/ipmi0` itself.
+6. **GPU power limit on a reserved node.** The Quadro RTX 6000 reports
+   `power.min_limit 150.00 W` and `power.max_limit 250.00 W`, but
+   `nvidia-smi -pl` returns "Insufficient Permissions". If you could either
+   allow this on a reserved node or pre-apply a lowered limit for a booked
+   window, I could compare identical GPUs at two power envelopes, a 1.67x
+   range. That is a considerably cleaner experiment than comparing different
+   GPU models, since it holds everything except the power budget constant.
+7. **Optional, lowest priority: a root-run DCGM host engine.** NVIDIA's DCGM
+   refuses to read any field as a non-root user
+   (`error watching fields: Host engine is running as non-root`), so I am using
+   NVML instead and my measurements do not depend on DCGM. If `nv-hostengine`
+   happened to be running as a service on a node I had reserved, I could
+   cross-check against the telemetry stack that upstream Kubernetes GPU
+   tooling uses. Entirely dispensable; please ignore if it is inconvenient.
 
 For context, the work is an energy-aware routing plugin for the open-source
 llm-d inference router: it measures GPU energy per generated token and routes

@@ -12,10 +12,14 @@
 # on a Frontenac compute node? Answers per source, recording the exact error
 # when one is denied. Changes nothing persistent.
 #
-# Pin the GPU type when comparing across runs:   sbatch -C rtx6000 this.sbatch
+# Pin the GPU type when comparing across runs:  sbatch -C rtx6000 this.sbatch
 # Requires fetch_instruments.sh to have run first on the login node.
+#
+# Measured facts this relies on (2026-10-03, not assumed):
+#   DCGM energy field is 156 (DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION), per
+#   dcgm_fields.h in the extracted package. DCGM 4.6.1 is the newest -core
+#   that actually ships libdcgm.so.4; 4.7.0's core rpm has no payload.
 
-# Lmod bootstrap must precede set -u: the CC profile reads unset variables.
 if ! command -v module >/dev/null 2>&1; then
   source /cvmfs/soft.computecanada.ca/config/profile/bash.sh 2>/dev/null \
     || source "${LMOD_PKG:-/cvmfs/soft.computecanada.ca/custom/software/lmod/lmod}/init/bash" 2>/dev/null
@@ -32,126 +36,149 @@ mkdir -p "$OUT_DIR"
 OUT="$OUT_DIR/gpu-${SLURM_JOB_ID:-nojob}.txt"
 IMG="$HOME/energy-epp/images/vllm-v0.30.0.sif"
 
+DCGM4_BIN="$OPT/dcgm4/usr/bin"
+DCGM4_LIB="$OPT/dcgm4/usr/lib64"
+DCGM3_BIN="$OPT/dcgm3/usr/bin"
+DCGM3_LIB="$OPT/dcgm3/usr/lib64"
+EXPORTER="$OPT/dcgm-exporter/usr/bin/dcgm-exporter"
+EXPORTER_CSV="$OPT/dcgm-exporter/etc/dcgm-exporter/default-counters.csv"
+EXPORTER_DCP_CSV="$OPT/dcgm-exporter/etc/dcgm-exporter/dcp-metrics-included.csv"
+NSYS="$OPT/nsight/opt/nvidia/nsight-systems/2025.6.3/target-linux-x64/nsys"
+
+ENERGY_FIELD=156          # DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION
+POWER_FIELD=155           # DCGM_FI_DEV_POWER_USAGE
+PROF_SM_FIELD=1002        # DCGM_FI_PROF_SM_ACTIVE
+PROF_DRAM_FIELD=1005      # DCGM_FI_PROF_DRAM_ACTIVE
+
 say() { printf '%s\n' "$*" | tee -a "$OUT"; }
 hdr() { say ""; say "================ $* ================"; }
 
 : > "$OUT"
 say "=== instrumentation probe on a compute node, $(date -Is) ==="
 say "node: $(hostname)  job: ${SLURM_JOB_ID:-none}  gpus: ${CUDA_VISIBLE_DEVICES:-unset}"
-say "constraint: ${SLURM_JOB_CONSTRAINTS:-none}  apptainer: $APPTAINER"
 
 hdr "0. NVML baseline, the source we already trust"
 nvidia-smi --query-gpu=index,uuid,name,driver_version,power.draw,power.limit,power.min_limit,power.max_limit,persistence_mode \
   --format=csv 2>&1 | tee -a "$OUT"
 say ""
-say "# co-tenancy guard: any process here other than ours contaminates the run"
+say "# co-tenancy guard: any process other than ours contaminates the run"
 nvidia-smi --query-compute-apps=pid,used_memory --format=csv 2>&1 | tee -a "$OUT"
 
 hdr "1. the decisive permission bit"
-say "# RmProfilingAdminOnly=1 means CUPTI, Nsight and DCGM profiling fields are denied to non-root"
+say "# RmProfilingAdminOnly=1 denies CUPTI, Nsight and DCGM profiling fields to non-root"
 if [ -r /proc/driver/nvidia/params ]; then
   grep -E 'RmProfilingAdminOnly' /proc/driver/nvidia/params 2>&1 | tee -a "$OUT"
 else
   say "/proc/driver/nvidia/params UNREADABLE"
 fi
-say "# the host's own view of perf-event access (affects nsys CPU sampling)"
+say "# perf_event_paranoid affects nsys CPU sampling"
 cat /proc/sys/kernel/perf_event_paranoid 2>&1 | tee -a "$OUT"
 
 hdr "2. IPMI: is there a device node to talk to at all?"
 ls -l /dev/ipmi0 /dev/ipmi/0 /dev/ipmidev/0 2>&1 | tee -a "$OUT"
-say "# Slurm's energy plugin and this node's advertised features"
 scontrol show config 2>/dev/null | grep -i -E 'AcctGatherEnergyType|AcctGatherNodeFreq' | tee -a "$OUT"
 scontrol show node "$(hostname -s)" 2>/dev/null | tr ' ' '\n' \
   | grep -i -E 'ActiveFeatures|AvailableFeatures' | tee -a "$OUT"
 
-hdr "3. DCGM, from the user-space extraction"
-for v in dcgm3 dcgm4; do
-  DBIN="$(find "$OPT/$v" -type f -name dcgmi 2>/dev/null | head -1)"
-  HBIN="$(find "$OPT/$v" -type f -name nv-hostengine 2>/dev/null | head -1)"
-  LIBD="$(find "$OPT/$v" -name 'libdcgm.so*' 2>/dev/null | head -1)"
-  LIBD="${LIBD:+$(dirname "$LIBD")}"
-  say ""
-  say "--- $v ---"
-  say "dcgmi: ${DBIN:-MISSING}"
-  say "nv-hostengine: ${HBIN:-MISSING}"
-  say "libdir: ${LIBD:-MISSING}"
-  [ -n "$DBIN" ] || continue
-  export LD_LIBRARY_PATH="${LIBD:-}:${LD_LIBRARY_PATH:-}"
-
+probe_dcgm() {
+  local label="$1" bindir="$2" libdir="$3"
+  hdr "3.$label DCGM $label"
+  local dcgmi="$bindir/dcgmi" hostengine="$bindir/nv-hostengine"
+  [ -x "$dcgmi" ] || { say "no dcgmi at $dcgmi"; return; }
+  export LD_LIBRARY_PATH="$libdir:${LD_LIBRARY_PATH:-}"
   say "# version"
-  "$DBIN" --version 2>&1 | head -4 | tee -a "$OUT"
+  "$dcgmi" --version 2>&1 | head -3 | tee -a "$OUT"
 
-  if [ -n "$HBIN" ]; then
-    PORT=$((5560 + RANDOM % 200))
-    say "# starting nv-hostengine unprivileged on 127.0.0.1:$PORT"
-    "$HBIN" -b 127.0.0.1 --port "$PORT" -n > "$OUT_DIR/$v-hostengine.log" 2>&1 &
-    HPID=$!
-    sleep 8
-    if kill -0 "$HPID" 2>/dev/null; then
-      say "hostengine running (pid $HPID)"
-      say "# which fields does THIS version expose? (not hardcoding IDs)"
-      "$DBIN" --host "127.0.0.1:$PORT" dmon -l 2>&1 \
-        | grep -i -E 'energy|power|sm_active|sm_occupancy|dram|gr_engine' | tee -a "$OUT"
-      say ""
-      say "# discovery"
-      "$DBIN" --host "127.0.0.1:$PORT" discovery -l 2>&1 | head -12 | tee -a "$OUT"
-      say ""
-      ENERGY_ID="$("$DBIN" --host "127.0.0.1:$PORT" dmon -l 2>/dev/null \
-        | grep -i 'energy' | head -1 | grep -oE '[0-9]{3,4}' | head -1)"
-      say "# energy field id discovered: ${ENERGY_ID:-NONE}"
-      if [ -n "${ENERGY_ID:-}" ]; then
-        "$DBIN" --host "127.0.0.1:$PORT" dmon -e "$ENERGY_ID" -c 5 2>&1 | head -12 | tee -a "$OUT"
-      fi
-      say ""
-      PROF_ID="$("$DBIN" --host "127.0.0.1:$PORT" dmon -l 2>/dev/null \
-        | grep -i -E 'sm_active|sm occupancy' | head -1 | grep -oE '[0-9]{3,4}' | head -1)"
-      say "# profiling (DCP) field id discovered: ${PROF_ID:-NONE} - expect denial if RmProfilingAdminOnly=1"
-      if [ -n "${PROF_ID:-}" ]; then
-        "$DBIN" --host "127.0.0.1:$PORT" dmon -e "$PROF_ID" -c 5 2>&1 | head -12 | tee -a "$OUT"
-      fi
-      kill "$HPID" 2>/dev/null
-    else
-      say "hostengine DIED. its log:"
-      head -20 "$OUT_DIR/$v-hostengine.log" 2>/dev/null | tee -a "$OUT"
-    fi
+  local port=$((5570 + RANDOM % 300))
+  say "# starting nv-hostengine unprivileged on 127.0.0.1:$port"
+  "$hostengine" -b 127.0.0.1 --port "$port" -n > "$OUT_DIR/hostengine-$label.log" 2>&1 &
+  local hpid=$!
+  sleep 10
+  if ! kill -0 "$hpid" 2>/dev/null; then
+    say "hostengine DIED. log:"
+    head -25 "$OUT_DIR/hostengine-$label.log" 2>/dev/null | tee -a "$OUT"
+    return
   fi
-done
+  say "hostengine running (pid $hpid)"
 
-hdr "4. DCGM exporter, the path upstream llm-d actually scrapes"
-EXP="$(find "$OPT/dcgm-exporter" -type f -name 'dcgm-exporter' 2>/dev/null | head -1)"
-say "binary: ${EXP:-MISSING}"
-if [ -n "$EXP" ]; then
-  LIBD4="$(find "$OPT/dcgm4" -name 'libdcgm.so*' 2>/dev/null | head -1)"
-  export LD_LIBRARY_PATH="${LIBD4:+$(dirname "$LIBD4")}:${LD_LIBRARY_PATH:-}"
-  "$EXP" --version 2>&1 | head -4 | tee -a "$OUT"
-  say "# run it in embedded mode and scrape once"
-  "$EXP" --address ":9412" > "$OUT_DIR/dcgm-exporter.log" 2>&1 &
-  EPID=$!
-  sleep 15
-  if kill -0 "$EPID" 2>/dev/null; then
-    curl -fsS --max-time 20 http://127.0.0.1:9412/metrics 2>&1 \
-      | grep -i -E 'energy|power_usage|sm_active|dram_active' | head -15 | tee -a "$OUT"
-    kill "$EPID" 2>/dev/null
-  else
-    say "exporter DIED. its log:"
-    head -25 "$OUT_DIR/dcgm-exporter.log" 2>/dev/null | tee -a "$OUT"
-  fi
-fi
-
-hdr "5. Nsight Systems: does it run, and will it be allowed to profile?"
-NSYS="$(find "$OPT/nsight" -type f -name nsys 2>/dev/null | head -1)"
-say "binary: ${NSYS:-MISSING}"
-if [ -n "$NSYS" ]; then
-  say "# version (this is the glibc test: CVMFS gives 2.37, host 2.28)"
-  "$NSYS" --version 2>&1 | head -4 | tee -a "$OUT"
   say ""
-  say "# 'nsys status -e' reports whether counter collection is permitted here"
-  "$NSYS" status -e 2>&1 | head -25 | tee -a "$OUT"
+  say "# discovery: does it see the GPU with driver 610.43.02?"
+  "$dcgmi" discovery -l --host "127.0.0.1:$port" 2>&1 | head -14 | tee -a "$OUT"
+
+  say ""
+  say "# ENERGY field $ENERGY_FIELD and POWER field $POWER_FIELD (the fields we care about)"
+  "$dcgmi" dmon -e "$ENERGY_FIELD,$POWER_FIELD" -c 5 -d 1000 --host "127.0.0.1:$port" 2>&1 \
+    | head -14 | tee -a "$OUT"
+
+  say ""
+  say "# PROFILING fields $PROF_SM_FIELD (SM active) and $PROF_DRAM_FIELD (DRAM active)"
+  say "# this is the explanatory data we wanted DCGM for; expect denial if profiling is admin-only"
+  "$dcgmi" dmon -e "$PROF_SM_FIELD,$PROF_DRAM_FIELD" -c 5 -d 1000 --host "127.0.0.1:$port" 2>&1 \
+    | head -14 | tee -a "$OUT"
+
+  kill "$hpid" 2>/dev/null
+  sleep 2
+}
+
+probe_dcgm "4.6.1" "$DCGM4_BIN" "$DCGM4_LIB"
+probe_dcgm "3.3.9" "$DCGM3_BIN" "$DCGM3_LIB"
+
+hdr "4. DCGM exporter, the path upstream llm-d scrapes"
+say "binary: $EXPORTER"
+if [ -x "$EXPORTER" ]; then
+  export LD_LIBRARY_PATH="$DCGM4_LIB:${LD_LIBRARY_PATH:-}"
+  "$EXPORTER" --version 2>&1 | head -2 | tee -a "$OUT"
+  say "# what flag names this build use for the counter file?"
+  "$EXPORTER" --help 2>&1 | grep -i -E 'collector|csv|config|address' | head -10 | tee -a "$OUT"
+  say ""
+  for csv in "$EXPORTER_CSV" "$EXPORTER_DCP_CSV"; do
+    say "--- exporter with $(basename "$csv") ---"
+    "$EXPORTER" -f "$csv" --address ":9412" > "$OUT_DIR/exporter-$(basename "$csv").log" 2>&1 &
+    local_pid=$!
+    sleep 18
+    if kill -0 "$local_pid" 2>/dev/null; then
+      curl -fsS --max-time 20 http://127.0.0.1:9412/metrics 2>&1 \
+        | grep -i -E 'TOTAL_ENERGY|POWER_USAGE|SM_ACTIVE|DRAM_ACTIVE' | head -12 | tee -a "$OUT"
+      kill "$local_pid" 2>/dev/null
+      sleep 3
+    else
+      say "exporter exited. log:"
+      head -25 "$OUT_DIR/exporter-$(basename "$csv").log" 2>/dev/null | tee -a "$OUT"
+    fi
+    say ""
+  done
 fi
 
-hdr "6. CUPTI, via the torch profiler already inside our vLLM image"
+hdr "5. Nsight Systems: does it run, and may it profile?"
+say "binary: $NSYS"
+if [ -x "$NSYS" ]; then
+  "$NSYS" --version 2>&1 | head -2 | tee -a "$OUT"
+  say ""
+  say "# 'nsys status -e' states directly whether counter collection is permitted here"
+  "$NSYS" status -e 2>&1 | head -30 | tee -a "$OUT"
+  say ""
+  say "# the GPU-side environment check, reported separately from the CPU one"
+  "$NSYS" status --environment 2>&1 | head -30 | tee -a "$OUT"
+  say ""
+  say "# the distinction that matters: CUDA *tracing* may be allowed even when"
+  say "# *counter* collection is not, because RmProfilingAdminOnly gates counters."
+  if [ -f "$IMG" ]; then
+    env -u SSL_CERT_FILE "$NSYS" profile --trace=cuda --force-overwrite=true \
+      -o "$OUT_DIR/nsys-trace-${SLURM_JOB_ID:-nojob}" \
+      "$APPTAINER" exec --nv "$IMG" python3 -c \
+      'import torch; a=torch.randn(2048,2048,device="cuda"); (a@a).sum().item(); torch.cuda.synchronize(); print("matmul done")' \
+      2>&1 | tail -20 | tee -a "$OUT"
+    say ""
+    say "# did a report actually get written?"
+    ls -lh "$OUT_DIR"/nsys-trace-"${SLURM_JOB_ID:-nojob}"* 2>&1 | tee -a "$OUT"
+  fi
+else
+  say "nsys not executable at that path"
+fi
+
+hdr "6. CUPTI, via the torch profiler inside our vLLM image"
 if [ -f "$IMG" ]; then
-  env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python -c '
+  env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3 -c '
 import torch, torch.profiler as P
 print("torch", torch.__version__, "cuda", torch.version.cuda, "gpu", torch.cuda.get_device_name(0))
 try:
@@ -164,12 +191,10 @@ try:
 except Exception as e:
     print("CUPTI FAILED:", type(e).__name__, e)
 ' 2>&1 | tail -20 | tee -a "$OUT"
-else
-  say "vLLM image not at $IMG - skipped"
 fi
 
-hdr "7. NVML energy counter, the control that we know works"
-env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python -c '
+hdr "7. NVML energy counter, the control we know works"
+env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3 -c '
 import pynvml as n
 n.nvmlInit()
 h = n.nvmlDeviceGetHandleByIndex(0)
@@ -180,7 +205,7 @@ print("enforced limit mW", n.nvmlDeviceGetEnforcedPowerLimit(h))
 ' 2>&1 | tail -8 | tee -a "$OUT"
 
 hdr "8. per-die spread, the experiment from plan section 13.5"
-say "# all GPUs on this node at idle, same instant: do nominally identical dies differ?"
+say "# every GPU on this node at the same instant: do nominally identical dies differ?"
 nvidia-smi --query-gpu=index,uuid,name,power.draw,temperature.gpu,clocks.sm \
   --format=csv 2>&1 | tee -a "$OUT"
 

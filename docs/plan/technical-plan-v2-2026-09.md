@@ -467,31 +467,143 @@ effects are large enough to survive these limits, but the absolute numbers are
 specific to this configuration. A30 and L4 runs, and a 7B model, are the next
 measurements.
 
-## 12. Instrumentation choice on Frontenac (probed 2026-10-03)
+## 12. Instrumentation choice on Frontenac (measured 2026-10-03)
 
-Probe on `frnt148` under `--exclusive`:
+This section reports what each candidate telemetry source *actually does* on
+this cluster for an unprivileged user. Every verdict below was produced by
+running the tool, not by reading its documentation. The packages were
+downloaded and unpacked into `~/energy-epp/opt` without root
+(`rpm2cpio | cpio -idm`); scripts are
+`experiments/scripts/{fetch_instruments.sh,probe_instruments_gpu.sbatch}`,
+raw output in `~/energy-epp/instruments-probe/`.
 
-| Tool | Present? | Verdict |
+Environment: Rocky Linux 8.10, host glibc 2.28, CVMFS module shell glibc 2.37,
+driver **610.43.02**, job 12302443 on `frnt152` (4x Quadro RTX 6000) under
+`--exclusive` with zero co-tenant processes.
+
+| Source | Verdict | The evidence |
 |---|---|---|
-| NVML (via `nvidia-smi`, `pynvml`) | yes | **Primary.** Only source of the hardware energy counter; works unprivileged; already validated (counter 25.94 W vs polled 25.96 W at idle). |
-| `dcgmi` / `nv-hostengine` | **missing** | Not installed on compute nodes. Can still be run from the `dcgm-exporter` container under Apptainer; worth testing because it adds SM-activity and DRAM-bandwidth fields that *explain* why power saturates, and because it is the same path upstream llm-d uses (`dcgm-data-source`). Optional, explanatory only. |
-| `nsys` / `ncu` (Nsight) | **missing** | Kernel-level counters we do not need, measurable overhead, and profiling is typically admin-restricted. Skip. |
-| CUPTI | n/a | Same reasoning as Nsight: it answers "which kernel", we are asking "how many joules". Skip. |
-| `ipmitool` | **missing** | We cannot read node power directly. But `power_ipmi` is a node feature on frnt140-147, and Slurm's `AcctGatherEnergyType` is currently `(null)` so `sacct` reports `ConsumedEnergy=0`. **Ask CAC to enable IPMI energy accounting** - that would give per-job node-level energy for free and would be an independent check on the GPU counter. |
+| **NVML** (`nvidia-smi`, `nvidia-ml-py`) | **Primary.** Unchanged. | Hardware energy counter readable unprivileged; previously validated counter 25.94 W vs polled 25.96 W at idle. |
+| **DCGM** (`dcgmi`, `nv-hostengine`, `dcgm-exporter`) | **Unusable without root.** Not an optional second source: an unavailable one. | `error watching fields: Host engine is running as non-root`. It refuses **every** field, including plain power (155) and energy (156), not merely profiling fields. |
+| **Nsight Systems** (`nsys`) | **Runs; counter collection restricted.** Out of scope, now for a measured reason. | `nsys --version` works on CVMFS glibc 2.37. `nsys status -e`: CPU profiling (process-tree) **OK**, (system-wide) **Fail**, `perf_event_paranoid` 2, root privilege disabled. |
+| **CUPTI** | **Counters denied; tracing pending.** | `RmProfilingAdminOnly: 1`, which is the kernel-module parameter that denies non-root counter access. Whether CUDA *tracing* still works is pending a re-run (see 12.5). |
+| **IPMI** | **Hardware present, permission-gated.** Strengthens the CAC ask rather than killing it. | `/dev/ipmi0` **exists** on the compute node as `crw------- 1 root root 243, 0`. `AcctGatherEnergyType = (null)`, and `sacct` duly reported `ConsumedEnergy=0` for this job. |
 
-Decision: **NVML stays primary.** DCGM is an optional second source for mechanism
-evidence. Nsight/CUPTI are out of scope.
+Decision: **NVML is the only viable source, and that is now a finding rather
+than a preference.**
 
-### 12.1 What else the probe settled
+### 12.1 DCGM: the exact failure, and why it matters to the paper
 
-- **`--exclusive` works.** The job received `frnt148` with all four GPUs visible
-  and no co-tenant processes. This removes blocking defect B4 at no cost and
-  with no cloud.
+DCGM is the path upstream llm-d uses (`dcgm-data-source`), so establishing that
+it is closed to us is load-bearing for our claim, not an inconvenience.
+
+`dcgm-exporter` 4.8.4 progressed further than expected before failing, which is
+what makes the error trustworthy:
+
+```
+level=INFO  msg="DCGM successfully initialized!"
+level=INFO  msg="NVML provider successfully initialized"
+level=INFO  msg="Successfully queried DCGM profiling metric groups" count=7 gpu_model="Quadro RTX 6000"
+level=ERROR msg="Failed to watch DCGM fields"
+            field_names="[sm_clock memory_clock memory_temp gpu_temp power_usage
+                          total_energy_consumption ... dram_active ...]"
+            error="error watching fields: Host engine is running as non-root"
+```
+
+So initialisation, NVML attachment and profiling-group discovery all succeed;
+the refusal is specifically at the field-watch call, and it covers the whole
+field list rather than the profiling subset. An embedded host engine does not
+help: the exporter *is* embedded mode.
+
+Consequences:
+
+1. The "optional explanatory DCGM fields" idea in the previous draft of this
+   section is withdrawn. SM-activity and DRAM-bandwidth evidence for *why*
+   power saturates is **not available to us**, and any mechanism argument has
+   to be made from NVML quantities plus engine-level metrics instead.
+2. This is a concrete instance of the paper's framing. The validity review
+   narrowed our claim to routing "under no privileged control"; we can now cite
+   a measured error string instead of asserting that privileges are unavailable.
+   Reviewers can check it.
+3. If CAC ever grants a root-run host engine on a reserved node, the DCGM
+   comparison becomes available and is worth one job. It is not on the critical
+   path.
+
+Two packaging facts, recorded so the next person does not repeat the hour:
+
+- `datacenter-gpu-manager-4-core-4.7.0` is a **13 KB payload-free metapackage**.
+  The newest `-core` that actually ships `libdcgm.so.4` is **4.6.1**, confirmed
+  by querying the repo's `primary.xml.gz` for which package provides that
+  soname. DCGM 3.3.9 ships a single self-contained 816 MB RPM but registers only
+  the `topo` subsystem from a user-space extraction.
+- `dcgmi` takes the subsystem **before** `--host`
+  (`dcgmi dmon -e 156 --host 127.0.0.1:PORT`); the reverse order returns
+  `ERROR: Invalid subsystem`, which is easy to misread as a privilege problem.
+
+### 12.2 DCGM field identifiers: correcting an error in v1
+
+Plan v1 claimed `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` was deprecated in favour
+of `DCGM_FI_DEV_GPU_ENERGY_JOULES_TOTAL` (field 1611, whole joules). **Both
+halves of that are wrong.** From `dcgm_fields.h` in the extracted package, and
+from exporter 4.8.4's own counter CSVs:
+
+```
+#define DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION 156
+```
+
+There is no `GPU_ENERGY_JOULES_TOTAL` field and no field numbered 1611 in this
+header. Field **156** (millijoules) is the only energy field DCGM exposes, it is
+not deprecated, and it is the one the exporter ships enabled by default. Power
+is **155**. The profiling fields are `DCGM_FI_PROF_SM_ACTIVE` (1002) and
+`DCGM_FI_PROF_DRAM_ACTIVE` (1005). Corrected in v1 as well.
+
+### 12.3 IPMI: the ask is now evidence-backed
+
+The previous version of this section said we "cannot read node power directly".
+More precisely: the BMC character device **exists** on compute nodes and is
+mode 0600 owned by root. Nothing is missing from the hardware or the kernel;
+only the permission is absent. Slurm's `slurmd` runs as root, so enabling
+`AcctGatherEnergyType=acct_gather_energy/ipmi` would expose per-job node energy
+through `sacct` without granting any user direct BMC access. That is a strictly
+smaller request than "give me access to `/dev/ipmi0`", and worth stating that way
+in the ticket.
+
+One correction to the ask: `frnt152` advertises
+`AvailableFeatures=intel,avx512,avx512_gpu` and **not** `power_ipmi`. The
+`power_ipmi` feature is on frnt140-147, so the request must name those nodes
+specifically rather than ask for it cluster-wide.
+
+### 12.4 What else the probe settled
+
+- **`--exclusive` works.** Jobs received whole nodes with all four GPUs visible
+  and no co-tenant processes, on both `frnt148` and `frnt152`. Blocking defect
+  B4 is removed at no cost and with no cloud.
 - **Power capping is denied**: `nvidia-smi -pl 150` returns "Insufficient
-  Permissions". Range is 150-250 W on the RTX 6000, so a 1.67x controlled
-  heterogeneity experiment exists *if* CAC grants it. Added to the CAC ask.
-- **Persistence mode is enabled**, so idle power is stable between jobs.
-- **GPU UUIDs are exposed**, which enables the per-die analysis in 13.5.
+  Permissions". The RTX 6000 reports `power.min_limit 150.00 W` and
+  `power.max_limit 250.00 W`, so a 1.67x controlled-heterogeneity experiment
+  exists *if* CAC grants it.
+- **Persistence mode is enabled** on every GPU, so idle power is stable between
+  jobs.
+- **GPU UUIDs are exposed**, which is what makes 13.5 possible.
+- **`perf_event_paranoid` is 2**, which caps CPU-side sampling to the process
+  tree. Irrelevant to our energy measurements, relevant if anyone later wants
+  host-side profiling.
+
+### 12.5 Still pending
+
+Two items were lost to bugs in the probe script, not to the cluster, and are
+queued for a re-run:
+
+1. **CUPTI tracing.** The in-container test invoked `python`, but the vLLM image
+   provides `python3`, so it never ran. The question is narrow and worth
+   answering: `RmProfilingAdminOnly` gates *counter* collection, so CUDA
+   *activity tracing* may still work. If it does, per-kernel timelines are
+   available even though per-kernel counters are not.
+2. **`nsys` CUDA trace versus counters.** Same distinction, tested by actually
+   profiling a matmul rather than reading the status output.
+
+Neither changes the NVML decision. Both belong in the thesis methods chapter as
+recorded negative results.
 
 ## 13. Research design additions (2026-10-03)
 
@@ -548,12 +660,59 @@ question.
 
 ### 13.5 Intra-model heterogeneity: the same GPU model is not the same GPU
 
-An 8-GPU node gives eight nominally identical dies in different physical slots
-with different airflow. Per-die differences in power at identical load, and
-slot-dependent thermal behaviour, are measurable with the harness we already
-have, and if the spread is large enough to matter they are a routing signal
-that no surveyed work uses. This experiment is only possible on real
-multi-GPU hardware, costs one job, and is a small original result either way.
+A multi-GPU node gives several nominally identical dies in different physical
+slots with different airflow. If their power at matched load differs measurably,
+that is a routing signal no surveyed work uses, and it exists only on real
+multi-GPU hardware.
+
+**First observation (job 12302443, `frnt152`, 4x Quadro RTX 6000, idle,
+`--exclusive`, no co-tenants, persistence mode on, all sampled in one
+`nvidia-smi` call):**
+
+| GPU | UUID (prefix) | Idle power | Temp | SM clock |
+|---|---|---|---|---|
+| 0 | `GPU-ce3f5de7` | 21.95 W | 25 C | 300 MHz |
+| 1 | `GPU-55fdeae3` | 22.29 W | 24 C | 300 MHz |
+| 2 | `GPU-e1ef0a37` | 22.68 W | 23 C | 300 MHz |
+| 3 | `GPU-ff881352` | **13.04 W** | 20 C | 300 MHz |
+
+GPU 3 draws **1.69x less** idle power than GPU 2, on the same node, at the same
+instant, at the same clock. The spread across 0-2 is small (0.73 W, 3.3%) and
+monotonic with temperature; GPU 3 is the outlier.
+
+**This is not yet a result, and the plan should not treat it as one.** The
+obvious competing explanation is residual state rather than silicon: GPU 3 is
+also the coolest die, consistent with it having been idle longest or sitting in
+a deeper power state, and a single instantaneous sample cannot separate that
+from a persistent per-die difference. Treating a 1.69x number from one sample as
+a finding is exactly the error we criticised in the eight drafts.
+
+**The experiment that would settle it**, costing one or two jobs:
+
+1. **Matched load, not idle.** Run an identical vLLM instance and identical
+   request stream on each die in turn, using the energy counter over a fixed
+   window rather than instantaneous power.
+2. **Repeated measures with randomised order.** Each die visited several times
+   in a seeded random sequence, so thermal drift and ordering cannot masquerade
+   as a die effect. Report per-die mean with 95% CI.
+3. **Thermal equilibration.** A fixed warm-up before each measurement window,
+   and record inlet temperature if exposed, so "cold die" is eliminated as the
+   explanation.
+4. **Identify dies by UUID, never by index.** Slurm and CUDA ordering are not
+   stable across jobs; the UUIDs above are the keys.
+5. **Cross-node replication.** Repeat on a second 4-GPU node, and on
+   `frnt155` (8x RTX 6000) where slot-to-airflow variation should be larger if
+   the effect is physical.
+6. **Negative control.** The same analysis on one die measured repeatedly
+   should produce a spread no larger than measurement noise. If between-die
+   spread does not exceed within-die spread, the effect is not there.
+
+**Why it is worth the jobs either way.** If a real per-die difference survives,
+the energy scorer should key on GPU UUID rather than endpoint, which is a
+cheap implementation change and a genuinely unclaimed routing signal. If it
+does not survive, we have a recorded negative control that strengthens the main
+measurements, since it demonstrates the harness can distinguish a real effect
+from noise at this scale. That is the standing requirement from 13.3.
 
 ### 13.6 Deliverable split
 

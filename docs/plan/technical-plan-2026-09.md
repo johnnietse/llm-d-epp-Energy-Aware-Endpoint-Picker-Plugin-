@@ -147,9 +147,13 @@ temperature, and enforced power limit as `ScalarMetricValue` attributes, with
 the same `pod`-label matching and `max`/`sum` aggregation across the pod's GPUs
 (sum for power and energy; max for temperature).
 
-Field names must be checked against the deployed `dcgm-exporter` counters CSV:
-current DCGM docs deprecate `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` (mJ) in
-favor of `DCGM_FI_DEV_GPU_ENERGY_JOULES_TOTAL` (field 1611, whole joules).
+Field names must be checked against the deployed `dcgm-exporter` counters CSV.
+CORRECTION (2026-10-03, verified against `dcgm_fields.h` and the exporter 4.8.4
+counter CSVs extracted on Frontenac): the energy field is
+`DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` = **156**, in millijoules, and it is NOT
+deprecated. There is no `DCGM_FI_DEV_GPU_ENERGY_JOULES_TOTAL` and no field
+numbered 1611; both were errors in this document. Field 156 is the only
+energy field DCGM exposes and it is the one the exporter's own CSVs use.
 Prefer the energy counter's derivative over instantaneous power samples; the
 counter integrates between scrapes, instantaneous power aliases.
 
