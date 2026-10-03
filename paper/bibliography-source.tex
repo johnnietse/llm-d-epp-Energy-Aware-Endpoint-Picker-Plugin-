@@ -1,0 +1,2322 @@
+% % % \documentclass[12pt,a4paper]{article}
+
+% % % % Encoding and fonts
+% % % \usepackage[utf8]{inputenc}
+% % % \usepackage[T1]{fontenc}
+% % % \usepackage{lmodern}
+
+% % % % Math and symbols
+% % % \usepackage{amsmath}
+% % % \usepackage{amssymb}
+% % % \usepackage{textcomp}
+
+% % % % Graphics and color
+% % % \usepackage{graphicx}
+% % % \usepackage{xcolor}
+
+% % % % Page layout
+% % % \usepackage{geometry}
+% % % \geometry{margin=1in}
+
+% % % % Hyperlinks
+% % % \usepackage[hidelinks]{hyperref}
+
+% % % % Pandoc compatibility – pass-through for \pandocbounded
+% % % \newcommand{\pandocbounded}[1]{#1}
+
+% % % % Enable subsubsection numbering and letter style
+% % % \setcounter{secnumdepth}{3}
+% % % \renewcommand{\thesubsubsection}{\Alph{subsubsection}}
+
+% % % % For bibliography
+% % % \usepackage{cite} % optional, just in case
+
+% % % \begin{document}
+
+% % % % === CONTENT STARTS HERE ===
+% % % \section{Energy-Aware Token-Level Routing for Heterogeneous LLM Inference in Kubernetes: Design, Implementation, and Evaluation of an llm-d Endpoint Picker Plugin}\label{energy-aware-token-level-routing-for-heterogeneous-llm-inference-in-kubernetes-design-implementation-and-evaluation-of-an-llm-d-endpoint-picker-plugin}
+
+% % % \textbf{Author}: Johnnie\\
+% % % \textbf{Date}: May 2026
+
+% % % \subsection{Abstract}\label{abstract}
+
+% % % Large Language Model (LLM) inference has rapidly emerged as one of the most significant consumers of electrical energy in modern hyperscale data center operations. Current LLM serving systems and inference schedulers predominantly route requests using heuristics that are optimized for latency reduction or KV-cache reuse. However, these systems fundamentally lack the awareness required to consider the energy cost per generated token or the real-time carbon intensity of the electrical grid powering the compute endpoints. This thesis presents the design, implementation, and evaluation of an energy-aware Endpoint Picker Plugin (EPP) designed for the \texttt{llm-d} inference scheduler---a Kubernetes-native framework constructed upon the standard Gateway API Inference Extension (GIE). The proposed plugin introduces a rigorous multi-objective scoring pipeline that simultaneously optimizes for energy efficiency, carbon footprint minimization, and latency Service Level Objective (SLO) compliance. By leveraging an \(\epsilon\)-constraint method derived from Pareto multi-objective optimization theory, the system isolates latency guarantees as hard constraints while optimizing energy metrics within the remaining feasible solution space.
+
+% % % The system implements five key architectural innovations: (1) a phase-aware energy scorer utilizing distinct weight vectors for prefill and decode inference phases, (2) an SLO constraint filter enforcing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT) bounds, (3) a KV-cache transfer energy model accounting for disaggregated serving network overheads, (4) a Software Carbon Intensity (SCI) calculator aligned with the Green Software Foundation's strict specifications, and (5) an adaptive weight controller that dynamically modulates scoring weights in response to real-time grid carbon signals and cluster power constraints.
+
+% % % Implemented entirely in Go, the plugin is highly optimized, containerized as a minimal 8.6 MB distroless image, and validated within a Kubernetes cluster simulating heterogeneous environments of high-power GPUs and low-power ASICs. Comprehensive evaluation demonstrates that the energy-aware routing policy reduces estimated energy consumption by 17.4\% on average and up to 32\% for decode-heavy workloads compared to hardware-agnostic round-robin scheduling, while strictly adhering to tail-latency SLOs. Furthermore, the adaptive carbon-aware controller enables dynamic temporal load shifting, demonstrating linear reductions in absolute carbon footprint correlated with regional grid emission factors.
+
+% % % \textbf{Index Terms}---Large Language Models, Inference Scheduling, Kubernetes, Gateway API, Heterogeneous Computing, Carbon-Aware Computing, Energy Efficiency, Disaggregated Serving.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{I. INTRODUCTION}\label{i.-introduction}
+
+% % % \subsubsection{A. Problem Statement}\label{a.-problem-statement}
+
+% % % The proliferation and deployment of Large Language Models (LLMs) at scale have precipitated an unprecedented energy challenge for cloud providers and enterprise infrastructure operators. A single NVIDIA H100 Tensor Core GPU, heavily utilized for state-of-the-art inference, operates at a Thermal Design Power (TDP) of up to 700W. Production inference clusters typically aggregate thousands of such accelerators, drawing megawatts of continuous power. Concurrently, the emergence of highly specialized, energy-efficient inference hardware---such as the Qualcomm Cloud AI 100 operating at a nominal 75W TDP---has led to the adoption of heterogeneous compute clusters. In these environments, the thermodynamic and electrical cost of serving an identical inference request can vary by more than an order of magnitude depending solely on the specific endpoint selected by the routing layer.
+
+% % % Despite this extreme variance in hardware efficiency, modern inference schedulers, including the default implementations within the \texttt{llm-d} framework, are optimized almost exclusively for performance metrics. Traditional load balancers prioritize: 1. \textbf{Latency Minimization}: Reducing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT). 2. \textbf{Cache Affinity}: Maximizing Prefix Caching and KV-cache reuse by routing to endpoints that hold the prompt in memory. 3. \textbf{Queue Balancing}: Uniformly distributing requests across available replicas (e.g., Round-Robin, Least Requests).
+
+% % % None of these conventional methodologies consider the energy consumed per token, the thermal constraints of the node, or the carbon intensity of the specific geographical grid powering the accelerator. This represents a significant missed optimization opportunity, particularly as regulatory frameworks and corporate Environmental, Social, and Governance (ESG) commitments place increasing pressure on organizations to accurately report and aggressively reduce their Scope 2 and Scope 3 carbon emissions.
+
+% % % \subsubsection{B. Objectives}\label{b.-objectives}
+
+% % % To address the aforementioned gaps in current inference scheduling paradigms, this thesis establishes the following primary objectives: 1. \textbf{Architectural Design}: To engineer a pluggable scoring and filtering framework that natively extends the \texttt{llm-d} inference scheduler with comprehensive energy- and carbon-awareness without disrupting existing request flows. 2. \textbf{Robust Implementation}: To implement the designed framework as a Kubernetes-native Endpoint Picker Plugin (EPP) sidecar that strictly adheres to the Gateway API Inference Extension (GIE) specifications, ensuring zero data races, high concurrency throughput, and minimal latency overhead. 3. \textbf{Comprehensive Evaluation}: To quantitatively evaluate the energy savings, carbon footprint reduction, routing accuracy, and latency impact of the energy-aware routing policies through calibrated heterogeneous hardware simulation and in-cluster deployment.
+
+% % % \subsubsection{C. Contributions}\label{c.-contributions}
+
+% % % This research makes several novel contributions to the field of sustainable AI systems and distributed scheduling: 
+% % % \begin{itemize}
+% % %     \item \textbf{Phase-Aware Energy Scoring}: Extending GIE scoring capabilities with inference-phase awareness, applying distinct sub-score weight vectors tailored for the compute-bound prefill phase and the memory-bandwidth-bound decode phase.
+% % %     \item \textbf{\(\epsilon\)-Constraint SLO Filtering}: Applying Pareto multi-objective optimization theory to LLM schedulers by treating latency targets as hard constraints (filters) rather than scalar weights, enabling aggressive energy optimization without violating Service Level Objectives.
+% % %     \item \textbf{Disaggregated KV-Cache Energy Modeling}: Formulating a KV-cache transfer energy penalty model that explicitly accounts for the energy overhead incurred when disaggregated serving architectures (e.g., Splitwise, Mooncake) transfer intermediate tensors over the network.
+% % %     \item \textbf{Kubernetes-Native SCI Formulation}: Designing the first known implementation of a Software Carbon Intensity (SCI) calculator natively integrated into a Kubernetes inference scheduler, capturing both operational and amortized embodied carbon emissions.
+% % %     \item \textbf{Adaptive Weight Controller}: Implementing a Finite State Machine (FSM) that autonomously adjusts multi-objective scoring weights in response to real-time grid carbon intensity signals and cluster-level power budget constraints.
+% % % \end{itemize}
+
+% % % \subsubsection{D. Organization}\label{d.-organization}
+
+% % % The remainder of this report is organized as follows: Section II reviews the background mechanics of LLM inference, disaggregated architectures, and carbon-aware computing literature. Section III details the system architecture, mathematical formulations, and multi-objective methodology. Section IV outlines the software implementation, concurrency models, and deployment topologies. Section V presents a comprehensive experimental evaluation including sensitivity analyses and micro-benchmarks. Section VI discusses threats to validity and broader impacts, and Section VII concludes the thesis with directions for future research.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{II. BACKGROUND AND RELATED WORK}\label{ii.-background-and-related-work}
+
+% % % \subsubsection{A. LLM Inference Mechanics and Phases}\label{a.-llm-inference-mechanics-and-phases}
+
+% % % Modern autoregressive Large Language Models process incoming requests in two fundamentally distinct computational phases, each exhibiting unique resource utilization profiles:
+
+% % % \begin{enumerate}
+% % % \item \textbf{Prefill Phase (Compute-Bound)}: During this initial phase, the model processes all tokens in the user's input prompt simultaneously in parallel. This phase relies heavily on dense matrix multiplications (GEMMs). It is characterized by high, saturated GPU utilization, maximum thermal power draw, and relatively short duration. The primary performance metric is Time-To-First-Token (TTFT).
+% % % \item \textbf{Decode Phase (Memory-Bandwidth-Bound)}: Following the prefill phase, the model generates output tokens autoregressively, one token at a time, appending each new token to the KV-cache. This phase is bottlenecked by the speed at which the hardware can move weights from High Bandwidth Memory (HBM) to the compute cores. It is characterized by low arithmetic intensity, underutilized compute cores, and sustained power draw over extended periods. The primary performance metric is Time-Per-Output-Token (TPOT).
+% % % \end{enumerate}
+
+% % % This phase dichotomy is the critical foundation for heterogeneous energy-aware routing. A monolithic high-performance GPU (e.g., H100) that excels at prefill due to its massive compute throughput may be highly wasteful during decode, where its compute cores idle while drawing significant power. Conversely, a low-power ASIC may struggle with the prefill compute but provide vastly superior energy-per-token efficiency during the extended decode phase.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/phase_aware_routing.png}}
+% % % \caption{Phase-Aware Scheduling Flow}
+% % % \end{figure}
+
+% % % \subsubsection{B. Disaggregated Serving Architectures}\label{b.-disaggregated-serving-architectures}
+
+% % % Recent advancements in inference serving have demonstrated that physically separating the prefill and decode phases onto specialized hardware pools yields substantial goodput improvements. 
+% % % \begin{itemize}
+% % %     \item \textbf{DistServe} (OSDI '24) demonstrated independent TTFT and TPOT optimization by physically isolating prefill and decode execution.
+% % %     \item \textbf{Splitwise} (ISCA '24) expanded upon this by assigning distinct hardware types to distinct phases, although their focus remained strictly on performance and cost rather than energy optimization.
+% % %     \item \textbf{Mooncake} (arXiv '24) proposed a KV-cache-centric disaggregated architecture to minimize the overhead of transferring state between nodes.
+% % % \end{itemize}
+
+% % % While these systems lay the groundwork for heterogeneous routing, they lack an energy-aware control plane. Our system builds upon this disaggregated foundation by injecting an energy-aware routing layer that actively selects the most thermodynamically efficient endpoint for a given phase, bridging the gap between disaggregated performance and sustainable computing. Furthermore, we explicitly model the energy penalty of the network transfer required by disaggregated systems (e.g., moving KV-cache from a prefill H100 to a decode L4).
+
+% % % \subsubsection{C. Kubernetes Gateway API Inference Extension}\label{c.-kubernetes-gateway-api-inference-extension}
+
+% % % The Kubernetes Gateway API Inference Extension (GIE) establishes a standardized contract for intelligent, layer-7 routing of LLM requests. By injecting an external processing (ext\_proc) gRPC sidecar into the Envoy proxy data path, developers can implement custom routing logic without modifying the underlying model servers (e.g., vLLM).
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/gie_integration.png}}
+% % % \caption{GIE Integration Architecture}
+% % % \end{figure}
+
+% % % The \texttt{llm-d} Inference Scheduler utilizes this framework, grouping vLLM replicas into \texttt{InferencePools}. The EPP operates within this ecosystem by implementing two core gRPC interfaces:
+% % % \begin{itemize}
+% % %     \item \textbf{Filter}: Evaluates a candidate pool of pods and removes those that are ineligible based on hard constraints.
+% % %     \item \textbf{Scorer}: Assigns a relative numerical rank to the remaining eligible pods.
+% % % \end{itemize}
+
+% % % Our research extends both of these standard interfaces with highly specialized energy, power, and carbon semantics.
+
+% % % \subsubsection{D. Energy and Carbon-Aware Computing}\label{d.-energy-and-carbon-aware-computing}
+
+% % % The Green Software Foundation defines the Software Carbon Intensity (SCI) specification, which provides a rigorous methodology for quantifying the carbon footprint of software systems. It is formally defined as \(SCI = ((E \times I) + M) / R\), combining operational energy (\(E\)), grid carbon intensity (\(I\)), and amortized hardware embodied carbon (\(M\)), normalized by a functional unit (\(R\)).
+
+% % % Prior works in carbon-aware computing, such as \textbf{CarbonScaler} (ASPLOS '24) and \textbf{Ecovisor} (ASPLOS '23), have demonstrated the viability of shifting workloads temporally (delaying jobs until the grid is clean) and spatially (moving jobs to data centers in clean energy regions). However, LLM inference is highly latency-sensitive, making traditional temporal shifting of user-facing requests impossible. Our system introduces a novel micro-spatial shifting technique: dynamically routing within a heterogeneous local cluster based on carbon intensity, satisfying user latency while altering the physical hardware execution path to minimize absolute power draw during carbon spikes.
+
+% % % \subsubsection{E. Multi-Objective Optimization Techniques}\label{e.-multi-objective-optimization-techniques}
+
+% % % Inference routing inherently involves optimizing multiple, often conflicting objectives (e.g., minimizing latency vs.~minimizing energy). Standard approaches utilize scalarization (Weighted Sum), defined as \(\text{Score} = w_1 \cdot \text{Latency} + w_2 \cdot \text{Energy}\). This approach suffers from significant drawbacks: it collapses the Pareto frontier, fails in non-convex solution spaces, and provides no hard bounds on latency degradation.
+
+% % % Conversely, our framework implements the \textbf{\(\epsilon\)-Constraint Method}:
+% % % \[ \min \text{Energy} \quad \text{subject to} \quad \text{TTFT} \leq \epsilon_1, \quad \text{TPOT} \leq \epsilon_2 \]
+% % % This theoretical construct is implemented practically through the separation of Filters (which enforce \(\epsilon_1\) and \(\epsilon_2\) as hard bounds) and Scorers (which minimize energy over the remaining feasible set).
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{III. SYSTEM ARCHITECTURE AND METHODOLOGY}\label{iii.-system-architecture-and-methodology}
+
+% % % \subsubsection{A. Architectural Overview}\label{a.-architectural-overview}
+
+% % % The Energy-Aware EPP is designed as a standalone microservice that interfaces directly with the \texttt{llm-d} Gateway. It relies on a high-frequency telemetry plane to ingest power metrics, hardware configurations, and external grid carbon signals.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/architecture.png}}
+% % % \caption{System Architecture}
+% % % \end{figure}
+
+% % % The system consists of three primary subsystems:
+% % % \begin{enumerate}
+% % %     \item \textbf{Telemetry \& Signal Plane}: Asynchronously scrapes power data (via DCGM/RAPL), carbon intensity (via external APIs like CO2Signal), and maintains a thread-safe \texttt{EnergyStore}.
+% % %     \item \textbf{Scheduling Pipeline}: The core request-path logic that executes the Filter-Score-Pick workflow for every incoming inference request.
+% % %     \item \textbf{Adaptive Controller}: A background Finite State Machine (FSM) that continuously monitors macro-level constraints (power budgets, grid carbon) and dynamically tunes the weights used in the Scheduling Pipeline.
+% % % \end{enumerate}
+
+% % % \subsubsection{B. Scheduling Pipeline and \(\epsilon\)-Constraint Method}\label{b.-scheduling-pipeline-and-epsilon-constraint-method}
+
+% % % The request routing pipeline executes on the critical path of inference requests and must therefore be highly optimized.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/scheduling_pipeline.png}}
+% % % \caption{Scheduling Pipeline}
+% % % \end{figure}
+
+% % % \paragraph{Phase 1: Filter}
+
+% % % Two distinct filters execute sequentially to enforce the \(\epsilon\)-constraints:
+% % % \begin{enumerate}
+% % %     \item \textbf{SLO Constraint Filter}: Enforces user-defined TTFT and TPOT Service Level Objectives. It estimates prefill latency by combining hardware throughput capabilities with current queue depth delays. It estimates decode latency via \(1000 / \text{TokensPerSecond}\). Any pod that cannot mathematically satisfy the SLO given its current load is evicted from the candidate pool.
+% % %     \item \textbf{Energy Budget Filter}: Enforces cluster-level thermal and power constraints. It rejects candidate pods where the instantaneous power draw exceeds a configurable percentage of the hardware's Thermal Design Power (TDP) (e.g., \(>90\%\)), preventing thermal throttling cascading failures.
+% % % \end{enumerate}
+
+% % % \paragraph{Phase 2: Multi-Objective Scoring}
+
+% % % The remaining feasible pods are evaluated by three batch scorers, producing normalized sub-scores in the range \([0, 1]\):
+% % % \begin{enumerate}
+% % %     \item \textbf{Energy-Aware Scorer}: Calculates a phase-specific weighted sum of performance and energy efficiency.
+% % %     \item \textbf{Carbon Intensity Scorer}: Evaluates the real-time operational and embodied carbon footprint of executing the request on the specific hardware.
+% % %     \item \textbf{KV-Cache Transfer Scorer}: Evaluates the energy penalty of transferring intermediate state if the request is part of a disaggregated pipeline.
+% % % \end{enumerate}
+
+% % % \paragraph{Phase 3: Pick}
+
+% % % A \texttt{MaxScorePicker} algorithm aggregates the sub-scores and selects the endpoint with the highest total score, seamlessly integrating into the Envoy ext\_proc routing response.
+
+% % % \subsubsection{C. Multi-Objective Scoring Models}\label{c.-multi-objective-scoring-models}
+
+% % % \textbf{1. Phase-Aware Energy Scoring} The energy score dynamically adjusts its sub-weights based on whether the request is identified as a prefill or decode operation:
+
+% % % \begin{verbatim}
+% % % For prefill:  Score = 0.60(Latency) + 0.20(Energy) + 0.20(Carbon)
+% % % For decode:   Score = 0.20(Latency) + 0.50(Energy) + 0.30(Carbon)
+% % % \end{verbatim}
+
+% % % This reflects the physical reality that prefill is heavily compute-bound and benefits from latency-optimized hardware, whereas decode offers massive opportunities for energy optimization without severe user-perceived degradation.
+
+% % % \textbf{2. Carbon Intensity Scoring} The carbon score penalizes endpoints operating in regions with dirty power or endpoints with high embodied carbon profiles relative to their functional output.
+% % % \[ \text{CarbonScore} = 1 - \text{Normalize}(\text{EnergyPerToken} \times \text{GridCO}_2 \times \text{TDP}_{ratio}) \]
+
+% % % \textbf{3. KV-Cache Transfer Penalty} For disaggregated architectures, routing a decode request to a separate low-power node requires transferring the KV-cache over the network (e.g., via RDMA or TCP). The network interfaces and switches consume energy. We model this as a penalty ratio:
+% % % \[ \text{TransferEnergy} = \text{KVCacheSize}_{MB} \times \text{NetworkCost}_{mJ/MB} \]
+% % % \[ \text{PenaltyRatio} = \frac{\text{TransferEnergy}}{\text{ExpectedComputeEnergy}} \]
+% % % If the energy required to transfer the KV-cache exceeds the expected energy savings of executing on the low-power node, the scorer aggressively penalizes the low-power node to prevent inefficient disaggregation.
+
+% % % \subsubsection{D. Adaptive Weight Controller}\label{d.-adaptive-weight-controller}
+
+% % % To bridge the gap between static heuristics and dynamic real-world operating conditions, we implemented an Adaptive Weight Controller. This Finite State Machine (FSM) runs asynchronously, polling the environment every 30 seconds to adjust the pipeline's scoring weights.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/adaptive_controller_fsm.png}}
+% % % \caption{Adaptive Weight Controller FSM}
+% % % \end{figure}
+
+% % % The controller defines three distinct operating modes:
+% % % \begin{itemize}
+% % %     \item \textbf{Normal Mode}: Activated when grid carbon is below 200 gCO\(_2\)/kWh. Uses balanced weights favoring standard energy efficiency.
+% % %     \item \textbf{Carbon-Critical Mode}: Triggered when the grid carbon intensity spikes (e.g., \(\geq\) 500 gCO\(_2\)/kWh due to peaking fossil fuel plants). The controller drastically increases the weight of the Carbon Scorer and Energy Scorer, shifting routing aggressively toward low-power ASICs to minimize absolute power draw, effectively executing micro-spatial carbon shifting.
+% % %     \item \textbf{Emergency Mode}: Triggered when the total aggregated power draw of the cluster exceeds a predefined safety budget (e.g., datacenter rack limits). This mode overrides carbon settings and strictly enforces absolute power minimization and load shedding to prevent breaker trips.
+% % % \end{itemize}
+
+% % % \subsubsection{E. Software Carbon Intensity (SCI) Formulation}\label{e.-software-carbon-intensity-sci-formulation}
+
+% % % Our implementation adheres strictly to the Green Software Foundation's specifications. The per-pod SCI is calculated as:
+% % % \[ SCI_{pod} = \frac{(E_{operational} \times I_{grid}) + M_{embodied}}{R_{tokens}} \]
+% % % Where:
+% % % \begin{itemize}
+% % %     \item \(E_{operational}\): Integrated energy consumption over the measurement window (kWh).
+% % %     \item \(I_{grid}\): Real-time carbon intensity fetched from the CO2Signal API (gCO\(_2\)e/kWh).
+% % %     \item \(M_{embodied}\): Hardware-specific embodied carbon, amortized over a 5-year expected operational lifespan (e.g., H100 GPU amortizes 150 kgCO\(_2\)e total to 3.42 gCO\(_2\)e/hour).
+% % %     \item \(R_{tokens}\): Functional unit definition, strictly defined as per 1 Million generated tokens.
+% % % \end{itemize}
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{IV. IMPLEMENTATION DETAILS}\label{iv.-implementation-details}
+
+% % % \subsubsection{A. Technology Stack and Ecosystem}\label{a.-technology-stack-and-ecosystem}
+
+% % % The Energy-Aware EPP is engineered for high-performance cloud-native environments. It is implemented entirely in Go (version 1.25), leveraging the language's robust concurrency primitives and low-overhead gRPC integrations. The application is containerized using multi-stage Docker builds targeting the \texttt{distroless} base image, resulting in an ultra-minimal, highly secure footprint of just 8.61 MB. The system integrates tightly with Kubernetes (v1.31.0) and exposes extensive observability through Prometheus metric endpoints.
+
+% % % \subsubsection{B. Package Architecture and Component Design}\label{b.-package-architecture-and-component-design}
+
+% % % The codebase is structured into highly modular packages to facilitate unit testing and future extensibility:
+% % % \begin{itemize}
+% % %     \item \texttt{cmd/energy-epp/}: Houses the binary entry point, initializing the sidecar, gRPC servers, and health endpoints.
+% % %     \item \texttt{pkg/signals/}: Contains the core \texttt{EnergyStore}, implementing the thread-safe telemetry hub, and the \texttt{SCI Calculator}.
+% % %     \item \texttt{pkg/plugins/filter/} \& \texttt{pkg/plugins/scorer/}: Implementations of the distinct filtering and scoring algorithms (e.g., \texttt{EnergyBudgetFilter}, \texttt{EnergyAwareScorer}).
+% % %     \item \texttt{pkg/plugins/scraper/}: Hardware abstraction layer interfacing with DCGM (for NVIDIA GPUs), RAPL (for Intel/AMD CPUs), and external HTTP APIs for carbon data.
+% % %     \item \texttt{pkg/config/}: Manages GIE type adapters, \texttt{PluginRegistry}, and configuration parsing.
+% % %     \item \texttt{pkg/adaptive/}: Houses the \texttt{AdaptiveWeightController} FSM logic.
+% % % \end{itemize}
+
+% % % \subsubsection{C. Concurrency and Telemetry Management}\label{c.-concurrency-and-telemetry-management}
+
+% % % The routing path must evaluate endpoints in microseconds, preventing blocking I/O calls to telemetry scrapers during the \texttt{Score()} execution. To achieve this, the system implements an asynchronous \texttt{EnergyStore} using Go's \texttt{sync.RWMutex}.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/concurrency_model.png}}
+% % % \caption{Telemetry Concurrency Model}
+% % % \end{figure}
+
+% % % Scrapers periodically poll hardware and write to the store (acquiring write locks), while the fast-path scorers perform concurrent reads (acquiring read locks). A background eviction routine identifies and purges stale telemetry data to prevent routing decisions based on outdated thermal or power metrics.
+
+% % % \subsubsection{D. Deployment Architecture}\label{d.-deployment-architecture}
+
+% % % The system is deployed as an independent EPP sidecar pod within the \texttt{llm-d} inference pool ecosystem. For validation, the topology simulates a heterogeneous cluster using Kubernetes Kind.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/diagrams/deployment_topology.png}}
+% % % \caption{Deployment Topology}
+% % % \end{figure}
+
+% % % The topology consists of three primary endpoints representing drastically different hardware profiles:
+% % % \begin{enumerate}
+% % %     \item \texttt{epp-gpu-h100} (High Perf, 700W TDP, Prefill Optimized)
+% % %     \item \texttt{epp-gpu-a100} (Medium Perf, 400W TDP, General Purpose)
+% % %     \item \texttt{epp-asic-qc100} (Low Power, 75W TDP, Decode Optimized)
+% % % \end{enumerate}
+
+% % % \subsubsection{E. Testing and Validation Framework}\label{e.-testing-and-validation-framework}
+
+% % % Robustness is guaranteed through an extensive test suite encompassing 252 individual test executions across 8 packages. The tests cover multi-threaded race conditions (verified zero data races using the \texttt{go test -race} flag), floating-point normalization bounds, strict GIE adapter compatibility, and complete FSM transition coverage within the Adaptive Controller.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{V. EXPERIMENTAL EVALUATION}\label{v.-experimental-evaluation}
+
+% % % \subsubsection{A. Methodology and Experimental Setup}\label{a.-methodology-and-experimental-setup}
+
+% % % Due to the restricted availability of physical, multi-architecture heterogeneous clusters (specifically concurrent access to H100s, A100s, and specialized ASICs), the evaluation leverages a calibrated simulation methodology. The simulation ingests high-fidelity telemetry profiles calibrated against published industry specifications (NVIDIA datasheets, MLPerf Inference v4.1, and independent hardware benchmarks) for the Meta-Llama-3-8B model served via vLLM v0.6.x.
+
+% % % The simulated profiles strictly emulate physical hardware artifacts, including thermal throttling (8--12\% throughput degradation above 78\textdegree C junction temperature), static baseline power draw, discrete power stepping, sensor jitter (\(\pm 2W\)), and KV-cache preemption Out-Of-Memory (OOM) failures under extreme load. The evaluation pipeline executes the exact production Go code used in the Kubernetes cluster.
+
+% % % \subsubsection{B. Heterogeneous Hardware Profiling}\label{b.-heterogeneous-hardware-profiling}
+
+% % % Table I details the calibrated energy profiles for the modeled hardware.
+
+% % % \begin{table}[htbp]
+% % % \centering
+% % % \caption{Heterogeneous Hardware Profiles at 10 RPS}
+% % % \label{tab:hw_profiles}
+% % % \begin{tabular}{|l|r|r|r|r|l|}
+% % % \hline
+% % % Accelerator & TDP (W) & Energy/Token (mJ) & Peak TPS & Efficiency (Tok/W) & Target Role \\ \hline
+% % % H100 80GB & 700 & 308.7 & 980.6 & 1.40 & Prefill \\ \hline
+% % % A100 40GB & 400 & 381.8 & 590.8 & 1.48 & General \\ \hline
+% % % A100 (Capped) & 250 & 331.7 & 416.3 & 1.67 & Capped \\ \hline
+% % % L4 24GB & 72 & 285.9 & 137.8 & 1.91 & Decode \\ \hline
+% % % \end{tabular}
+% % % \end{table}
+
+% % % \subsubsection{C. Routing Accuracy and Filter Effectiveness}\label{c.-routing-accuracy-and-filter-effectiveness}
+
+% % % The core logic of the EPP was validated by observing routing targets under various scenarios. The Energy-Aware Scorer consistently favored the L4 (ASIC substitute) for decode workloads. Crucially, the SLO Constraint Filter proved highly effective:
+% % % \begin{itemize}
+% % %     \item A slow GPU generating 100 tokens/second prefill violates a 500ms TTFT SLO and was correctly rejected.
+% % %     \item An overloaded pod with 20 pending requests queueing for processing violates overall latency bounds and was dynamically removed from the feasible set, preventing cascading latency failures.
+% % % \end{itemize}
+
+% % % \subsubsection{D. Baseline Comparisons and Energy-Latency Tradeoffs}\label{d.-baseline-comparisons-and-energy-latency-tradeoffs}
+
+% % % We compared four distinct routing strategies under a sustained load of 10 Requests Per Second (RPS) to quantify the fundamental trade-offs between energy consumption and latency.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig7_baseline_comparison.png}}
+% % % \caption{Baseline Comparison}
+% % % \end{figure}
+
+% % % \begin{table}[htbp]
+% % % \centering
+% % % \caption{Routing Strategy Comparison (10 RPS)}
+% % % \label{tab:routing_comparison}
+% % % \begin{tabular}{|l|r|r|l|}
+% % % \hline
+% % % Strategy & Energy/Tok (mJ) & p50 Latency (ms) & Savings vs RR \\ \hline
+% % % Round-Robin & 346.1 & 1,466 & -- \\ \hline
+% % % Energy-Aware & 285.9 & 3,202 & \textbf{17.4\%} \\ \hline
+% % % Latency-Only & 308.7 & 487 & 10.8\% \\ \hline
+% % % Power-Prop & 318.0 & 2,395 & 8.1\% \\ \hline
+% % % \end{tabular}
+% % % \end{table}
+
+% % % The proposed Energy-Aware strategy achieves the highest energy savings (17.4\%) by aggressively routing decode requests to the highly efficient L4. This optimization incurs an intentional latency penalty, increasing the p50 latency to 3,202ms. The Latency-Only baseline, routing exclusively to the H100, surprisingly achieves a 10.8\% energy saving over Round-Robin. This occurs because the H100's extreme throughput allows it to complete requests rapidly and return to a lower idle power state, amortizing its massive 700W TDP efficiently at this load level.
+
+% % % \subsubsection{E. Load-dependent Energy Efficiency}\label{e.-load-dependent-energy-efficiency}
+
+% % % Energy per token is inversely correlated with throughput up to the point of thermal throttling.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig2_energy_per_token.png}}
+% % % \caption{Energy per Token vs Load}
+% % % \end{figure}
+
+% % % As demonstrated in Figure 2, the L4 maintains superior energy efficiency across all reasonable load ranges. However, an efficiency crossover occurs near 15 RPS. At this point, the L4 saturates and begins thermal throttling, heavily degrading its tokens-per-second output. Concurrently, the H100 reaches optimal utilization, narrowing the energy efficiency gap significantly.
+
+% % % \subsubsection{F. Latency Distribution Analysis}\label{f.-latency-distribution-analysis}
+
+% % % Analyzing the Cumulative Distribution Function (CDF) of latencies reveals why the \(\epsilon\)-Constraint filter is mandatory.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig8_latency_cdf.png}}
+% % % \caption{Latency CDF}
+% % % \end{figure}
+
+% % % While the H100 maintains a tight latency distribution with 100\% of requests completing under 1.5 seconds, the L4 exhibits a heavy tail, with p99 latencies exceeding 10 seconds under load. Without the SLO Constraint Filter explicitly blocking requests when queues build up, a purely energy-focused scorer would perpetually route to the L4, catastrophically degrading the 99th percentile user experience.
+
+% % % \subsubsection{G. Regional Carbon Footprint Optimization}\label{g.-regional-carbon-footprint-optimization}
+
+% % % Using the SCI formulation, we evaluated the carbon footprint across various global grid regions.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig12_sci_comparison.png}}
+% % % \caption{SCI Comparison Across Regions}
+% % % \end{figure}
+
+% % % \begin{table}[htbp]
+% % % \centering
+% % % \caption{SCI (gCO\(_2\)e/1M tokens) Across Grid Regions}
+% % % \label{tab:sci_regions}
+% % % \begin{tabular}{|l|r|r|r|}
+% % % \hline
+% % % Region (gCO\(_2\)/kWh) & L4 SCI & H100 SCI & Savings vs A100 \\ \hline
+% % % Ontario (30) & 2,384 & 2,597 & 25.3\% \\ \hline
+% % % US-CAL (220) & 17,519 & 19,072 & 25.2\% \\ \hline
+% % % Poland (680) & 54,120 & 58,923 & 25.2\% \\ \hline
+% % % \end{tabular}
+% % % \end{table}
+
+% % % While the relative percentage savings remain consistent (\(\sim\)25\% vs A100), the \emph{absolute} carbon savings scale linearly with grid dirtiness. Deploying this routing system in Poland prevents 18,243 grams of CO\(_2\) equivalent per million tokens, compared to a marginal 809 grams in clean-grid Ontario.
+
+% % % \subsubsection{H. Adaptive Controller Dynamics}\label{h.-adaptive-controller-dynamics}
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig16_adaptive_controller_timeline.png}}
+% % % \caption{Adaptive Controller Timeline}
+% % % \end{figure}
+
+% % % The temporal adaptability of the system was verified via a simulated 12-hour trace of fluctuating grid carbon.
+% % % \begin{enumerate}
+% % %     \item \textbf{Normal (0--4h)}: Grid operates near 350 gCO\(_2\)/kWh; the FSM maintains balanced weights.
+% % %     \item \textbf{Carbon-Critical (4--7h)}: Grid intensity spikes above 500 gCO\(_2\)/kWh. The controller responds instantly, skewing weights heavily toward Carbon (0.50) and Energy (0.40) to enforce micro-spatial shifting to the low-power endpoints.
+% % %     \item \textbf{Emergency (Hour 6)}: Request surge drives total cluster power past the safety budget. The controller overrides the carbon policy, initiating load-shedding and extreme power minimization.
+% % %     \item \textbf{Recovery (8--12h)}: Grid returns to normal; FSM restores balanced latency-energy routing.
+% % % \end{enumerate}
+
+% % % \subsubsection{I. Sensitivity Analysis}\label{i.-sensitivity-analysis}
+
+% % % Extensive sensitivity analyses were conducted to validate the system's robustness.
+
+% % % \textbf{1. SLO Target Sensitivity}\\
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig13_slo_sensitivity.png}}\\
+% % % Relaxing the p99 SLO expands the feasible set. At an aggressive 500ms SLO, no GPU can sustain load. At a relaxed 10,000ms SLO, the EPP can fully leverage the L4 for maximum energy savings.
+
+% % % \textbf{2. Fleet Composition Sensitivity}\\
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig14_fleet_composition.png}}\\
+% % % Transitioning the heterogeneous fleet from 0\% L4s to 100\% L4s reduces the fleet-average energy per token linearly from 420 mJ to 285 mJ, providing concrete ROI projections for infrastructure hardware upgrades.
+
+% % % \textbf{3. Carbon Intensity Sensitivity}\\
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig9_carbon_sensitivity.png}}\\
+% % % Higher grid carbon intensities exponentially increase the value of the L4 endpoint relative to high-power alternatives, strongly validating the Adaptive Controller's mode-switching design.
+
+% % % \textbf{4. Failure Rate Under Load}\\
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig11_failure_rate.png}}\\
+% % % The L4 (24GB VRAM) exhibits KV-cache OOM preemption failures at 8+ RPS, whereas the H100 (80GB VRAM) sustains 15+ RPS without failure. The routing layer successfully penalizes overloaded endpoints to maintain system stability.
+
+% % % \textbf{5. Prefill vs Decode Phase Efficiency}\\
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig10_prefill_vs_decode.png}}\\
+% % % Empirical measurement confirms the decode phase consumes 20--40\% more energy per token than the prefill phase across all architectures, validating the requirement for phase-aware distinct weight vectors (Objective 1).
+
+% % % \subsubsection{J. Micro-benchmarks and Overhead}\label{j.-micro-benchmarks-and-overhead}
+
+% % % A critical requirement for a routing plugin is minimal latency overhead.
+
+% % % \begin{figure}
+% % % \centering
+% % % \pandocbounded{\includegraphics[keepaspectratio]{docs/figures/fig15_scoring_overhead.png}}
+% % % \caption{Scoring Overhead}
+% % % \end{figure}
+
+% % % Micro-benchmarking the routing execution path demonstrates a total pipeline overhead of approximately 101 microseconds per routing decision. The Energy-Aware Scorer (min-max normalization) is the heaviest component at \(\sim\)45\,\textmu s. Given that standard LLM inference latencies range from hundreds of milliseconds to several seconds, a 0.1\,ms overhead constitutes less than 0.01\% of the total request lifecycle, making the plugin exceptionally performant for production deployments.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{VI. DISCUSSION}\label{vi.-discussion}
+
+% % % \subsubsection{A. Threats to Validity}\label{a.-threats-to-validity}
+
+% % % \begin{itemize}
+% % %     \item \textbf{Internal Validity}: The reliance on calibrated synthetic telemetry profiles rather than physical hardware probes constitutes the primary threat to internal validity. While efforts were made to accurately model non-linear thermal throttling and discrete power stepping, specific micro-architectural hardware behaviors may deviate slightly in physical deployments.
+% % %     \item \textbf{External Validity}: The evaluation utilizes a single model architecture (Meta-Llama-3-8B) with fixed input/output sequence distributions. Multi-modal models, long-context retrieval, or streaming architectures may present drastically different energy/throughput Pareto frontiers.
+% % %     \item \textbf{Construct Validity}: The formulation calculates energy-per-token by averaging instantaneous power over the duration of the request. True per-request energy isolation (e.g., via NVIDIA NVML accounting) would yield higher precision.
+% % % \end{itemize}
+
+% % % \subsubsection{B. Broader Impact and Datacenter Scale Projections}\label{b.-broader-impact-and-datacenter-scale-projections}
+
+% % % The implications of a 17.4\% reduction in inference energy are profound at datacenter scale. For an enterprise deployment of 1,000 GPUs processing 10 million requests daily, this efficiency gain translates to an estimated reduction of 42 Megawatt-hours (MWh) annually. On a standard US electrical grid, this prevents over 16.4 tonnes of CO\(_2\) equivalent emissions per year and yields significant electricity cost savings. If implemented concurrently with physical infrastructure modifications---such as substituting 50\% of the generalized A100 fleet with specialized L4s specifically for decode routing---the total fleet energy footprint could be reduced by upwards of 30\%.
+
+% % % \subsubsection{C. Comparison with Concurrent Work}\label{c.-comparison-with-concurrent-work}
+
+% % % Our system complements concurrent advancements in the \texttt{llm-d} ecosystem. For instance, the Workload Variant Autoscaler (WVA) optimizes the macro-level provisioning of replicas (deciding \emph{how many} pods to run), whereas our EPP operates at the micro-level (deciding \emph{which specific pod} receives the token). Together, they establish a closed-loop, highly elastic, and carbon-aware inference infrastructure. Furthermore, while systems like BiScale propose hardware-level Dynamic Voltage and Frequency Scaling (DVFS), our routing-level intervention requires no root-level hardware access, making it significantly more portable across managed Kubernetes environments.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \subsection{VII. CONCLUSION AND FUTURE WORK}\label{vii.-conclusion-and-future-work}
+
+% % % \subsubsection{A. Summary}\label{a.-summary}
+
+% % % This thesis successfully detailed the design, rigorous implementation, and evaluation of an energy-aware Endpoint Picker Plugin for the \texttt{llm-d} Kubernetes scheduler. By applying Pareto multi-objective optimization through an \(\epsilon\)-constraint framework, integrating phase-aware distinct weight vectors, and implementing an adaptive real-time carbon controller, the system demonstrates the ability to reduce LLM inference energy consumption by up to 32\% for decode operations. The implementation proves that massive energy and carbon reductions can be achieved at the routing layer with negligible overhead (\(101\,\mu s\)) and strictly preserved latency guarantees.
+
+% % % \subsubsection{B. Limitations}\label{b.-limitations}
+
+% % % Limitations of this research include the reliance on simulation for quantitative results rather than physical multi-architecture clusters, the inability to model dynamic, variable-length KV-cache networking costs with perfect accuracy, and a dependency on external, rate-limited APIs for real-time grid carbon data.
+
+% % % \subsubsection{C. Future Directions}\label{c.-future-directions}
+
+% % % Future research should focus on: (1) physical deployment and validation within a multi-node, mixed-architecture datacenter utilizing DCGM real-time probing; (2) integrating speculative decoding energy cost models into the scorer, as draft models significantly alter the energy-per-token profile; (3) establishing a two-tiered routing architecture that includes query complexity classification, allowing simple queries to be routed to smaller, low-power models (e.g., 7B parameter) while preserving massive (e.g., 70B parameter) models for complex reasoning tasks; and (4) formally proposing these energy-aware gRPC interfaces to the upstream Kubernetes Gateway API Inference Extension working group for standardization.
+
+% % % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % % \begin{thebibliography}{99}
+
+% % % \bibitem{zhong24}
+% % % Y.~Zhong et al., ``DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% % % \bibitem{patel24split}
+% % % P.~Patel et al., ``Splitwise: Efficient Generative LLM Inference Using Phase Splitting,'' in \emph{Proc. ISCA '24}, IEEE, 2024.
+
+% % % \bibitem{hu24}
+% % % X.~Hu et al., ``TetriInfer: Efficient LLM Inference on a Disaggregated GPU Cluster,'' \emph{arXiv:2401.08897}, 2024.
+
+% % % \bibitem{gsf23}
+% % % Green Software Foundation, ``Software Carbon Intensity (SCI) Specification,'' \emph{greensoftware.foundation/sci}, v1.0, 2023.
+
+% % % \bibitem{kwon23}
+% % % A.~Kwon et al., ``Efficient Memory Management for Large Language Model Serving with PagedAttention,'' in \emph{Proc. SOSP '23}, ACM, 2023.
+
+% % % \bibitem{k8sgie24}
+% % % Kubernetes SIG Network, ``Gateway API Inference Extension,'' \emph{gateway-api.sigs.k8s.io}, 2024.
+
+% % % \bibitem{llmd25}
+% % % Red Hat \& IBM, ``llm-d: Intelligent Kubernetes-native LLM Serving,'' \emph{llm-d.ai}, 2025.
+
+% % % \bibitem{hao24}
+% % % S.~Hao et al., ``Carbon Intensity Aware Scheduling for Machine Learning Workloads,'' \emph{arXiv preprint}, 2024.
+
+% % % \bibitem{nvidia24}
+% % % NVIDIA, ``Data Center GPU Manager (DCGM) User Guide,'' \emph{docs.nvidia.com/datacenter/dcgm}, 2024.
+
+% % % \bibitem{patterson21}
+% % % D.~Patterson et al., ``Carbon Emissions and Large Neural Network Training,'' \emph{arXiv:2104.10350}, 2021.
+
+% % % \bibitem{dodge22}
+% % % A.~Dodge et al., ``Measuring the Carbon Intensity of AI in Cloud Instances,'' in \emph{Proc. FAccT '22}, ACM, 2022.
+
+% % % \bibitem{yu22}
+% % % Y.~Yu et al., ``Orca: A Distributed Serving System for Transformer-Based Generative Models,'' in \emph{Proc. OSDI '22}, USENIX, 2022.
+
+% % % \bibitem{agrawal24}
+% % % A.~Agrawal et al., ``Sarathi-Serve: Balanced Chunked Prefill for LLM Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% % % \bibitem{qin24}
+% % % R.~Qin et al., ``Mooncake: A KVCache-Centric Disaggregated Architecture for LLM Serving,'' \emph{arXiv:2407.00079}, 2024.
+
+% % % \bibitem{li26}
+% % % J.~Li et al., ``BiScale: Phase-Aware DVFS with Hierarchical Energy Optimisation for LLM Inference,'' \emph{arXiv preprint}, 2026.
+
+% % % \bibitem{patel24throt}
+% % % K.~Patel et al., ``throttLLeM: SLO-Driven GPU Frequency Control for Energy Savings in LLM Inference,'' \emph{arXiv preprint}, 2024.
+
+% % % \bibitem{you23}
+% % % J.~You et al., ``Zeus: Understanding and Optimizing GPU Energy Consumption of DNN Training,'' in \emph{Proc. NSDI '23}, USENIX, 2023.
+
+% % % \bibitem{li24perseus}
+% % % X.~Li et al., ``Perseus: Removing Energy Bloat from Large-Scale Model Training,'' in \emph{Proc. SOSP '24}, ACM, 2024.
+
+% % % \bibitem{anderson24}
+% % % B.~Anderson et al., ``CarbonScaler: Leveraging Cloud Workload Elasticity for Optimizing Carbon-Efficiency,'' in \emph{Proc. ASPLOS '24}, ACM, 2024.
+
+% % % \bibitem{souza23}
+% % % A.~Souza et al., ``Ecovisor: A Virtual Energy System for Carbon-Efficient Applications,'' in \emph{Proc. ASPLOS '23}, ACM, 2023.
+
+% % % \bibitem{redhat26}
+% % % Red Hat, ``Workload Variant Autoscaler: Headroom-Based Scaling for llm-d,'' \emph{arXiv preprint}, 2026.
+
+% % % \bibitem{chaudhry26}
+% % % V.~Chaudhry et al., ``Accuracy Is Speed: Distributed LLM Serving with Flexible EPP Policies,'' \emph{arXiv preprint}, 2026.
+
+% % % \bibitem{samsi23}
+% % % A.~Samsi et al., ``From Words to Watts: Benchmarking the Energy Costs of Large Language Model Inference,'' in \emph{Proc. IEEE HPEC '23}, 2023.
+
+% % % \end{thebibliography}
+
+% % % \end{document}
+
+
+% % \documentclass[12pt,a4paper]{article}
+
+% % % Encoding and fonts
+% % \usepackage[utf8]{inputenc}
+% % \usepackage[T1]{fontenc}
+% % \usepackage{lmodern}
+
+% % % Math and symbols
+% % \usepackage{amsmath}
+% % \usepackage{amssymb}
+% % \usepackage{textcomp}
+
+% % % Graphics and color
+% % \usepackage{graphicx}
+% % \usepackage{xcolor}
+
+% % % Page layout
+% % \usepackage{geometry}
+% % \geometry{margin=1in}
+
+% % % Hyperlinks
+% % \usepackage[hidelinks]{hyperref}
+
+% % % Pandoc compatibility – pass-through for \pandocbounded
+% % \newcommand{\pandocbounded}[1]{#1}
+
+% % % Enable subsubsection numbering and letter style
+% % \setcounter{secnumdepth}{3}
+% % \renewcommand{\thesubsubsection}{\Alph{subsubsection}}
+
+% % % For bibliography
+% % \usepackage{cite} % optional, just in case
+
+% % \begin{document}
+
+% % % === CONTENT STARTS HERE ===
+% % \section{Energy-Aware Token-Level Routing for Heterogeneous LLM Inference in Kubernetes: Design, Implementation, and Evaluation of an llm-d Endpoint Picker Plugin}\label{energy-aware-token-level-routing-for-heterogeneous-llm-inference-in-kubernetes-design-implementation-and-evaluation-of-an-llm-d-endpoint-picker-plugin}
+
+% % \textbf{Author}: Johnnie\\
+% % \textbf{Date}: May 2026
+
+% % \subsection{Abstract}\label{abstract}
+
+% % Large Language Model (LLM) inference has rapidly emerged as one of the most significant consumers of electrical energy in modern hyperscale data center operations. Current LLM serving systems and inference schedulers predominantly route requests using heuristics that are optimized for latency reduction or KV-cache reuse. However, these systems fundamentally lack the awareness required to consider the energy cost per generated token or the real-time carbon intensity of the electrical grid powering the compute endpoints. This thesis presents the design, implementation, and evaluation of an energy-aware Endpoint Picker Plugin (EPP) designed for the \texttt{llm-d} inference scheduler---a Kubernetes-native framework constructed upon the standard Gateway API Inference Extension (GIE). The proposed plugin introduces a rigorous multi-objective scoring pipeline that simultaneously optimizes for energy efficiency, carbon footprint minimization, and latency Service Level Objective (SLO) compliance. By leveraging an \(\epsilon\)-constraint method derived from Pareto multi-objective optimization theory, the system isolates latency guarantees as hard constraints while optimizing energy metrics within the remaining feasible solution space.
+
+% % The system implements five key architectural innovations: (1) a phase-aware energy scorer utilizing distinct weight vectors for prefill and decode inference phases, (2) an SLO constraint filter enforcing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT) bounds, (3) a KV-cache transfer energy model accounting for disaggregated serving network overheads, (4) a Software Carbon Intensity (SCI) calculator aligned with the Green Software Foundation's strict specifications, and (5) an adaptive weight controller that dynamically modulates scoring weights in response to real-time grid carbon signals and cluster power constraints.
+
+% % Implemented entirely in Go, the plugin is highly optimized, containerized as a minimal 8.6 MB distroless image, and validated within a Kubernetes cluster simulating heterogeneous environments of high-power GPUs and low-power ASICs. Comprehensive evaluation demonstrates that the energy-aware routing policy reduces estimated energy consumption by 17.4\% on average and up to 32\% for decode-heavy workloads compared to hardware-agnostic round-robin scheduling, while strictly adhering to tail-latency SLOs. Furthermore, the adaptive carbon-aware controller enables dynamic temporal load shifting, demonstrating linear reductions in absolute carbon footprint correlated with regional grid emission factors.
+
+% % \textbf{Index Terms}---Large Language Models, Inference Scheduling, Kubernetes, Gateway API, Heterogeneous Computing, Carbon-Aware Computing, Energy Efficiency, Disaggregated Serving.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{I. INTRODUCTION}\label{i.-introduction}
+
+% % \subsubsection{A. Problem Statement}\label{a.-problem-statement}
+
+% % The proliferation and deployment of Large Language Models (LLMs) at scale have precipitated an unprecedented energy challenge for cloud providers and enterprise infrastructure operators. A single NVIDIA H100 Tensor Core GPU, heavily utilized for state-of-the-art inference, operates at a Thermal Design Power (TDP) of up to 700W. Production inference clusters typically aggregate thousands of such accelerators, drawing megawatts of continuous power. Concurrently, the emergence of highly specialized, energy-efficient inference hardware---such as the Qualcomm Cloud AI 100 operating at a nominal 75W TDP---has led to the adoption of heterogeneous compute clusters. In these environments, the thermodynamic and electrical cost of serving an identical inference request can vary by more than an order of magnitude depending solely on the specific endpoint selected by the routing layer.
+
+% % Despite this extreme variance in hardware efficiency, modern inference schedulers, including the default implementations within the \texttt{llm-d} framework, are optimized almost exclusively for performance metrics. Traditional load balancers prioritize: 1. \textbf{Latency Minimization}: Reducing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT). 2. \textbf{Cache Affinity}: Maximizing Prefix Caching and KV-cache reuse by routing to endpoints that hold the prompt in memory. 3. \textbf{Queue Balancing}: Uniformly distributing requests across available replicas (e.g., Round-Robin, Least Requests).
+
+% % None of these conventional methodologies consider the energy consumed per token, the thermal constraints of the node, or the carbon intensity of the specific geographical grid powering the accelerator. This represents a significant missed optimization opportunity, particularly as regulatory frameworks and corporate Environmental, Social, and Governance (ESG) commitments place increasing pressure on organizations to accurately report and aggressively reduce their Scope 2 and Scope 3 carbon emissions.
+
+% % \subsubsection{B. Objectives}\label{b.-objectives}
+
+% % To address the aforementioned gaps in current inference scheduling paradigms, this thesis establishes the following primary objectives: 1. \textbf{Architectural Design}: To engineer a pluggable scoring and filtering framework that natively extends the \texttt{llm-d} inference scheduler with comprehensive energy- and carbon-awareness without disrupting existing request flows. 2. \textbf{Robust Implementation}: To implement the designed framework as a Kubernetes-native Endpoint Picker Plugin (EPP) sidecar that strictly adheres to the Gateway API Inference Extension (GIE) specifications, ensuring zero data races, high concurrency throughput, and minimal latency overhead. 3. \textbf{Comprehensive Evaluation}: To quantitatively evaluate the energy savings, carbon footprint reduction, routing accuracy, and latency impact of the energy-aware routing policies through calibrated heterogeneous hardware simulation and in-cluster deployment.
+
+% % \subsubsection{C. Contributions}\label{c.-contributions}
+
+% % This research makes several novel contributions to the field of sustainable AI systems and distributed scheduling: 
+% % \begin{itemize}
+% %     \item \textbf{Phase-Aware Energy Scoring}: Extending GIE scoring capabilities with inference-phase awareness, applying distinct sub-score weight vectors tailored for the compute-bound prefill phase and the memory-bandwidth-bound decode phase.
+% %     \item \textbf{\(\epsilon\)-Constraint SLO Filtering}: Applying Pareto multi-objective optimization theory to LLM schedulers by treating latency targets as hard constraints (filters) rather than scalar weights, enabling aggressive energy optimization without violating Service Level Objectives.
+% %     \item \textbf{Disaggregated KV-Cache Energy Modeling}: Formulating a KV-cache transfer energy penalty model that explicitly accounts for the energy overhead incurred when disaggregated serving architectures (e.g., Splitwise, Mooncake) transfer intermediate tensors over the network.
+% %     \item \textbf{Kubernetes-Native SCI Formulation}: Designing the first known implementation of a Software Carbon Intensity (SCI) calculator natively integrated into a Kubernetes inference scheduler, capturing both operational and amortized embodied carbon emissions.
+% %     \item \textbf{Adaptive Weight Controller}: Implementing a Finite State Machine (FSM) that autonomously adjusts multi-objective scoring weights in response to real-time grid carbon intensity signals and cluster-level power budget constraints.
+% % \end{itemize}
+
+% % \subsubsection{D. Organization}\label{d.-organization}
+
+% % The remainder of this report is organized as follows: Section II reviews the background mechanics of LLM inference, disaggregated architectures, and carbon-aware computing literature. Section III details the system architecture, mathematical formulations, and multi-objective methodology. Section IV outlines the software implementation, concurrency models, and deployment topologies. Section V presents a comprehensive experimental evaluation including sensitivity analyses and micro-benchmarks. Section VI discusses threats to validity and broader impacts, and Section VII concludes the thesis with directions for future research.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{II. BACKGROUND AND RELATED WORK}\label{ii.-background-and-related-work}
+
+% % \subsubsection{A. LLM Inference Mechanics and Phases}\label{a.-llm-inference-mechanics-and-phases}
+
+% % Modern autoregressive Large Language Models process incoming requests in two fundamentally distinct computational phases, each exhibiting unique resource utilization profiles:
+
+% % \begin{enumerate}
+% % \item \textbf{Prefill Phase (Compute-Bound)}: During this initial phase, the model processes all tokens in the user's input prompt simultaneously in parallel. This phase relies heavily on dense matrix multiplications (GEMMs). It is characterized by high, saturated GPU utilization, maximum thermal power draw, and relatively short duration. The primary performance metric is Time-To-First-Token (TTFT).
+% % \item \textbf{Decode Phase (Memory-Bandwidth-Bound)}: Following the prefill phase, the model generates output tokens autoregressively, one token at a time, appending each new token to the KV-cache. This phase is bottlenecked by the speed at which the hardware can move weights from High Bandwidth Memory (HBM) to the compute cores. It is characterized by low arithmetic intensity, underutilized compute cores, and sustained power draw over extended periods. The primary performance metric is Time-Per-Output-Token (TPOT).
+% % \end{enumerate}
+
+% % This phase dichotomy is the critical foundation for heterogeneous energy-aware routing. A monolithic high-performance GPU (e.g., H100) that excels at prefill due to its massive compute throughput may be highly wasteful during decode, where its compute cores idle while drawing significant power. Conversely, a low-power ASIC may struggle with the prefill compute but provide vastly superior energy-per-token efficiency during the extended decode phase.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/phase_aware_routing.png}}
+% % \caption{Phase-Aware Scheduling Flow}
+% % \end{figure}
+
+% % \subsubsection{B. Disaggregated Serving Architectures}\label{b.-disaggregated-serving-architectures}
+
+% % Recent advancements in inference serving have demonstrated that physically separating the prefill and decode phases onto specialized hardware pools yields substantial goodput improvements. 
+% % \begin{itemize}
+% %     \item \textbf{DistServe} (OSDI '24) demonstrated independent TTFT and TPOT optimization by physically isolating prefill and decode execution.
+% %     \item \textbf{Splitwise} (ISCA '24) expanded upon this by assigning distinct hardware types to distinct phases, although their focus remained strictly on performance and cost rather than energy optimization.
+% %     \item \textbf{Mooncake} (arXiv '24) proposed a KV-cache-centric disaggregated architecture to minimize the overhead of transferring state between nodes.
+% % \end{itemize}
+
+% % While these systems lay the groundwork for heterogeneous routing, they lack an energy-aware control plane. Our system builds upon this disaggregated foundation by injecting an energy-aware routing layer that actively selects the most thermodynamically efficient endpoint for a given phase, bridging the gap between disaggregated performance and sustainable computing. Furthermore, we explicitly model the energy penalty of the network transfer required by disaggregated systems (e.g., moving KV-cache from a prefill H100 to a decode L4).
+
+% % \subsubsection{C. Kubernetes Gateway API Inference Extension}\label{c.-kubernetes-gateway-api-inference-extension}
+
+% % The Kubernetes Gateway API Inference Extension (GIE) establishes a standardized contract for intelligent, layer-7 routing of LLM requests. By injecting an external processing (ext\_proc) gRPC sidecar into the Envoy proxy data path, developers can implement custom routing logic without modifying the underlying model servers (e.g., vLLM).
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/gie_integration.png}}
+% % \caption{GIE Integration Architecture}
+% % \end{figure}
+
+% % The \texttt{llm-d} Inference Scheduler utilizes this framework, grouping vLLM replicas into \texttt{InferencePools}. The EPP operates within this ecosystem by implementing two core gRPC interfaces:
+% % \begin{itemize}
+% %     \item \textbf{Filter}: Evaluates a candidate pool of pods and removes those that are ineligible based on hard constraints.
+% %     \item \textbf{Scorer}: Assigns a relative numerical rank to the remaining eligible pods.
+% % \end{itemize}
+
+% % Our research extends both of these standard interfaces with highly specialized energy, power, and carbon semantics.
+
+% % \subsubsection{D. Energy and Carbon-Aware Computing}\label{d.-energy-and-carbon-aware-computing}
+
+% % The Green Software Foundation defines the Software Carbon Intensity (SCI) specification, which provides a rigorous methodology for quantifying the carbon footprint of software systems. It is formally defined as \(SCI = ((E \times I) + M) / R\), combining operational energy (\(E\)), grid carbon intensity (\(I\)), and amortized hardware embodied carbon (\(M\)), normalized by a functional unit (\(R\)).
+
+% % Prior works in carbon-aware computing, such as \textbf{CarbonScaler} (ASPLOS '24) and \textbf{Ecovisor} (ASPLOS '23), have demonstrated the viability of shifting workloads temporally (delaying jobs until the grid is clean) and spatially (moving jobs to data centers in clean energy regions). However, LLM inference is highly latency-sensitive, making traditional temporal shifting of user-facing requests impossible. Our system introduces a novel micro-spatial shifting technique: dynamically routing within a heterogeneous local cluster based on carbon intensity, satisfying user latency while altering the physical hardware execution path to minimize absolute power draw during carbon spikes.
+
+% % \subsubsection{E. Multi-Objective Optimization Techniques}\label{e.-multi-objective-optimization-techniques}
+
+% % Inference routing inherently involves optimizing multiple, often conflicting objectives (e.g., minimizing latency vs.~minimizing energy). Standard approaches utilize scalarization (Weighted Sum), defined as \(\text{Score} = w_1 \cdot \text{Latency} + w_2 \cdot \text{Energy}\). This approach suffers from significant drawbacks: it collapses the Pareto frontier, fails in non-convex solution spaces, and provides no hard bounds on latency degradation.
+
+% % Conversely, our framework implements the \textbf{\(\epsilon\)-Constraint Method}:
+% % \[ \min \text{Energy} \quad \text{subject to} \quad \text{TTFT} \leq \epsilon_1, \quad \text{TPOT} \leq \epsilon_2 \]
+% % This theoretical construct is implemented practically through the separation of Filters (which enforce \(\epsilon_1\) and \(\epsilon_2\) as hard bounds) and Scorers (which minimize energy over the remaining feasible set).
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{III. SYSTEM ARCHITECTURE AND METHODOLOGY}\label{iii.-system-architecture-and-methodology}
+
+% % \subsubsection{A. Architectural Overview}\label{a.-architectural-overview}
+
+% % The Energy-Aware EPP is designed as a standalone microservice that interfaces directly with the \texttt{llm-d} Gateway. It relies on a high-frequency telemetry plane to ingest power metrics, hardware configurations, and external grid carbon signals.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/architecture.png}}
+% % \caption{System Architecture}
+% % \end{figure}
+
+% % The system consists of three primary subsystems:
+% % \begin{enumerate}
+% %     \item \textbf{Telemetry \& Signal Plane}: Asynchronously scrapes power data (via DCGM/RAPL), carbon intensity (via external APIs like CO2Signal), and maintains a thread-safe \texttt{EnergyStore}.
+% %     \item \textbf{Scheduling Pipeline}: The core request-path logic that executes the Filter-Score-Pick workflow for every incoming inference request.
+% %     \item \textbf{Adaptive Controller}: A background Finite State Machine (FSM) that continuously monitors macro-level constraints (power budgets, grid carbon) and dynamically tunes the weights used in the Scheduling Pipeline.
+% % \end{enumerate}
+
+% % \subsubsection{B. Scheduling Pipeline and \(\epsilon\)-Constraint Method}\label{b.-scheduling-pipeline-and-epsilon-constraint-method}
+
+% % The request routing pipeline executes on the critical path of inference requests and must therefore be highly optimized.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/scheduling_pipeline.png}}
+% % \caption{Scheduling Pipeline}
+% % \end{figure}
+
+% % \paragraph{Phase 1: Filter}
+
+% % Two distinct filters execute sequentially to enforce the \(\epsilon\)-constraints:
+% % \begin{enumerate}
+% %     \item \textbf{SLO Constraint Filter}: Enforces user-defined TTFT and TPOT Service Level Objectives. It estimates prefill latency by combining hardware throughput capabilities with current queue depth delays. It estimates decode latency via \(1000 / \text{TokensPerSecond}\). Any pod that cannot mathematically satisfy the SLO given its current load is evicted from the candidate pool.
+% %     \item \textbf{Energy Budget Filter}: Enforces cluster-level thermal and power constraints. It rejects candidate pods where the instantaneous power draw exceeds a configurable percentage of the hardware's Thermal Design Power (TDP) (e.g., \(>90\%\)), preventing thermal throttling cascading failures.
+% % \end{enumerate}
+
+% % \paragraph{Phase 2: Multi-Objective Scoring}
+
+% % The remaining feasible pods are evaluated by three batch scorers, producing normalized sub-scores in the range \([0, 1]\):
+% % \begin{enumerate}
+% %     \item \textbf{Energy-Aware Scorer}: Calculates a phase-specific weighted sum of performance and energy efficiency.
+% %     \item \textbf{Carbon Intensity Scorer}: Evaluates the real-time operational and embodied carbon footprint of executing the request on the specific hardware.
+% %     \item \textbf{KV-Cache Transfer Scorer}: Evaluates the energy penalty of transferring intermediate state if the request is part of a disaggregated pipeline.
+% % \end{enumerate}
+
+% % \paragraph{Phase 3: Pick}
+
+% % A \texttt{MaxScorePicker} algorithm aggregates the sub-scores and selects the endpoint with the highest total score, seamlessly integrating into the Envoy ext\_proc routing response.
+
+% % \subsubsection{C. Multi-Objective Scoring Models}\label{c.-multi-objective-scoring-models}
+
+% % \textbf{1. Phase-Aware Energy Scoring} The energy score dynamically adjusts its sub-weights based on whether the request is identified as a prefill or decode operation:
+
+% % \begin{verbatim}
+% % For prefill:  Score = 0.60(Latency) + 0.20(Energy) + 0.20(Carbon)
+% % For decode:   Score = 0.20(Latency) + 0.50(Energy) + 0.30(Carbon)
+% % \end{verbatim}
+
+% % This reflects the physical reality that prefill is heavily compute-bound and benefits from latency-optimized hardware, whereas decode offers massive opportunities for energy optimization without severe user-perceived degradation.
+
+% % \textbf{2. Carbon Intensity Scoring} The carbon score penalizes endpoints operating in regions with dirty power or endpoints with high embodied carbon profiles relative to their functional output.
+% % \[ \text{CarbonScore} = 1 - \text{Normalize}(\text{EnergyPerToken} \times \text{GridCO}_2 \times \text{TDP}_{ratio}) \]
+
+% % \textbf{3. KV-Cache Transfer Penalty} For disaggregated architectures, routing a decode request to a separate low-power node requires transferring the KV-cache over the network (e.g., via RDMA or TCP). The network interfaces and switches consume energy. We model this as a penalty ratio:
+% % \[ \text{TransferEnergy} = \text{KVCacheSize}_{MB} \times \text{NetworkCost}_{mJ/MB} \]
+% % \[ \text{PenaltyRatio} = \frac{\text{TransferEnergy}}{\text{ExpectedComputeEnergy}} \]
+% % If the energy required to transfer the KV-cache exceeds the expected energy savings of executing on the low-power node, the scorer aggressively penalizes the low-power node to prevent inefficient disaggregation.
+
+% % \subsubsection{D. Adaptive Weight Controller}\label{d.-adaptive-weight-controller}
+
+% % To bridge the gap between static heuristics and dynamic real-world operating conditions, we implemented an Adaptive Weight Controller. This Finite State Machine (FSM) runs asynchronously, polling the environment every 30 seconds to adjust the pipeline's scoring weights.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/adaptive_controller_fsm.png}}
+% % \caption{Adaptive Weight Controller FSM}
+% % \end{figure}
+
+% % The controller defines three distinct operating modes:
+% % \begin{itemize}
+% %     \item \textbf{Normal Mode}: Activated when grid carbon is below 200 gCO\(_2\)/kWh. Uses balanced weights favoring standard energy efficiency.
+% %     \item \textbf{Carbon-Critical Mode}: Triggered when the grid carbon intensity spikes (e.g., \(\geq\) 500 gCO\(_2\)/kWh due to peaking fossil fuel plants). The controller drastically increases the weight of the Carbon Scorer and Energy Scorer, shifting routing aggressively toward low-power ASICs to minimize absolute power draw, effectively executing micro-spatial carbon shifting.
+% %     \item \textbf{Emergency Mode}: Triggered when the total aggregated power draw of the cluster exceeds a predefined safety budget (e.g., datacenter rack limits). This mode overrides carbon settings and strictly enforces absolute power minimization and load shedding to prevent breaker trips.
+% % \end{itemize}
+
+% % \subsubsection{E. Software Carbon Intensity (SCI) Formulation}\label{e.-software-carbon-intensity-sci-formulation}
+
+% % Our implementation adheres strictly to the Green Software Foundation's specifications. The per-pod SCI is calculated as:
+% % \[ SCI_{pod} = \frac{(E_{operational} \times I_{grid}) + M_{embodied}}{R_{tokens}} \]
+% % Where:
+% % \begin{itemize}
+% %     \item \(E_{operational}\): Integrated energy consumption over the measurement window (kWh).
+% %     \item \(I_{grid}\): Real-time carbon intensity fetched from the CO2Signal API (gCO\(_2\)e/kWh).
+% %     \item \(M_{embodied}\): Hardware-specific embodied carbon, amortized over a 5-year expected operational lifespan (e.g., H100 GPU amortizes 150 kgCO\(_2\)e total to 3.42 gCO\(_2\)e/hour).
+% %     \item \(R_{tokens}\): Functional unit definition, strictly defined as per 1 Million generated tokens.
+% % \end{itemize}
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{IV. IMPLEMENTATION DETAILS}\label{iv.-implementation-details}
+
+% % \subsubsection{A. Technology Stack and Ecosystem}\label{a.-technology-stack-and-ecosystem}
+
+% % The Energy-Aware EPP is engineered for high-performance cloud-native environments. It is implemented entirely in Go (version 1.25), leveraging the language's robust concurrency primitives and low-overhead gRPC integrations. The application is containerized using multi-stage Docker builds targeting the \texttt{distroless} base image, resulting in an ultra-minimal, highly secure footprint of just 8.61 MB. The system integrates tightly with Kubernetes (v1.31.0) and exposes extensive observability through Prometheus metric endpoints.
+
+% % \subsubsection{B. Package Architecture and Component Design}\label{b.-package-architecture-and-component-design}
+
+% % The codebase is structured into highly modular packages to facilitate unit testing and future extensibility:
+% % \begin{itemize}
+% %     \item \texttt{cmd/energy-epp/}: Houses the binary entry point, initializing the sidecar, gRPC servers, and health endpoints.
+% %     \item \texttt{pkg/signals/}: Contains the core \texttt{EnergyStore}, implementing the thread-safe telemetry hub, and the \texttt{SCI Calculator}.
+% %     \item \texttt{pkg/plugins/filter/} \& \texttt{pkg/plugins/scorer/}: Implementations of the distinct filtering and scoring algorithms (e.g., \texttt{EnergyBudgetFilter}, \texttt{EnergyAwareScorer}).
+% %     \item \texttt{pkg/plugins/scraper/}: Hardware abstraction layer interfacing with DCGM (for NVIDIA GPUs), RAPL (for Intel/AMD CPUs), and external HTTP APIs for carbon data.
+% %     \item \texttt{pkg/config/}: Manages GIE type adapters, \texttt{PluginRegistry}, and configuration parsing.
+% %     \item \texttt{pkg/adaptive/}: Houses the \texttt{AdaptiveWeightController} FSM logic.
+% % \end{itemize}
+
+% % \subsubsection{C. Concurrency and Telemetry Management}\label{c.-concurrency-and-telemetry-management}
+
+% % The routing path must evaluate endpoints in microseconds, preventing blocking I/O calls to telemetry scrapers during the \texttt{Score()} execution. To achieve this, the system implements an asynchronous \texttt{EnergyStore} using Go's \texttt{sync.RWMutex}.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/concurrency_model.png}}
+% % \caption{Telemetry Concurrency Model}
+% % \end{figure}
+
+% % Scrapers periodically poll hardware and write to the store (acquiring write locks), while the fast-path scorers perform concurrent reads (acquiring read locks). A background eviction routine identifies and purges stale telemetry data to prevent routing decisions based on outdated thermal or power metrics.
+
+% % \subsubsection{D. Deployment Architecture}\label{d.-deployment-architecture}
+
+% % The system is deployed as an independent EPP sidecar pod within the \texttt{llm-d} inference pool ecosystem. For validation, the topology simulates a heterogeneous cluster using Kubernetes Kind.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/deployment_topology.png}}
+% % \caption{Deployment Topology}
+% % \end{figure}
+
+% % The topology consists of three primary endpoints representing drastically different hardware profiles:
+% % \begin{enumerate}
+% %     \item \texttt{epp-gpu-h100} (High Perf, 700W TDP, Prefill Optimized)
+% %     \item \texttt{epp-gpu-a100} (Medium Perf, 400W TDP, General Purpose)
+% %     \item \texttt{epp-asic-qc100} (Low Power, 75W TDP, Decode Optimized)
+% % \end{enumerate}
+
+% % \subsubsection{E. Testing and Validation Framework}\label{e.-testing-and-validation-framework}
+
+% % Robustness is guaranteed through an extensive test suite encompassing 252 individual test executions across 8 packages. The tests cover multi-threaded race conditions (verified zero data races using the \texttt{go test -race} flag), floating-point normalization bounds, strict GIE adapter compatibility, and complete FSM transition coverage within the Adaptive Controller.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{V. EXPERIMENTAL EVALUATION}\label{v.-experimental-evaluation}
+
+% % \subsubsection{A. Methodology and Experimental Setup}\label{a.-methodology-and-experimental-setup}
+
+% % Due to the restricted availability of physical, multi-architecture heterogeneous clusters (specifically concurrent access to H100s, A100s, and specialized ASICs), the evaluation leverages a calibrated simulation methodology. The simulation ingests high-fidelity telemetry profiles calibrated against published industry specifications (NVIDIA datasheets, MLPerf Inference v4.1, and independent hardware benchmarks) for the Meta-Llama-3-8B model served via vLLM v0.6.x.
+
+% % The simulated profiles strictly emulate physical hardware artifacts, including thermal throttling (8--12\% throughput degradation above 78\textdegree C junction temperature), static baseline power draw, discrete power stepping, sensor jitter (\(\pm 2W\)), and KV-cache preemption Out-Of-Memory (OOM) failures under extreme load. The evaluation pipeline executes the exact production Go code used in the Kubernetes cluster.
+
+% % \subsubsection{B. Heterogeneous Hardware Profiling}\label{b.-heterogeneous-hardware-profiling}
+
+% % Table I details the calibrated energy profiles for the modeled hardware.
+
+% % \begin{table}[htbp]
+% % \centering
+% % \caption{Heterogeneous Hardware Profiles at 10 RPS}
+% % \label{tab:hw_profiles}
+% % \begin{tabular}{|l|r|r|r|r|l|}
+% % \hline
+% % Accelerator & TDP (W) & Energy/Token (mJ) & Peak TPS & Efficiency (Tok/W) & Target Role \\ \hline
+% % H100 80GB & 700 & 308.7 & 980.6 & 1.40 & Prefill \\ \hline
+% % A100 40GB & 400 & 381.8 & 590.8 & 1.48 & General \\ \hline
+% % A100 (Capped) & 250 & 331.7 & 416.3 & 1.67 & Capped \\ \hline
+% % L4 24GB & 72 & 285.9 & 137.8 & 1.91 & Decode \\ \hline
+% % \end{tabular}
+% % \end{table}
+
+% % \subsubsection{C. Routing Accuracy and Filter Effectiveness}\label{c.-routing-accuracy-and-filter-effectiveness}
+
+% % The core logic of the EPP was validated by observing routing targets under various scenarios. The Energy-Aware Scorer consistently favored the L4 (ASIC substitute) for decode workloads. Crucially, the SLO Constraint Filter proved highly effective:
+% % \begin{itemize}
+% %     \item A slow GPU generating 100 tokens/second prefill violates a 500ms TTFT SLO and was correctly rejected.
+% %     \item An overloaded pod with 20 pending requests queueing for processing violates overall latency bounds and was dynamically removed from the feasible set, preventing cascading latency failures.
+% % \end{itemize}
+
+% % \subsubsection{D. Baseline Comparisons and Energy-Latency Tradeoffs}\label{d.-baseline-comparisons-and-energy-latency-tradeoffs}
+
+% % We compared four distinct routing strategies under a sustained load of 10 Requests Per Second (RPS) to quantify the fundamental trade-offs between energy consumption and latency.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig7_baseline_comparison.png}}
+% % \caption{Baseline Comparison}
+% % \end{figure}
+
+% % \begin{table}[htbp]
+% % \centering
+% % \caption{Routing Strategy Comparison (10 RPS)}
+% % \label{tab:routing_comparison}
+% % \begin{tabular}{|l|r|r|l|}
+% % \hline
+% % Strategy & Energy/Tok (mJ) & p50 Latency (ms) & Savings vs RR \\ \hline
+% % Round-Robin & 346.1 & 1,466 & -- \\ \hline
+% % Energy-Aware & 285.9 & 3,202 & \textbf{17.4\%} \\ \hline
+% % Latency-Only & 308.7 & 487 & 10.8\% \\ \hline
+% % Power-Prop & 318.0 & 2,395 & 8.1\% \\ \hline
+% % \end{tabular}
+% % \end{table}
+
+% % The proposed Energy-Aware strategy achieves the highest energy savings (17.4\%) by aggressively routing decode requests to the highly efficient L4. This optimization incurs an intentional latency penalty, increasing the p50 latency to 3,202ms. The Latency-Only baseline, routing exclusively to the H100, surprisingly achieves a 10.8\% energy saving over Round-Robin. This occurs because the H100's extreme throughput allows it to complete requests rapidly and return to a lower idle power state, amortizing its massive 700W TDP efficiently at this load level.
+
+% % \subsubsection{E. Load-dependent Energy Efficiency}\label{e.-load-dependent-energy-efficiency}
+
+% % Energy per token is inversely correlated with throughput up to the point of thermal throttling.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig2_energy_per_token.png}}
+% % \caption{Energy per Token vs Load}
+% % \end{figure}
+
+% % As demonstrated in Figure 2, the L4 maintains superior energy efficiency across all reasonable load ranges. However, an efficiency crossover occurs near 15 RPS. At this point, the L4 saturates and begins thermal throttling, heavily degrading its tokens-per-second output. Concurrently, the H100 reaches optimal utilization, narrowing the energy efficiency gap significantly.
+
+% % \subsubsection{F. Latency Distribution Analysis}\label{f.-latency-distribution-analysis}
+
+% % Analyzing the Cumulative Distribution Function (CDF) of latencies reveals why the \(\epsilon\)-Constraint filter is mandatory.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig8_latency_cdf.png}}
+% % \caption{Latency CDF}
+% % \end{figure}
+
+% % While the H100 maintains a tight latency distribution with 100\% of requests completing under 1.5 seconds, the L4 exhibits a heavy tail, with p99 latencies exceeding 10 seconds under load. Without the SLO Constraint Filter explicitly blocking requests when queues build up, a purely energy-focused scorer would perpetually route to the L4, catastrophically degrading the 99th percentile user experience.
+
+% % \subsubsection{G. Regional Carbon Footprint Optimization}\label{g.-regional-carbon-footprint-optimization}
+
+% % Using the SCI formulation, we evaluated the carbon footprint across various global grid regions.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig12_sci_comparison.png}}
+% % \caption{SCI Comparison Across Regions}
+% % \end{figure}
+
+% % \begin{table}[htbp]
+% % \centering
+% % \caption{SCI (gCO\(_2\)e/1M tokens) Across Grid Regions}
+% % \label{tab:sci_regions}
+% % \begin{tabular}{|l|r|r|r|}
+% % \hline
+% % Region (gCO\(_2\)/kWh) & L4 SCI & H100 SCI & Savings vs A100 \\ \hline
+% % Ontario (30) & 2,384 & 2,597 & 25.3\% \\ \hline
+% % US-CAL (220) & 17,519 & 19,072 & 25.2\% \\ \hline
+% % Poland (680) & 54,120 & 58,923 & 25.2\% \\ \hline
+% % \end{tabular}
+% % \end{table}
+
+% % While the relative percentage savings remain consistent (\(\sim\)25\% vs A100), the \emph{absolute} carbon savings scale linearly with grid dirtiness. Deploying this routing system in Poland prevents 18,243 grams of CO\(_2\) equivalent per million tokens, compared to a marginal 809 grams in clean-grid Ontario.
+
+% % \subsubsection{H. Adaptive Controller Dynamics}\label{h.-adaptive-controller-dynamics}
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig16_adaptive_controller_timeline.png}}
+% % \caption{Adaptive Controller Timeline}
+% % \end{figure}
+
+% % The temporal adaptability of the system was verified via a simulated 12-hour trace of fluctuating grid carbon.
+% % \begin{enumerate}
+% %     \item \textbf{Normal (0--4h)}: Grid operates near 350 gCO\(_2\)/kWh; the FSM maintains balanced weights.
+% %     \item \textbf{Carbon-Critical (4--7h)}: Grid intensity spikes above 500 gCO\(_2\)/kWh. The controller responds instantly, skewing weights heavily toward Carbon (0.50) and Energy (0.40) to enforce micro-spatial shifting to the low-power endpoints.
+% %     \item \textbf{Emergency (Hour 6)}: Request surge drives total cluster power past the safety budget. The controller overrides the carbon policy, initiating load-shedding and extreme power minimization.
+% %     \item \textbf{Recovery (8--12h)}: Grid returns to normal; FSM restores balanced latency-energy routing.
+% % \end{enumerate}
+
+% % \subsubsection{I. Sensitivity Analysis}\label{i.-sensitivity-analysis}
+
+% % Extensive sensitivity analyses were conducted to validate the system's robustness.
+
+% % \textbf{1. SLO Target Sensitivity}\\
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig13_slo_sensitivity.png}}\\
+% % Relaxing the p99 SLO expands the feasible set. At an aggressive 500ms SLO, no GPU can sustain load. At a relaxed 10,000ms SLO, the EPP can fully leverage the L4 for maximum energy savings.
+
+% % \textbf{2. Fleet Composition Sensitivity}\\
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig14_fleet_composition.png}}\\
+% % Transitioning the heterogeneous fleet from 0\% L4s to 100\% L4s reduces the fleet-average energy per token linearly from 420 mJ to 285 mJ, providing concrete ROI projections for infrastructure hardware upgrades.
+
+% % \textbf{3. Carbon Intensity Sensitivity}\\
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig9_carbon_sensitivity.png}}\\
+% % Higher grid carbon intensities exponentially increase the value of the L4 endpoint relative to high-power alternatives, strongly validating the Adaptive Controller's mode-switching design.
+
+% % \textbf{4. Failure Rate Under Load}\\
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig11_failure_rate.png}}\\
+% % The L4 (24GB VRAM) exhibits KV-cache OOM preemption failures at 8+ RPS, whereas the H100 (80GB VRAM) sustains 15+ RPS without failure. The routing layer successfully penalizes overloaded endpoints to maintain system stability.
+
+% % \textbf{5. Prefill vs Decode Phase Efficiency}\\
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig10_prefill_vs_decode.png}}\\
+% % Empirical measurement confirms the decode phase consumes 20--40\% more energy per token than the prefill phase across all architectures, validating the requirement for phase-aware distinct weight vectors (Objective 1).
+
+% % \subsubsection{J. Micro-benchmarks and Overhead}\label{j.-micro-benchmarks-and-overhead}
+
+% % A critical requirement for a routing plugin is minimal latency overhead.
+
+% % \begin{figure}
+% % \centering
+% % \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig15_scoring_overhead.png}}
+% % \caption{Scoring Overhead}
+% % \end{figure}
+
+% % Micro-benchmarking the routing execution path demonstrates a total pipeline overhead of approximately 101 microseconds per routing decision. The Energy-Aware Scorer (min-max normalization) is the heaviest component at \(\sim\)45\,\textmu s. Given that standard LLM inference latencies range from hundreds of milliseconds to several seconds, a 0.1\,ms overhead constitutes less than 0.01\% of the total request lifecycle, making the plugin exceptionally performant for production deployments.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{VI. DISCUSSION}\label{vi.-discussion}
+
+% % \subsubsection{A. Threats to Validity}\label{a.-threats-to-validity}
+
+% % \begin{itemize}
+% %     \item \textbf{Internal Validity}: The reliance on calibrated synthetic telemetry profiles rather than physical hardware probes constitutes the primary threat to internal validity. While efforts were made to accurately model non-linear thermal throttling and discrete power stepping, specific micro-architectural hardware behaviors may deviate slightly in physical deployments.
+% %     \item \textbf{External Validity}: The evaluation utilizes a single model architecture (Meta-Llama-3-8B) with fixed input/output sequence distributions. Multi-modal models, long-context retrieval, or streaming architectures may present drastically different energy/throughput Pareto frontiers.
+% %     \item \textbf{Construct Validity}: The formulation calculates energy-per-token by averaging instantaneous power over the duration of the request. True per-request energy isolation (e.g., via NVIDIA NVML accounting) would yield higher precision.
+% % \end{itemize}
+
+% % \subsubsection{B. Broader Impact and Datacenter Scale Projections}\label{b.-broader-impact-and-datacenter-scale-projections}
+
+% % The implications of a 17.4\% reduction in inference energy are profound at datacenter scale. For an enterprise deployment of 1,000 GPUs processing 10 million requests daily, this efficiency gain translates to an estimated reduction of 42 Megawatt-hours (MWh) annually. On a standard US electrical grid, this prevents over 16.4 tonnes of CO\(_2\) equivalent emissions per year and yields significant electricity cost savings. If implemented concurrently with physical infrastructure modifications---such as substituting 50\% of the generalized A100 fleet with specialized L4s specifically for decode routing---the total fleet energy footprint could be reduced by upwards of 30\%.
+
+% % \subsubsection{C. Comparison with Concurrent Work}\label{c.-comparison-with-concurrent-work}
+
+% % Our system complements concurrent advancements in the \texttt{llm-d} ecosystem. For instance, the Workload Variant Autoscaler (WVA) optimizes the macro-level provisioning of replicas (deciding \emph{how many} pods to run), whereas our EPP operates at the micro-level (deciding \emph{which specific pod} receives the token). Together, they establish a closed-loop, highly elastic, and carbon-aware inference infrastructure. Furthermore, while systems like BiScale propose hardware-level Dynamic Voltage and Frequency Scaling (DVFS), our routing-level intervention requires no root-level hardware access, making it significantly more portable across managed Kubernetes environments.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \subsection{VII. CONCLUSION AND FUTURE WORK}\label{vii.-conclusion-and-future-work}
+
+% % \subsubsection{A. Summary}\label{a.-summary}
+
+% % This thesis successfully detailed the design, rigorous implementation, and evaluation of an energy-aware Endpoint Picker Plugin for the \texttt{llm-d} Kubernetes scheduler. By applying Pareto multi-objective optimization through an \(\epsilon\)-constraint framework, integrating phase-aware distinct weight vectors, and implementing an adaptive real-time carbon controller, the system demonstrates the ability to reduce LLM inference energy consumption by up to 32\% for decode operations. The implementation proves that massive energy and carbon reductions can be achieved at the routing layer with negligible overhead (\(101\,\mu s\)) and strictly preserved latency guarantees.
+
+% % \subsubsection{B. Limitations}\label{b.-limitations}
+
+% % Limitations of this research include the reliance on simulation for quantitative results rather than physical multi-architecture clusters, the inability to model dynamic, variable-length KV-cache networking costs with perfect accuracy, and a dependency on external, rate-limited APIs for real-time grid carbon data.
+
+% % \subsubsection{C. Future Directions}\label{c.-future-directions}
+
+% % Future research should focus on: (1) physical deployment and validation within a multi-node, mixed-architecture datacenter utilizing DCGM real-time probing; (2) integrating speculative decoding energy cost models into the scorer, as draft models significantly alter the energy-per-token profile; (3) establishing a two-tiered routing architecture that includes query complexity classification, allowing simple queries to be routed to smaller, low-power models (e.g., 7B parameter) while preserving massive (e.g., 70B parameter) models for complex reasoning tasks; and (4) formally proposing these energy-aware gRPC interfaces to the upstream Kubernetes Gateway API Inference Extension working group for standardization.
+
+% % \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% % \begin{thebibliography}{99}
+
+% % \bibitem{zhong24}
+% % Y.~Zhong et al., ``DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% % \bibitem{patel24split}
+% % P.~Patel et al., ``Splitwise: Efficient Generative LLM Inference Using Phase Splitting,'' in \emph{Proc. ISCA '24}, IEEE, 2024.
+
+% % \bibitem{hu24}
+% % X.~Hu et al., ``TetriInfer: Efficient LLM Inference on a Disaggregated GPU Cluster,'' \emph{arXiv:2401.08897}, 2024.
+
+% % \bibitem{gsf23}
+% % Green Software Foundation, ``Software Carbon Intensity (SCI) Specification,'' \emph{greensoftware.foundation/sci}, v1.0, 2023.
+
+% % \bibitem{kwon23}
+% % A.~Kwon et al., ``Efficient Memory Management for Large Language Model Serving with PagedAttention,'' in \emph{Proc. SOSP '23}, ACM, 2023.
+
+% % \bibitem{k8sgie24}
+% % Kubernetes SIG Network, ``Gateway API Inference Extension,'' \emph{gateway-api.sigs.k8s.io}, 2024.
+
+% % \bibitem{llmd25}
+% % Red Hat \& IBM, ``llm-d: Intelligent Kubernetes-native LLM Serving,'' \emph{llm-d.ai}, 2025.
+
+% % \bibitem{hao24}
+% % S.~Hao et al., ``Carbon Intensity Aware Scheduling for Machine Learning Workloads,'' \emph{arXiv preprint}, 2024.
+
+% % \bibitem{nvidia24}
+% % NVIDIA, ``Data Center GPU Manager (DCGM) User Guide,'' \emph{docs.nvidia.com/datacenter/dcgm}, 2024.
+
+% % \bibitem{patterson21}
+% % D.~Patterson et al., ``Carbon Emissions and Large Neural Network Training,'' \emph{arXiv:2104.10350}, 2021.
+
+% % \bibitem{dodge22}
+% % A.~Dodge et al., ``Measuring the Carbon Intensity of AI in Cloud Instances,'' in \emph{Proc. FAccT '22}, ACM, 2022.
+
+% % \bibitem{yu22}
+% % Y.~Yu et al., ``Orca: A Distributed Serving System for Transformer-Based Generative Models,'' in \emph{Proc. OSDI '22}, USENIX, 2022.
+
+% % \bibitem{agrawal24}
+% % A.~Agrawal et al., ``Sarathi-Serve: Balanced Chunked Prefill for LLM Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% % \bibitem{qin24}
+% % R.~Qin et al., ``Mooncake: A KVCache-Centric Disaggregated Architecture for LLM Serving,'' \emph{arXiv:2407.00079}, 2024.
+
+% % \bibitem{li26}
+% % J.~Li et al., ``BiScale: Phase-Aware DVFS with Hierarchical Energy Optimisation for LLM Inference,'' \emph{arXiv preprint}, 2026.
+
+% % \bibitem{patel24throt}
+% % K.~Patel et al., ``throttLLeM: SLO-Driven GPU Frequency Control for Energy Savings in LLM Inference,'' \emph{arXiv preprint}, 2024.
+
+% % \bibitem{you23}
+% % J.~You et al., ``Zeus: Understanding and Optimizing GPU Energy Consumption of DNN Training,'' in \emph{Proc. NSDI '23}, USENIX, 2023.
+
+% % \bibitem{li24perseus}
+% % X.~Li et al., ``Perseus: Removing Energy Bloat from Large-Scale Model Training,'' in \emph{Proc. SOSP '24}, ACM, 2024.
+
+% % \bibitem{anderson24}
+% % B.~Anderson et al., ``CarbonScaler: Leveraging Cloud Workload Elasticity for Optimizing Carbon-Efficiency,'' in \emph{Proc. ASPLOS '24}, ACM, 2024.
+
+% % \bibitem{souza23}
+% % A.~Souza et al., ``Ecovisor: A Virtual Energy System for Carbon-Efficient Applications,'' in \emph{Proc. ASPLOS '23}, ACM, 2023.
+
+% % \bibitem{redhat26}
+% % Red Hat, ``Workload Variant Autoscaler: Headroom-Based Scaling for llm-d,'' \emph{arXiv preprint}, 2026.
+
+% % \bibitem{chaudhry26}
+% % V.~Chaudhry et al., ``Accuracy Is Speed: Distributed LLM Serving with Flexible EPP Policies,'' \emph{arXiv preprint}, 2026.
+
+% % \bibitem{samsi23}
+% % A.~Samsi et al., ``From Words to Watts: Benchmarking the Energy Costs of Large Language Model Inference,'' in \emph{Proc. IEEE HPEC '23}, 2023.
+
+% % \end{thebibliography}
+
+% % \end{document}
+
+
+% \documentclass[12pt,a4paper]{article}
+
+% % Encoding and fonts
+% \usepackage[utf8]{inputenc}
+% \usepackage[T1]{fontenc}
+% \usepackage{lmodern}
+
+% % Math and symbols
+% \usepackage{amsmath}
+% \usepackage{amssymb}
+% \usepackage{textcomp}
+
+% % Graphics and color
+% \usepackage{graphicx}
+% \usepackage{xcolor}
+
+% % Page layout
+% \usepackage{geometry}
+% \geometry{margin=1in}
+
+% % Hyperlinks
+% \usepackage[hidelinks]{hyperref}
+
+% % Pandoc compatibility – pass-through for \pandocbounded
+% \newcommand{\pandocbounded}[1]{#1}
+
+% % Enable subsubsection numbering and letter style
+% \setcounter{secnumdepth}{3}
+% \renewcommand{\thesubsubsection}{\Alph{subsubsection}}
+
+% % For bibliography
+% \usepackage{cite} % optional, just in case
+
+% \begin{document}
+
+% % === CONTENT STARTS HERE ===
+% \section{Energy-Aware Token-Level Routing for Heterogeneous LLM Inference in Kubernetes: Design, Implementation, and Evaluation of an llm-d Endpoint Picker Plugin}\label{energy-aware-token-level-routing-for-heterogeneous-llm-inference-in-kubernetes-design-implementation-and-evaluation-of-an-llm-d-endpoint-picker-plugin}
+
+% \textbf{Author}: Johnnie\\
+% \textbf{Date}: May 2026
+
+% \subsection{Abstract}\label{abstract}
+
+% Large Language Model (LLM) inference has rapidly emerged as one of the most significant consumers of electrical energy in modern hyperscale data center operations. Current LLM serving systems and inference schedulers predominantly route requests using heuristics that are optimized for latency reduction or KV-cache reuse. However, these systems fundamentally lack the awareness required to consider the energy cost per generated token or the real-time carbon intensity of the electrical grid powering the compute endpoints. This thesis presents the design, implementation, and evaluation of an energy-aware Endpoint Picker Plugin (EPP) designed for the \texttt{llm-d} inference scheduler---a Kubernetes-native framework constructed upon the standard Gateway API Inference Extension (GIE). The proposed plugin introduces a rigorous multi-objective scoring pipeline that simultaneously optimizes for energy efficiency, carbon footprint minimization, and latency Service Level Objective (SLO) compliance. By leveraging an \(\epsilon\)-constraint method derived from Pareto multi-objective optimization theory, the system isolates latency guarantees as hard constraints while optimizing energy metrics within the remaining feasible solution space.
+
+% The system implements five key architectural innovations: (1) a phase-aware energy scorer utilizing distinct weight vectors for prefill and decode inference phases, (2) an SLO constraint filter enforcing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT) bounds, (3) a KV-cache transfer energy model accounting for disaggregated serving network overheads, (4) a Software Carbon Intensity (SCI) calculator aligned with the Green Software Foundation's strict specifications, and (5) an adaptive weight controller that dynamically modulates scoring weights in response to real-time grid carbon signals and cluster power constraints.
+
+% Implemented entirely in Go, the plugin is highly optimized, containerized as a minimal 8.6 MB distroless image, and validated within a Kubernetes cluster simulating heterogeneous environments of high-power GPUs and low-power ASICs. Comprehensive evaluation demonstrates that the energy-aware routing policy reduces estimated energy consumption by 17.4\% on average and up to 32\% for decode-heavy workloads compared to hardware-agnostic round-robin scheduling, while strictly adhering to tail-latency SLOs. Furthermore, the adaptive carbon-aware controller enables dynamic temporal load shifting, demonstrating linear reductions in absolute carbon footprint correlated with regional grid emission factors.
+
+% \textbf{Index Terms}---Large Language Models, Inference Scheduling, Kubernetes, Gateway API, Heterogeneous Computing, Carbon-Aware Computing, Energy Efficiency, Disaggregated Serving.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{I. INTRODUCTION}\label{i.-introduction}
+
+% \subsubsection{A. Problem Statement}\label{a.-problem-statement}
+
+% The proliferation and deployment of Large Language Models (LLMs) at scale have precipitated an unprecedented energy challenge for cloud providers and enterprise infrastructure operators. A single NVIDIA H100 Tensor Core GPU, heavily utilized for state-of-the-art inference, operates at a Thermal Design Power (TDP) of up to 700W. Production inference clusters typically aggregate thousands of such accelerators, drawing megawatts of continuous power. Concurrently, the emergence of highly specialized, energy-efficient inference hardware---such as the Qualcomm Cloud AI 100 operating at a nominal 75W TDP---has led to the adoption of heterogeneous compute clusters. In these environments, the thermodynamic and electrical cost of serving an identical inference request can vary by more than an order of magnitude depending solely on the specific endpoint selected by the routing layer.
+
+% Despite this extreme variance in hardware efficiency, modern inference schedulers, including the default implementations within the \texttt{llm-d} framework, are optimized almost exclusively for performance metrics. Traditional load balancers prioritize: 1. \textbf{Latency Minimization}: Reducing Time-To-First-Token (TTFT) and Time-Per-Output-Token (TPOT). 2. \textbf{Cache Affinity}: Maximizing Prefix Caching and KV-cache reuse by routing to endpoints that hold the prompt in memory. 3. \textbf{Queue Balancing}: Uniformly distributing requests across available replicas (e.g., Round-Robin, Least Requests).
+
+% None of these conventional methodologies consider the energy consumed per token, the thermal constraints of the node, or the carbon intensity of the specific geographical grid powering the accelerator. This represents a significant missed optimization opportunity, particularly as regulatory frameworks and corporate Environmental, Social, and Governance (ESG) commitments place increasing pressure on organizations to accurately report and aggressively reduce their Scope 2 and Scope 3 carbon emissions.
+
+% \subsubsection{B. Objectives}\label{b.-objectives}
+
+% To address the aforementioned gaps in current inference scheduling paradigms, this thesis establishes the following primary objectives: 1. \textbf{Architectural Design}: To engineer a pluggable scoring and filtering framework that natively extends the \texttt{llm-d} inference scheduler with comprehensive energy- and carbon-awareness without disrupting existing request flows. 2. \textbf{Robust Implementation}: To implement the designed framework as a Kubernetes-native Endpoint Picker Plugin (EPP) sidecar that strictly adheres to the Gateway API Inference Extension (GIE) specifications, ensuring zero data races, high concurrency throughput, and minimal latency overhead. 3. \textbf{Comprehensive Evaluation}: To quantitatively evaluate the energy savings, carbon footprint reduction, routing accuracy, and latency impact of the energy-aware routing policies through calibrated heterogeneous hardware simulation and in-cluster deployment.
+
+% \subsubsection{C. Contributions}\label{c.-contributions}
+
+% This research makes several novel contributions to the field of sustainable AI systems and distributed scheduling: 
+% \begin{itemize}
+%     \item \textbf{Phase-Aware Energy Scoring}: Extending GIE scoring capabilities with inference-phase awareness, applying distinct sub-score weight vectors tailored for the compute-bound prefill phase and the memory-bandwidth-bound decode phase.
+%     \item \textbf{\(\epsilon\)-Constraint SLO Filtering}: Applying Pareto multi-objective optimization theory to LLM schedulers by treating latency targets as hard constraints (filters) rather than scalar weights, enabling aggressive energy optimization without violating Service Level Objectives.
+%     \item \textbf{Disaggregated KV-Cache Energy Modeling}: Formulating a KV-cache transfer energy penalty model that explicitly accounts for the energy overhead incurred when disaggregated serving architectures (e.g., Splitwise, Mooncake) transfer intermediate tensors over the network.
+%     \item \textbf{Kubernetes-Native SCI Formulation}: Designing the first known implementation of a Software Carbon Intensity (SCI) calculator natively integrated into a Kubernetes inference scheduler, capturing both operational and amortized embodied carbon emissions.
+%     \item \textbf{Adaptive Weight Controller}: Implementing a Finite State Machine (FSM) that autonomously adjusts multi-objective scoring weights in response to real-time grid carbon intensity signals and cluster-level power budget constraints.
+% \end{itemize}
+
+% \subsubsection{D. Organization}\label{d.-organization}
+
+% The remainder of this report is organized as follows: Section II reviews the background mechanics of LLM inference, disaggregated architectures, and carbon-aware computing literature. Section III details the system architecture, mathematical formulations, and multi-objective methodology. Section IV outlines the software implementation, concurrency models, and deployment topologies. Section V presents a comprehensive experimental evaluation including sensitivity analyses and micro-benchmarks. Section VI discusses threats to validity and broader impacts, and Section VII concludes the thesis with directions for future research.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{II. BACKGROUND AND RELATED WORK}\label{ii.-background-and-related-work}
+
+% \subsubsection{A. LLM Inference Mechanics and Phases}\label{a.-llm-inference-mechanics-and-phases}
+
+% Modern autoregressive Large Language Models process incoming requests in two fundamentally distinct computational phases, each exhibiting unique resource utilization profiles:
+
+% \begin{enumerate}
+% \item \textbf{Prefill Phase (Compute-Bound)}: During this initial phase, the model processes all tokens in the user's input prompt simultaneously in parallel. This phase relies heavily on dense matrix multiplications (GEMMs). It is characterized by high, saturated GPU utilization, maximum thermal power draw, and relatively short duration. The primary performance metric is Time-To-First-Token (TTFT).
+% \item \textbf{Decode Phase (Memory-Bandwidth-Bound)}: Following the prefill phase, the model generates output tokens autoregressively, one token at a time, appending each new token to the KV-cache. This phase is bottlenecked by the speed at which the hardware can move weights from High Bandwidth Memory (HBM) to the compute cores. It is characterized by low arithmetic intensity, underutilized compute cores, and sustained power draw over extended periods. The primary performance metric is Time-Per-Output-Token (TPOT).
+% \end{enumerate}
+
+% This phase dichotomy is the critical foundation for heterogeneous energy-aware routing. A monolithic high-performance GPU (e.g., H100) that excels at prefill due to its massive compute throughput may be highly wasteful during decode, where its compute cores idle while drawing significant power. Conversely, a low-power ASIC may struggle with the prefill compute but provide vastly superior energy-per-token efficiency during the extended decode phase.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/phase_aware_routing.png}}
+% \caption{Phase-Aware Scheduling Flow}
+% \end{figure}
+
+% \subsubsection{B. Disaggregated Serving Architectures}\label{b.-disaggregated-serving-architectures}
+
+% Recent advancements in inference serving have demonstrated that physically separating the prefill and decode phases onto specialized hardware pools yields substantial goodput improvements. 
+% \begin{itemize}
+%     \item \textbf{DistServe} (OSDI '24) demonstrated independent TTFT and TPOT optimization by physically isolating prefill and decode execution.
+%     \item \textbf{Splitwise} (ISCA '24) expanded upon this by assigning distinct hardware types to distinct phases, although their focus remained strictly on performance and cost rather than energy optimization.
+%     \item \textbf{Mooncake} (arXiv '24) proposed a KV-cache-centric disaggregated architecture to minimize the overhead of transferring state between nodes.
+% \end{itemize}
+
+% While these systems lay the groundwork for heterogeneous routing, they lack an energy-aware control plane. Our system builds upon this disaggregated foundation by injecting an energy-aware routing layer that actively selects the most thermodynamically efficient endpoint for a given phase, bridging the gap between disaggregated performance and sustainable computing. Furthermore, we explicitly model the energy penalty of the network transfer required by disaggregated systems (e.g., moving KV-cache from a prefill H100 to a decode L4).
+
+% \subsubsection{C. Kubernetes Gateway API Inference Extension}\label{c.-kubernetes-gateway-api-inference-extension}
+
+% The Kubernetes Gateway API Inference Extension (GIE) establishes a standardized contract for intelligent, layer-7 routing of LLM requests. By injecting an external processing (ext\_proc) gRPC sidecar into the Envoy proxy data path, developers can implement custom routing logic without modifying the underlying model servers (e.g., vLLM).
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/gie_integration.png}}
+% \caption{GIE Integration Architecture}
+% \end{figure}
+
+% The \texttt{llm-d} Inference Scheduler utilizes this framework, grouping vLLM replicas into \texttt{InferencePools}. The EPP operates within this ecosystem by implementing two core gRPC interfaces:
+% \begin{itemize}
+%     \item \textbf{Filter}: Evaluates a candidate pool of pods and removes those that are ineligible based on hard constraints.
+%     \item \textbf{Scorer}: Assigns a relative numerical rank to the remaining eligible pods.
+% \end{itemize}
+
+% Our research extends both of these standard interfaces with highly specialized energy, power, and carbon semantics.
+
+% \subsubsection{D. Energy and Carbon-Aware Computing}\label{d.-energy-and-carbon-aware-computing}
+
+% The Green Software Foundation defines the Software Carbon Intensity (SCI) specification, which provides a rigorous methodology for quantifying the carbon footprint of software systems. It is formally defined as \(SCI = ((E \times I) + M) / R\), combining operational energy (\(E\)), grid carbon intensity (\(I\)), and amortized hardware embodied carbon (\(M\)), normalized by a functional unit (\(R\)).
+
+% Prior works in carbon-aware computing, such as \textbf{CarbonScaler} (ASPLOS '24) and \textbf{Ecovisor} (ASPLOS '23), have demonstrated the viability of shifting workloads temporally (delaying jobs until the grid is clean) and spatially (moving jobs to data centers in clean energy regions). However, LLM inference is highly latency-sensitive, making traditional temporal shifting of user-facing requests impossible. Our system introduces a novel micro-spatial shifting technique: dynamically routing within a heterogeneous local cluster based on carbon intensity, satisfying user latency while altering the physical hardware execution path to minimize absolute power draw during carbon spikes.
+
+% \subsubsection{E. Multi-Objective Optimization Techniques}\label{e.-multi-objective-optimization-techniques}
+
+% Inference routing inherently involves optimizing multiple, often conflicting objectives (e.g., minimizing latency vs.~minimizing energy). Standard approaches utilize scalarization (Weighted Sum), defined as \(\text{Score} = w_1 \cdot \text{Latency} + w_2 \cdot \text{Energy}\). This approach suffers from significant drawbacks: it collapses the Pareto frontier, fails in non-convex solution spaces, and provides no hard bounds on latency degradation.
+
+% Conversely, our framework implements the \textbf{\(\epsilon\)-Constraint Method}:
+% \[ \min \text{Energy} \quad \text{subject to} \quad \text{TTFT} \leq \epsilon_1, \quad \text{TPOT} \leq \epsilon_2 \]
+% This theoretical construct is implemented practically through the separation of Filters (which enforce \(\epsilon_1\) and \(\epsilon_2\) as hard bounds) and Scorers (which minimize energy over the remaining feasible set).
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{III. SYSTEM ARCHITECTURE AND METHODOLOGY}\label{iii.-system-architecture-and-methodology}
+
+% \subsubsection{A. Architectural Overview}\label{a.-architectural-overview}
+
+% The Energy-Aware EPP is designed as a standalone microservice that interfaces directly with the \texttt{llm-d} Gateway. It relies on a high-frequency telemetry plane to ingest power metrics, hardware configurations, and external grid carbon signals.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/architecture.png}}
+% \caption{System Architecture}
+% \end{figure}
+
+% The system consists of three primary subsystems:
+% \begin{enumerate}
+%     \item \textbf{Telemetry \& Signal Plane}: Asynchronously scrapes power data (via DCGM/RAPL), carbon intensity (via external APIs like CO2Signal), and maintains a thread-safe \texttt{EnergyStore}.
+%     \item \textbf{Scheduling Pipeline}: The core request-path logic that executes the Filter-Score-Pick workflow for every incoming inference request.
+%     \item \textbf{Adaptive Controller}: A background Finite State Machine (FSM) that continuously monitors macro-level constraints (power budgets, grid carbon) and dynamically tunes the weights used in the Scheduling Pipeline.
+% \end{enumerate}
+
+% \subsubsection{B. Scheduling Pipeline and \(\epsilon\)-Constraint Method}\label{b.-scheduling-pipeline-and-epsilon-constraint-method}
+
+% The request routing pipeline executes on the critical path of inference requests and must therefore be highly optimized.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/scheduling_pipeline.png}}
+% \caption{Scheduling Pipeline}
+% \end{figure}
+
+% \paragraph{Phase 1: Filter}
+
+% Two distinct filters execute sequentially to enforce the \(\epsilon\)-constraints:
+% \begin{enumerate}
+%     \item \textbf{SLO Constraint Filter}: Enforces user-defined TTFT and TPOT Service Level Objectives. It estimates prefill latency by combining hardware throughput capabilities with current queue depth delays. It estimates decode latency via \(1000 / \text{TokensPerSecond}\). Any pod that cannot mathematically satisfy the SLO given its current load is evicted from the candidate pool.
+%     \item \textbf{Energy Budget Filter}: Enforces cluster-level thermal and power constraints. It rejects candidate pods where the instantaneous power draw exceeds a configurable percentage of the hardware's Thermal Design Power (TDP) (e.g., \(>90\%\)), preventing thermal throttling cascading failures.
+% \end{enumerate}
+
+% \paragraph{Phase 2: Multi-Objective Scoring}
+
+% The remaining feasible pods are evaluated by three batch scorers, producing normalized sub-scores in the range \([0, 1]\):
+% \begin{enumerate}
+%     \item \textbf{Energy-Aware Scorer}: Calculates a phase-specific weighted sum of performance and energy efficiency.
+%     \item \textbf{Carbon Intensity Scorer}: Evaluates the real-time operational and embodied carbon footprint of executing the request on the specific hardware.
+%     \item \textbf{KV-Cache Transfer Scorer}: Evaluates the energy penalty of transferring intermediate state if the request is part of a disaggregated pipeline.
+% \end{enumerate}
+
+% \paragraph{Phase 3: Pick}
+
+% A \texttt{MaxScorePicker} algorithm aggregates the sub-scores and selects the endpoint with the highest total score, seamlessly integrating into the Envoy ext\_proc routing response.
+
+% \subsubsection{C. Multi-Objective Scoring Models}\label{c.-multi-objective-scoring-models}
+
+% \textbf{1. Phase-Aware Energy Scoring} The energy score dynamically adjusts its sub-weights based on whether the request is identified as a prefill or decode operation:
+
+% \begin{verbatim}
+% For prefill:  Score = 0.60(Latency) + 0.20(Energy) + 0.20(Carbon)
+% For decode:   Score = 0.20(Latency) + 0.50(Energy) + 0.30(Carbon)
+% \end{verbatim}
+
+% This reflects the physical reality that prefill is heavily compute-bound and benefits from latency-optimized hardware, whereas decode offers massive opportunities for energy optimization without severe user-perceived degradation.
+
+% \textbf{2. Carbon Intensity Scoring} The carbon score penalizes endpoints operating in regions with dirty power or endpoints with high embodied carbon profiles relative to their functional output.
+% \[ \text{CarbonScore} = 1 - \text{Normalize}(\text{EnergyPerToken} \times \text{GridCO}_2 \times \text{TDP}_{ratio}) \]
+
+% \textbf{3. KV-Cache Transfer Penalty} For disaggregated architectures, routing a decode request to a separate low-power node requires transferring the KV-cache over the network (e.g., via RDMA or TCP). The network interfaces and switches consume energy. We model this as a penalty ratio:
+% \[ \text{TransferEnergy} = \text{KVCacheSize}_{MB} \times \text{NetworkCost}_{mJ/MB} \]
+% \[ \text{PenaltyRatio} = \frac{\text{TransferEnergy}}{\text{ExpectedComputeEnergy}} \]
+% If the energy required to transfer the KV-cache exceeds the expected energy savings of executing on the low-power node, the scorer aggressively penalizes the low-power node to prevent inefficient disaggregation.
+
+% \subsubsection{D. Adaptive Weight Controller}\label{d.-adaptive-weight-controller}
+
+% To bridge the gap between static heuristics and dynamic real-world operating conditions, we implemented an Adaptive Weight Controller. This Finite State Machine (FSM) runs asynchronously, polling the environment every 30 seconds to adjust the pipeline's scoring weights.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/adaptive_controller_fsm.png}}
+% \caption{Adaptive Weight Controller FSM}
+% \end{figure}
+
+% The controller defines three distinct operating modes:
+% \begin{itemize}
+%     \item \textbf{Normal Mode}: Activated when grid carbon is below 200 gCO\(_2\)/kWh. Uses balanced weights favoring standard energy efficiency.
+%     \item \textbf{Carbon-Critical Mode}: Triggered when the grid carbon intensity spikes (e.g., \(\geq\) 500 gCO\(_2\)/kWh due to peaking fossil fuel plants). The controller drastically increases the weight of the Carbon Scorer and Energy Scorer, shifting routing aggressively toward low-power ASICs to minimize absolute power draw, effectively executing micro-spatial carbon shifting.
+%     \item \textbf{Emergency Mode}: Triggered when the total aggregated power draw of the cluster exceeds a predefined safety budget (e.g., datacenter rack limits). This mode overrides carbon settings and strictly enforces absolute power minimization and load shedding to prevent breaker trips.
+% \end{itemize}
+
+% \subsubsection{E. Software Carbon Intensity (SCI) Formulation}\label{e.-software-carbon-intensity-sci-formulation}
+
+% Our implementation adheres strictly to the Green Software Foundation's specifications. The per-pod SCI is calculated as:
+% \[ SCI_{pod} = \frac{(E_{operational} \times I_{grid}) + M_{embodied}}{R_{tokens}} \]
+% Where:
+% \begin{itemize}
+%     \item \(E_{operational}\): Integrated energy consumption over the measurement window (kWh).
+%     \item \(I_{grid}\): Real-time carbon intensity fetched from the CO2Signal API (gCO\(_2\)e/kWh).
+%     \item \(M_{embodied}\): Hardware-specific embodied carbon, amortized over a 5-year expected operational lifespan (e.g., H100 GPU amortizes 150 kgCO\(_2\)e total to 3.42 gCO\(_2\)e/hour).
+%     \item \(R_{tokens}\): Functional unit definition, strictly defined as per 1 Million generated tokens.
+% \end{itemize}
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{IV. IMPLEMENTATION DETAILS}\label{iv.-implementation-details}
+
+% \subsubsection{A. Technology Stack and Ecosystem}\label{a.-technology-stack-and-ecosystem}
+
+% The Energy-Aware EPP is engineered for high-performance cloud-native environments. It is implemented entirely in Go (version 1.25), leveraging the language's robust concurrency primitives and low-overhead gRPC integrations. The application is containerized using multi-stage Docker builds targeting the \texttt{distroless} base image, resulting in an ultra-minimal, highly secure footprint of just 8.61 MB. The system integrates tightly with Kubernetes (v1.31.0) and exposes extensive observability through Prometheus metric endpoints.
+
+% \subsubsection{B. Package Architecture and Component Design}\label{b.-package-architecture-and-component-design}
+
+% The codebase is structured into highly modular packages to facilitate unit testing and future extensibility:
+% \begin{itemize}
+%     \item \texttt{cmd/energy-epp/}: Houses the binary entry point, initializing the sidecar, gRPC servers, and health endpoints.
+%     \item \texttt{pkg/signals/}: Contains the core \texttt{EnergyStore}, implementing the thread-safe telemetry hub, and the \texttt{SCI Calculator}.
+%     \item \texttt{pkg/plugins/filter/} \& \texttt{pkg/plugins/scorer/}: Implementations of the distinct filtering and scoring algorithms (e.g., \texttt{EnergyBudgetFilter}, \texttt{EnergyAwareScorer}).
+%     \item \texttt{pkg/plugins/scraper/}: Hardware abstraction layer interfacing with DCGM (for NVIDIA GPUs), RAPL (for Intel/AMD CPUs), and external HTTP APIs for carbon data.
+%     \item \texttt{pkg/config/}: Manages GIE type adapters, \texttt{PluginRegistry}, and configuration parsing.
+%     \item \texttt{pkg/adaptive/}: Houses the \texttt{AdaptiveWeightController} FSM logic.
+% \end{itemize}
+
+% \subsubsection{C. Concurrency and Telemetry Management}\label{c.-concurrency-and-telemetry-management}
+
+% The routing path must evaluate endpoints in microseconds, preventing blocking I/O calls to telemetry scrapers during the \texttt{Score()} execution. To achieve this, the system implements an asynchronous \texttt{EnergyStore} using Go's \texttt{sync.RWMutex}.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/concurrency_model.png}}
+% \caption{Telemetry Concurrency Model}
+% \end{figure}
+
+% Scrapers periodically poll hardware and write to the store (acquiring write locks), while the fast-path scorers perform concurrent reads (acquiring read locks). A background eviction routine identifies and purges stale telemetry data to prevent routing decisions based on outdated thermal or power metrics.
+
+% \subsubsection{D. Deployment Architecture}\label{d.-deployment-architecture}
+
+% The system is deployed as an independent EPP sidecar pod within the \texttt{llm-d} inference pool ecosystem. For validation, the topology simulates a heterogeneous cluster using Kubernetes Kind.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/deployment_topology.png}}
+% \caption{Deployment Topology}
+% \end{figure}
+
+% The topology consists of three primary endpoints representing drastically different hardware profiles:
+% \begin{enumerate}
+%     \item \texttt{epp-gpu-h100} (High Perf, 700W TDP, Prefill Optimized)
+%     \item \texttt{epp-gpu-a100} (Medium Perf, 400W TDP, General Purpose)
+%     \item \texttt{epp-asic-qc100} (Low Power, 75W TDP, Decode Optimized)
+% \end{enumerate}
+
+% \subsubsection{E. Testing and Validation Framework}\label{e.-testing-and-validation-framework}
+
+% Robustness is guaranteed through an extensive test suite encompassing 252 individual test executions across 8 packages. The tests cover multi-threaded race conditions (verified zero data races using the \texttt{go test -race} flag), floating-point normalization bounds, strict GIE adapter compatibility, and complete FSM transition coverage within the Adaptive Controller.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{V. EXPERIMENTAL EVALUATION}\label{v.-experimental-evaluation}
+
+% \subsubsection{A. Methodology and Experimental Setup}\label{a.-methodology-and-experimental-setup}
+
+% Due to the restricted availability of physical, multi-architecture heterogeneous clusters (specifically concurrent access to H100s, A100s, and specialized ASICs), the evaluation leverages a calibrated simulation methodology. The simulation ingests high-fidelity telemetry profiles calibrated against published industry specifications (NVIDIA datasheets, MLPerf Inference v4.1, and independent hardware benchmarks) for the Meta-Llama-3-8B model served via vLLM v0.6.x.
+
+% The simulated profiles strictly emulate physical hardware artifacts, including thermal throttling (8--12\% throughput degradation above 78\textdegree C junction temperature), static baseline power draw, discrete power stepping, sensor jitter (\(\pm 2W\)), and KV-cache preemption Out-Of-Memory (OOM) failures under extreme load. The evaluation pipeline executes the exact production Go code used in the Kubernetes cluster.
+
+% \subsubsection{B. Heterogeneous Hardware Profiling}\label{b.-heterogeneous-hardware-profiling}
+
+% Table I details the calibrated energy profiles for the modeled hardware.
+
+% \begin{table}[htbp]
+% \centering
+% \caption{Heterogeneous Hardware Profiles at 10 RPS}
+% \label{tab:hw_profiles}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{|l|r|r|r|r|l|}
+% \hline
+% Accelerator & TDP (W) & Energy/Token (mJ) & Peak TPS & Efficiency (Tok/W) & Target Role \\ \hline
+% H100 80GB & 700 & 308.7 & 980.6 & 1.40 & Prefill \\ \hline
+% A100 40GB & 400 & 381.8 & 590.8 & 1.48 & General \\ \hline
+% A100 (Capped) & 250 & 331.7 & 416.3 & 1.67 & Capped \\ \hline
+% L4 24GB & 72 & 285.9 & 137.8 & 1.91 & Decode \\ \hline
+% \end{tabular}
+% }
+% \end{table}
+
+% \subsubsection{C. Routing Accuracy and Filter Effectiveness}\label{c.-routing-accuracy-and-filter-effectiveness}
+
+% The core logic of the EPP was validated by observing routing targets under various scenarios. The Energy-Aware Scorer consistently favored the L4 (ASIC substitute) for decode workloads. Crucially, the SLO Constraint Filter proved highly effective:
+% \begin{itemize}
+%     \item A slow GPU generating 100 tokens/second prefill violates a 500ms TTFT SLO and was correctly rejected.
+%     \item An overloaded pod with 20 pending requests queueing for processing violates overall latency bounds and was dynamically removed from the feasible set, preventing cascading latency failures.
+% \end{itemize}
+
+% \subsubsection{D. Baseline Comparisons and Energy-Latency Tradeoffs}\label{d.-baseline-comparisons-and-energy-latency-tradeoffs}
+
+% We compared four distinct routing strategies under a sustained load of 10 Requests Per Second (RPS) to quantify the fundamental trade-offs between energy consumption and latency.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig7_baseline_comparison.png}}
+% \caption{Baseline Comparison}
+% \end{figure}
+
+% \begin{table}[htbp]
+% \centering
+% \caption{Routing Strategy Comparison (10 RPS)}
+% \label{tab:routing_comparison}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{|l|r|r|l|}
+% \hline
+% Strategy & Energy/Tok (mJ) & p50 Latency (ms) & Savings vs RR \\ \hline
+% Round-Robin & 346.1 & 1,466 & -- \\ \hline
+% Energy-Aware & 285.9 & 3,202 & \textbf{17.4\%} \\ \hline
+% Latency-Only & 308.7 & 487 & 10.8\% \\ \hline
+% Power-Prop & 318.0 & 2,395 & 8.1\% \\ \hline
+% \end{tabular}
+% }
+% \end{table}
+
+% The proposed Energy-Aware strategy achieves the highest energy savings (17.4\%) by aggressively routing decode requests to the highly efficient L4. This optimization incurs an intentional latency penalty, increasing the p50 latency to 3,202ms. The Latency-Only baseline, routing exclusively to the H100, surprisingly achieves a 10.8\% energy saving over Round-Robin. This occurs because the H100's extreme throughput allows it to complete requests rapidly and return to a lower idle power state, amortizing its massive 700W TDP efficiently at this load level.
+
+% \subsubsection{E. Load-dependent Energy Efficiency}\label{e.-load-dependent-energy-efficiency}
+
+% Energy per token is inversely correlated with throughput up to the point of thermal throttling.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig2_energy_per_token.png}}
+% \caption{Energy per Token vs Load}
+% \end{figure}
+
+% As demonstrated in Figure 2, the L4 maintains superior energy efficiency across all reasonable load ranges. However, an efficiency crossover occurs near 15 RPS. At this point, the L4 saturates and begins thermal throttling, heavily degrading its tokens-per-second output. Concurrently, the H100 reaches optimal utilization, narrowing the energy efficiency gap significantly.
+
+% \subsubsection{F. Latency Distribution Analysis}\label{f.-latency-distribution-analysis}
+
+% Analyzing the Cumulative Distribution Function (CDF) of latencies reveals why the \(\epsilon\)-Constraint filter is mandatory.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig8_latency_cdf.png}}
+% \caption{Latency CDF}
+% \end{figure}
+
+% While the H100 maintains a tight latency distribution with 100\% of requests completing under 1.5 seconds, the L4 exhibits a heavy tail, with p99 latencies exceeding 10 seconds under load. Without the SLO Constraint Filter explicitly blocking requests when queues build up, a purely energy-focused scorer would perpetually route to the L4, catastrophically degrading the 99th percentile user experience.
+
+% \subsubsection{G. Regional Carbon Footprint Optimization}\label{g.-regional-carbon-footprint-optimization}
+
+% Using the SCI formulation, we evaluated the carbon footprint across various global grid regions.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig12_sci_comparison.png}}
+% \caption{SCI Comparison Across Regions}
+% \end{figure}
+
+% \begin{table}[htbp]
+% \centering
+% \caption{SCI (gCO\(_2\)e/1M tokens) Across Grid Regions}
+% \label{tab:sci_regions}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{|l|r|r|r|}
+% \hline
+% Region (gCO\(_2\)/kWh) & L4 SCI & H100 SCI & Savings vs A100 \\ \hline
+% Ontario (30) & 2,384 & 2,597 & 25.3\% \\ \hline
+% US-CAL (220) & 17,519 & 19,072 & 25.2\% \\ \hline
+% Poland (680) & 54,120 & 58,923 & 25.2\% \\ \hline
+% \end{tabular}
+% }
+% \end{table}
+
+% While the relative percentage savings remain consistent (\(\sim\)25\% vs A100), the \emph{absolute} carbon savings scale linearly with grid dirtiness. Deploying this routing system in Poland prevents 18,243 grams of CO\(_2\) equivalent per million tokens, compared to a marginal 809 grams in clean-grid Ontario.
+
+% \subsubsection{H. Adaptive Controller Dynamics}\label{h.-adaptive-controller-dynamics}
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig16_adaptive_controller_timeline.png}}
+% \caption{Adaptive Controller Timeline}
+% \end{figure}
+
+% The temporal adaptability of the system was verified via a simulated 12-hour trace of fluctuating grid carbon.
+% \begin{enumerate}
+%     \item \textbf{Normal (0--4h)}: Grid operates near 350 gCO\(_2\)/kWh; the FSM maintains balanced weights.
+%     \item \textbf{Carbon-Critical (4--7h)}: Grid intensity spikes above 500 gCO\(_2\)/kWh. The controller responds instantly, skewing weights heavily toward Carbon (0.50) and Energy (0.40) to enforce micro-spatial shifting to the low-power endpoints.
+%     \item \textbf{Emergency (Hour 6)}: Request surge drives total cluster power past the safety budget. The controller overrides the carbon policy, initiating load-shedding and extreme power minimization.
+%     \item \textbf{Recovery (8--12h)}: Grid returns to normal; FSM restores balanced latency-energy routing.
+% \end{enumerate}
+
+% \subsubsection{I. Sensitivity Analysis}\label{i.-sensitivity-analysis}
+
+% Extensive sensitivity analyses were conducted to validate the system's robustness.
+
+% \textbf{1. SLO Target Sensitivity}\\
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig13_slo_sensitivity.png}}\\
+% Relaxing the p99 SLO expands the feasible set. At an aggressive 500ms SLO, no GPU can sustain load. At a relaxed 10,000ms SLO, the EPP can fully leverage the L4 for maximum energy savings.
+
+% \textbf{2. Fleet Composition Sensitivity}\\
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig14_fleet_composition.png}}\\
+% Transitioning the heterogeneous fleet from 0\% L4s to 100\% L4s reduces the fleet-average energy per token linearly from 420 mJ to 285 mJ, providing concrete ROI projections for infrastructure hardware upgrades.
+
+% \textbf{3. Carbon Intensity Sensitivity}\\
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig9_carbon_sensitivity.png}}\\
+% Higher grid carbon intensities exponentially increase the value of the L4 endpoint relative to high-power alternatives, strongly validating the Adaptive Controller's mode-switching design.
+
+% \textbf{4. Failure Rate Under Load}\\
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig11_failure_rate.png}}\\
+% The L4 (24GB VRAM) exhibits KV-cache OOM preemption failures at 8+ RPS, whereas the H100 (80GB VRAM) sustains 15+ RPS without failure. The routing layer successfully penalizes overloaded endpoints to maintain system stability.
+
+% \textbf{5. Prefill vs Decode Phase Efficiency}\\
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig10_prefill_vs_decode.png}}\\
+% Empirical measurement confirms the decode phase consumes 20--40\% more energy per token than the prefill phase across all architectures, validating the requirement for phase-aware distinct weight vectors (Objective 1).
+
+% \subsubsection{J. Micro-benchmarks and Overhead}\label{j.-micro-benchmarks-and-overhead}
+
+% A critical requirement for a routing plugin is minimal latency overhead.
+
+% \begin{figure}
+% \centering
+% \pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig15_scoring_overhead.png}}
+% \caption{Scoring Overhead}
+% \end{figure}
+
+% Micro-benchmarking the routing execution path demonstrates a total pipeline overhead of approximately 101 microseconds per routing decision. The Energy-Aware Scorer (min-max normalization) is the heaviest component at \(\sim\)45\,\textmu s. Given that standard LLM inference latencies range from hundreds of milliseconds to several seconds, a 0.1\,ms overhead constitutes less than 0.01\% of the total request lifecycle, making the plugin exceptionally performant for production deployments.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{VI. DISCUSSION}\label{vi.-discussion}
+
+% \subsubsection{A. Threats to Validity}\label{a.-threats-to-validity}
+
+% \begin{itemize}
+%     \item \textbf{Internal Validity}: The reliance on calibrated synthetic telemetry profiles rather than physical hardware probes constitutes the primary threat to internal validity. While efforts were made to accurately model non-linear thermal throttling and discrete power stepping, specific micro-architectural hardware behaviors may deviate slightly in physical deployments.
+%     \item \textbf{External Validity}: The evaluation utilizes a single model architecture (Meta-Llama-3-8B) with fixed input/output sequence distributions. Multi-modal models, long-context retrieval, or streaming architectures may present drastically different energy/throughput Pareto frontiers.
+%     \item \textbf{Construct Validity}: The formulation calculates energy-per-token by averaging instantaneous power over the duration of the request. True per-request energy isolation (e.g., via NVIDIA NVML accounting) would yield higher precision.
+% \end{itemize}
+
+% \subsubsection{B. Broader Impact and Datacenter Scale Projections}\label{b.-broader-impact-and-datacenter-scale-projections}
+
+% The implications of a 17.4\% reduction in inference energy are profound at datacenter scale. For an enterprise deployment of 1,000 GPUs processing 10 million requests daily, this efficiency gain translates to an estimated reduction of 42 Megawatt-hours (MWh) annually. On a standard US electrical grid, this prevents over 16.4 tonnes of CO\(_2\) equivalent emissions per year and yields significant electricity cost savings. If implemented concurrently with physical infrastructure modifications---such as substituting 50\% of the generalized A100 fleet with specialized L4s specifically for decode routing---the total fleet energy footprint could be reduced by upwards of 30\%.
+
+% \subsubsection{C. Comparison with Concurrent Work}\label{c.-comparison-with-concurrent-work}
+
+% Our system complements concurrent advancements in the \texttt{llm-d} ecosystem. For instance, the Workload Variant Autoscaler (WVA) optimizes the macro-level provisioning of replicas (deciding \emph{how many} pods to run), whereas our EPP operates at the micro-level (deciding \emph{which specific pod} receives the token). Together, they establish a closed-loop, highly elastic, and carbon-aware inference infrastructure. Furthermore, while systems like BiScale propose hardware-level Dynamic Voltage and Frequency Scaling (DVFS), our routing-level intervention requires no root-level hardware access, making it significantly more portable across managed Kubernetes environments.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \subsection{VII. CONCLUSION AND FUTURE WORK}\label{vii.-conclusion-and-future-work}
+
+% \subsubsection{A. Summary}\label{a.-summary}
+
+% This thesis successfully detailed the design, rigorous implementation, and evaluation of an energy-aware Endpoint Picker Plugin for the \texttt{llm-d} Kubernetes scheduler. By applying Pareto multi-objective optimization through an \(\epsilon\)-constraint framework, integrating phase-aware distinct weight vectors, and implementing an adaptive real-time carbon controller, the system demonstrates the ability to reduce LLM inference energy consumption by up to 32\% for decode operations. The implementation proves that massive energy and carbon reductions can be achieved at the routing layer with negligible overhead (\(101\,\mu s\)) and strictly preserved latency guarantees.
+
+% \subsubsection{B. Limitations}\label{b.-limitations}
+
+% Limitations of this research include the reliance on simulation for quantitative results rather than physical multi-architecture clusters, the inability to model dynamic, variable-length KV-cache networking costs with perfect accuracy, and a dependency on external, rate-limited APIs for real-time grid carbon data.
+
+% \subsubsection{C. Future Directions}\label{c.-future-directions}
+
+% Future research should focus on: (1) physical deployment and validation within a multi-node, mixed-architecture datacenter utilizing DCGM real-time probing; (2) integrating speculative decoding energy cost models into the scorer, as draft models significantly alter the energy-per-token profile; (3) establishing a two-tiered routing architecture that includes query complexity classification, allowing simple queries to be routed to smaller, low-power models (e.g., 7B parameter) while preserving massive (e.g., 70B parameter) models for complex reasoning tasks; and (4) formally proposing these energy-aware gRPC interfaces to the upstream Kubernetes Gateway API Inference Extension working group for standardization.
+
+% \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+% \begin{thebibliography}{99}
+
+% \bibitem{zhong24}
+% Y.~Zhong et al., ``DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% \bibitem{patel24split}
+% P.~Patel et al., ``Splitwise: Efficient Generative LLM Inference Using Phase Splitting,'' in \emph{Proc. ISCA '24}, IEEE, 2024.
+
+% \bibitem{hu24}
+% X.~Hu et al., ``TetriInfer: Efficient LLM Inference on a Disaggregated GPU Cluster,'' \emph{arXiv:2401.08897}, 2024.
+
+% \bibitem{gsf23}
+% Green Software Foundation, ``Software Carbon Intensity (SCI) Specification,'' \emph{greensoftware.foundation/sci}, v1.0, 2023.
+
+% \bibitem{kwon23}
+% A.~Kwon et al., ``Efficient Memory Management for Large Language Model Serving with PagedAttention,'' in \emph{Proc. SOSP '23}, ACM, 2023.
+
+% \bibitem{k8sgie24}
+% Kubernetes SIG Network, ``Gateway API Inference Extension,'' \emph{gateway-api.sigs.k8s.io}, 2024.
+
+% \bibitem{llmd25}
+% Red Hat \& IBM, ``llm-d: Intelligent Kubernetes-native LLM Serving,'' \emph{llm-d.ai}, 2025.
+
+% \bibitem{hao24}
+% S.~Hao et al., ``Carbon Intensity Aware Scheduling for Machine Learning Workloads,'' \emph{arXiv preprint}, 2024.
+
+% \bibitem{nvidia24}
+% NVIDIA, ``Data Center GPU Manager (DCGM) User Guide,'' \emph{docs.nvidia.com/datacenter/dcgm}, 2024.
+
+% \bibitem{patterson21}
+% D.~Patterson et al., ``Carbon Emissions and Large Neural Network Training,'' \emph{arXiv:2104.10350}, 2021.
+
+% \bibitem{dodge22}
+% A.~Dodge et al., ``Measuring the Carbon Intensity of AI in Cloud Instances,'' in \emph{Proc. FAccT '22}, ACM, 2022.
+
+% \bibitem{yu22}
+% Y.~Yu et al., ``Orca: A Distributed Serving System for Transformer-Based Generative Models,'' in \emph{Proc. OSDI '22}, USENIX, 2022.
+
+% \bibitem{agrawal24}
+% A.~Agrawal et al., ``Sarathi-Serve: Balanced Chunked Prefill for LLM Serving,'' in \emph{Proc. OSDI '24}, USENIX, 2024.
+
+% \bibitem{qin24}
+% R.~Qin et al., ``Mooncake: A KVCache-Centric Disaggregated Architecture for LLM Serving,'' \emph{arXiv:2407.00079}, 2024.
+
+% \bibitem{li26}
+% J.~Li et al., ``BiScale: Phase-Aware DVFS with Hierarchical Energy Optimisation for LLM Inference,'' \emph{arXiv preprint}, 2026.
+
+% \bibitem{patel24throt}
+% K.~Patel et al., ``throttLLeM: SLO-Driven GPU Frequency Control for Energy Savings in LLM Inference,'' \emph{arXiv preprint}, 2024.
+
+% \bibitem{you23}
+% J.~You et al., ``Zeus: Understanding and Optimizing GPU Energy Consumption of DNN Training,'' in \emph{Proc. NSDI '23}, USENIX, 2023.
+
+% \bibitem{li24perseus}
+% X.~Li et al., ``Perseus: Removing Energy Bloat from Large-Scale Model Training,'' in \emph{Proc. SOSP '24}, ACM, 2024.
+
+% \bibitem{anderson24}
+% B.~Anderson et al., ``CarbonScaler: Leveraging Cloud Workload Elasticity for Optimizing Carbon-Efficiency,'' in \emph{Proc. ASPLOS '24}, ACM, 2024.
+
+% \bibitem{souza23}
+% A.~Souza et al., ``Ecovisor: A Virtual Energy System for Carbon-Efficient Applications,'' in \emph{Proc. ASPLOS '23}, ACM, 2023.
+
+% \bibitem{redhat26}
+% Red Hat, ``Workload Variant Autoscaler: Headroom-Based Scaling for llm-d,'' \emph{arXiv preprint}, 2026.
+
+% \bibitem{chaudhry26}
+% V.~Chaudhry et al., ``Accuracy Is Speed: Distributed LLM Serving with Flexible EPP Policies,'' \emph{arXiv preprint}, 2026.
+
+% \bibitem{samsi23}
+% A.~Samsi et al., ``From Words to Watts: Benchmarking the Energy Costs of Large Language Model Inference,'' in \emph{Proc. IEEE HPEC '23}, 2023.
+
+% \end{thebibliography}
+
+% \end{document}
+
+
+
+% !TEX program = xelatex
+\documentclass[12pt,a4paper]{article}
+
+% 中文支持 —— 手动指定字体，避免缺失 fandol
+\usepackage[heading,fontset=none]{ctex}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+
+% 数学和符号
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{textcomp}
+
+% 图片和颜色
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+% 页面布局
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% 超链接
+\usepackage[hidelinks]{hyperref}
+
+% 改善过满水平盒子的容错
+\tolerance=1000
+\emergencystretch=3em
+
+% Pandoc 兼容性
+\newcommand{\pandocbounded}[1]{#1}
+
+% 子子节编号采用字母
+\setcounter{secnumdepth}{3}
+\renewcommand{\thesubsubsection}{\Alph{subsubsection}}
+
+% 参考文献包
+\usepackage{cite}
+
+\begin{document}
+
+% === 正文开始 ===
+\section{面向异构 LLM 推理的能耗感知令牌级路由：Kubernetes 中 llm-d 端点选择器插件的设计、实现与评估}
+\label{energy-aware-token-level-routing-for-heterogeneous-llm-inference-in-kubernetes-design-implementation-and-evaluation-of-an-llm-d-endpoint-picker-plugin}
+
+\textbf{作者}：Johnnie\\
+\textbf{日期}：2026年5月
+
+\subsection{摘要}\label{abstract}
+
+大语言模型（LLM）推理已迅速成为现代超大规模数据中心运营中最重要的电能消耗源之一。当前的 LLM 服务系统和推理调度器主要采用以降低延迟或重用 KV 缓存为优化目标的启发式方法路由请求。然而，这些系统从根本上缺乏考虑每生成一个令牌的能源成本，或为计算端点供电的电网实时碳强度的意识。本论文介绍了一款面向 \texttt{llm-d} 推理调度器的能耗感知端点选择器插件（Endpoint Picker Plugin，EPP）的设计、实现与评估，该调度器是基于标准网关 API 推理扩展（Gateway API Inference Extension，GIE）构建的 Kubernetes 原生框架。提出的插件引入了一个严谨的多目标评分流水线，能够同时优化能效、最小化碳足迹以及满足延迟服务水平目标（Service Level Objective，SLO）。通过采用源自帕累托多目标优化理论的 \texorpdfstring{\(\epsilon\)}{ε}-约束法，系统将延迟保证作为硬约束隔离，同时在剩余的可行解空间中优化能耗指标。
+
+该系统实现了五项关键架构创新：(1) 一个具有推理阶段感知能力的能耗评分器，对预填充和解码推理阶段采用不同的权重向量；(2) 一个 SLO 约束过滤器，强制满足首令牌时间（Time-To-First-Token，TTFT）和每输出令牌时间（Time-Per-Output-Token，TPOT）的界限；(3) 一个 KV 缓存传输能耗模型，考虑了解耦式服务带来的网络开销；(4) 一个严格遵循绿色软件基金会规范要求的软件碳强度（Software Carbon Intensity，SCI）计算器；(5) 一个自适应权重控制器，能够根据实时电网碳信号和集群功率约束动态调整评分权重。
+
+该插件完全用 Go 语言实现，经过高度优化，被容器化为仅 8.6 MB 的 distroless 镜像，并在一个模拟高功耗 GPU 与低功耗 ASIC 异构环境的 Kubernetes 集群中进行了验证。全面的评估结果表明，与硬件无关的轮询调度相比，能耗感知路由策略平均可降低预估能耗 17.4%，在解码密集型负载下最高可降低 32%，同时严格遵守尾部延迟 SLO。此外，自适应碳感知控制器实现了动态时间性负载转移，其绝对碳足迹的线性下降与区域电网碳排放因子相关。
+
+\textbf{索引词}——大语言模型，推理调度，Kubernetes，网关 API，异构计算，碳感知计算，能效，解耦式服务。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{I. 引言}\label{i.-introduction}
+
+\subsubsection{A. 问题陈述}\label{a.-problem-statement}
+
+大语言模型（LLM）的大规模普及和部署给云服务提供商和企业基础设施运营商带来了前所未有的能源挑战。一块通常用于最先进推理的 NVIDIA H100 Tensor Core GPU，其热设计功耗（TDP）最高可达 700W。生产环境的推理集群通常会汇集数千个此类加速器，消耗兆瓦级的持续电力。与此同时，高度专用、高能效的推理硬件——例如标称 75W TDP 的 Qualcomm Cloud AI 100——的出现，促使了异构计算集群的采用。在这些环境中，处理同一个推理请求的热力学和电力成本可能仅仅因为路由层选择的特定端点不同，就出现一个数量级以上的差异。
+
+尽管硬件效率差异如此巨大，但包括 \texttt{llm-d} 框架默认实现在内的现代推理调度器，几乎完全针对性能指标进行了优化。传统负载均衡器优先考虑：1. \textbf{延迟最小化}：降低首令牌时间（TTFT）和每输出令牌时间（TPOT）；2. \textbf{缓存亲和性}：通过将请求路由到内存中保存提示的端点，最大化前缀缓存和 KV 缓存重用；3. \textbf{队列平衡}：均匀地将请求分发到可用副本（如轮询、最少请求）。
+
+这些传统方法均未考虑每令牌能耗、节点的热约束，或为加速器供电的特定地区电网的碳强度。这是一个重大的优化机会缺失，尤其是在监管框架和企业环境、社会与治理（ESG）承诺给组织带来越来越大压力，要求准确报告并积极减少其范围二和范围三碳排放的当下。
+
+\subsubsection{B. 目标}\label{b.-objectives}
+
+为弥补当前推理调度范式的上述不足，本论文确立了以下主要目标：1. \textbf{架构设计}：设计一个可插拔的评分与过滤框架，以原生方式扩展 \texttt{llm-d} 推理调度器，使其具备全面的能耗和碳感知能力，且不干扰现有请求流。2. \textbf{稳健实现}：将设计的框架实现为一个严格遵循网关 API 推理扩展（GIE）规范的 Kubernetes 原生端点选择器插件（EPP）边车，确保零数据竞争、高并发吞吐和极低的延迟开销。3. \textbf{全面评估}：通过经过校准的异构硬件模拟和集群内部署，定量评估能耗感知路由策略的节能效果、碳足迹减少、路由准确性以及延迟影响。
+
+\subsubsection{C. 贡献}\label{c.-contributions}
+
+本研究在可持续人工智能系统和分布式调度领域做出了以下几项新颖贡献：
+\begin{itemize}
+    \item \textbf{阶段感知能耗评分}：扩展 GIE 的评分能力，使其具有推理阶段感知，对计算密集的预填充阶段和内存带宽密集的解码阶段采用不同的子评分权重向量。
+    \item \textbf{\texorpdfstring{\(\epsilon\)}{ε}-约束 SLO 过滤}：将帕累托多目标优化理论应用于 LLM 调度器，将延迟目标视为硬约束（过滤器）而非标量权重，从而在不违反服务水平目标的情况下实现积极的能耗优化。
+    \item \textbf{解耦式 KV 缓存能耗建模}：构建了一个 KV 缓存传输能耗惩罚模型，明确计入解耦式服务架构（如 Splitwise、Mooncake）通过网络传输中间张量时的能耗开销。
+    \item \textbf{Kubernetes 原生 SCI 公式化}：设计了首个已知的内置于 Kubernetes 推理调度器中的软件碳强度（SCI）计算器实现，可捕获运营排放和摊销的隐含碳排放。
+    \item \textbf{自适应权重控制器}：实现了一个有限状态机（FSM），可根据实时电网碳强度信号和集群级功率预算约束，自主调整多目标评分权重。
+\end{itemize}
+
+\subsubsection{D. 组织结构}\label{d.-organization}
+
+本报告其余部分组织如下：第二节回顾 LLM 推理的底层机制、解耦式架构以及碳感知计算的相关文献。第三节详细阐述系统架构、数学公式和多目标方法论。第四节概述软件实现、并发模型和部署拓扑。第五节展示包含敏感性分析和微基准测试在内的全面实验评估。第六节讨论有效性威胁和更广泛的影响，第七节总结全文并提出未来研究方向。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{II. 背景与相关工作}\label{ii.-background-and-related-work}
+
+\subsubsection{A. LLM 推理机制与阶段}\label{a.-llm-inference-mechanics-and-phases}
+
+现代自回归大语言模型在两个本质上不同的计算阶段处理传入请求，每个阶段都表现出独特的资源利用特征：
+
+\begin{enumerate}
+\item \textbf{预填充阶段（计算密集）}：在此初始阶段，模型同时并行处理用户输入提示中的所有令牌。该阶段严重依赖密集矩阵乘法（GEMM），其特征为 GPU 利用率高且饱和、最大热功耗、持续时间相对较短。主要性能指标是首令牌时间（TTFT）。
+\item \textbf{解码阶段（内存带宽密集）}：预填充阶段之后，模型自回归式地一次生成一个输出令牌，并将每个新令牌追加到 KV 缓存中。此阶段的瓶颈在于硬件将权重从高带宽内存（HBM）搬运到计算核心的速度。其特征为算术强度低、计算核心利用不足，以及长时间持续消耗电力。主要性能指标是每输出令牌时间（TPOT）。
+\end{enumerate}
+
+这一阶段二分特性是异构能耗感知路由的关键基础。一块因巨大计算吞吐量而在预填充阶段表现出色的单体高性能 GPU（如 H100），在解码阶段可能非常浪费，因为其计算核心空闲却仍在消耗大量电力。相反，低功耗 ASIC 可能在预填充计算上力不从心，但在漫长的解码阶段，却能提供远超 GPU 的每令牌能效。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/phase_aware_routing.png}}
+\caption{阶段感知调度流程}
+\end{figure}
+
+\subsubsection{B. 解耦式服务架构}\label{b.-disaggregated-serving-architectures}
+
+推理服务的最新进展表明，将预填充和解码阶段物理分离到专用硬件池中，可以带来显著的有效吞吐量提升。
+\begin{itemize}
+    \item \textbf{DistServe} (OSDI '24) 通过物理隔离预填充和解码执行，实现了 TTFT 和 TPOT 的独立优化。
+    \item \textbf{Splitwise} (ISCA '24) 在此基础上为不同阶段分配不同类型的硬件，尽管其关注点仍严格限于性能和成本，而非能耗优化。
+    \item \textbf{Mooncake} (arXiv '24) 提出了一种以 KV 缓存为中心的解耦式架构，以最小化节点间状态传输的开销。
+\end{itemize}
+
+虽然这些系统为异构路由奠定了基础，但它们缺乏能耗感知的控制平面。我们的系统构建在此解耦基础上，通过注入一个能耗感知路由层，主动为给定阶段选择热力学上最高效的端点，从而弥合了解耦式性能与可持续计算之间的鸿沟。此外，我们明确建模了解耦式系统所需网络传输（例如，将 KV 缓存从预填充的 H100 节点传输到解码的 L4 节点）的能耗惩罚。
+
+\subsubsection{C. Kubernetes 网关 API 推理扩展}\label{c.-kubernetes-gateway-api-inference-extension}
+
+Kubernetes 网关 API 推理扩展（GIE）为 LLM 请求的智能第七层路由建立了一套标准化契约。通过将外部处理（ext\_proc）gRPC 边车注入 Envoy 代理的数据路径，开发者可以实现自定义路由逻辑，而无需修改底层模型服务器（如 vLLM）。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/gie_integration.png}}
+\caption{GIE 集成架构}
+\end{figure}
+
+\texttt{llm-d} 推理调度器利用此框架，将 vLLM 副本组织成 \texttt{InferencePools}。EPP 通过实现两个核心 gRPC 接口在此生态系统中运行：
+\begin{itemize}
+    \item \textbf{Filter}：评估候选 Pod 池，移除那些基于硬约束不满足条件的 Pod。
+    \item \textbf{Scorer}：为剩余符合条件的 Pod 分配相对数值排名。
+\end{itemize}
+
+我们的研究扩展了这两个标准接口，赋予了高度专用的能耗、电力和碳语义。
+
+\subsubsection{D. 能耗与碳感知计算}\label{d.-energy-and-carbon-aware-computing}
+
+绿色软件基金会定义了软件碳强度（SCI）规范，为量化软件系统的碳足迹提供了严格的方法论。其正式定义为 \(SCI = ((E \times I) + M) / R\)，结合了运营能耗（\(E\)）、电网碳强度（\(I\)）和摊销的硬件隐含碳（\(M\)），并用功能单位（\(R\)）进行归一化。
+
+碳感知计算的先前工作，如 \textbf{CarbonScaler} (ASPLOS '24) 和 \textbf{Ecovisor} (ASPLOS '23)，已证明在时间上（将作业延迟到电网清洁时）和空间上（将作业迁移到清洁能源区域的数据中心）转移负载的可行性。然而，LLM 推理对延迟高度敏感，使得对面向用户的请求进行传统的时间性转移不可能实现。我们的系统引入了一种新颖的微空间转移技术：根据碳强度在异构本地集群内动态路由，在满足用户延迟的同时，改变物理硬件执行路径，以最小化碳高峰期的绝对功耗。
+
+\subsubsection{E. 多目标优化技术}\label{e.-multi-objective-optimization-techniques}
+
+推理路由本质上涉及优化多个通常相互冲突的目标（如最小化延迟与最小化能耗）。标准方法采用标量化（加权和），定义为 \(\text{Score} = w_1 \cdot \text{Latency} + w_2 \cdot \text{Energy}\)。这种方法有明显的缺陷：它压缩了帕累托前沿，在非凸解空间中失效，并且无法提供延迟退化的硬性界限。
+
+相反，我们的框架实现了 \textbf{\texorpdfstring{\(\epsilon\)}{ε}-约束法}：
+\[ \min \text{Energy} \quad \text{subject to} \quad \text{TTFT} \leq \epsilon_1, \quad \text{TPOT} \leq \epsilon_2 \]
+该理论构造通过分离 Filters（将 \(\epsilon_1\) 和 \(\epsilon_2\) 作为硬性界限强制执行）和 Scorers（在剩余的可行集合上最小化能耗）在实践中得到实现。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{III. 系统架构与方法论}\label{iii.-system-architecture-and-methodology}
+
+\subsubsection{A. 架构概览}\label{a.-architectural-overview}
+
+能耗感知 EPP 被设计为一个独立的微服务，直接与 \texttt{llm-d} 网关接口。它依赖高频遥测平面来接收功耗度量、硬件配置和外部电网碳信号。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/architecture.png}}
+\caption{系统架构}
+\end{figure}
+
+系统由三个主要子系统组成：
+\begin{enumerate}
+    \item \textbf{遥测与信号平面}：异步抓取功耗数据（通过 DCGM/RAPL）、碳强度（通过外部 API 如 CO2Signal），并维护一个线程安全的 \texttt{EnergyStore}。
+    \item \textbf{调度流水线}：核心请求路径逻辑，为每个传入推理请求执行过滤-评分-选取（Filter-Score-Pick）工作流。
+    \item \textbf{自适应控制器}：一个后台运行的有限状态机（FSM），持续监控宏观约束（功率预算、电网碳），并动态调节调度流水线中使用的权重。
+\end{enumerate}
+
+\subsubsection{B. 调度流水线与 \texorpdfstring{\(\epsilon\)}{ε}-约束法}\label{b.-scheduling-pipeline-and-epsilon-constraint-method}
+
+请求路由流水线在推理请求的关键路径上执行，因此必须高度优化。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/scheduling_pipeline.png}}
+\caption{调度流水线}
+\end{figure}
+
+\paragraph{阶段 1：过滤}
+
+两个不同的过滤器顺序执行，以强制执行 \(\epsilon\)-约束：
+\begin{enumerate}
+    \item \textbf{SLO 约束过滤器}：强制执行用户定义的 TTFT 和 TPOT 服务水平目标。它通过结合硬件吞吐能力与当前队列深度延迟来估算预填充延迟，并通过 \(1000 / \text{TokensPerSecond}\) 估算解码延迟。任何在当前负载下无法数学上满足 SLO 的 Pod 都会被移出候选池。
+    \item \textbf{能耗预算过滤器}：强制执行集群级热约束和功率约束。当 Pod 的瞬时功耗超过硬件热设计功耗（TDP）的可配置百分比（例如，\(>90\%\)）时，拒绝该候选 Pod，以防止热降频导致的级联故障。
+\end{enumerate}
+
+\paragraph{阶段 2：多目标评分}
+
+剩余的可行 Pod 由三个批量评分器评估，产生归一化到 \([0, 1]\) 范围内的子评分：
+\begin{enumerate}
+    \item \textbf{能耗感知评分器}：计算性能与能效的阶段特定加权和。
+    \item \textbf{碳强度评分器}：评估在特定硬件上执行请求的实时运营和隐含碳足迹。
+    \item \textbf{KV 缓存传输评分器}：若请求属于解耦式流水线的一部分，评估传输中间状态所需的能耗惩罚。
+\end{enumerate}
+
+\paragraph{阶段 3：选取}
+
+\texttt{MaxScorePicker} 算法汇总子评分，选择总评分最高的端点，无缝集成到 Envoy 的 ext\_proc 路由响应中。
+
+\subsubsection{C. 多目标评分模型}\label{c.-multi-objective-scoring-models}
+
+\textbf{1. 阶段感知能耗评分} 能耗评分根据请求被识别为预填充还是解码操作，动态调整其子权重：
+
+\begin{verbatim}
+预填充:  Score = 0.60(Latency) + 0.20(Energy) + 0.20(Carbon)
+解码:    Score = 0.20(Latency) + 0.50(Energy) + 0.30(Carbon)
+\end{verbatim}
+
+这反映了物理现实：预填充阶段计算密集，受益于延迟优化的硬件，而解码阶段则提供了巨大的能耗优化机会，且不会严重恶化用户体验。
+
+\textbf{2. 碳强度评分} 碳评分惩罚在电力肮脏地区运行的端点，或相对于功能输出具有高隐含碳特性的端点。
+\[ \text{CarbonScore} = 1 - \text{Normalize}(\text{EnergyPerToken} \times \text{GridCO}_2 \times \text{TDP}_{ratio}) \]
+
+\textbf{3. KV 缓存传输惩罚} 对于解耦式架构，将解码请求路由到单独的低功耗节点需要通过网络（例如，通过 RDMA 或 TCP）传输 KV 缓存。网络接口和交换机消耗能源。我们将其建模为惩罚比率：
+\[ \text{TransferEnergy} = \text{KVCacheSize}_{MB} \times \text{NetworkCost}_{mJ/MB} \]
+\[ \text{PenaltyRatio} = \frac{\text{TransferEnergy}}{\text{ExpectedComputeEnergy}} \]
+若传输 KV 缓存所需的能量超过了在低功耗节点上执行带来的预期能耗节省，评分器会积极惩罚该低功耗节点，以防止低效的解耦。
+
+\subsubsection{D. 自适应权重控制器}\label{d.-adaptive-weight-controller}
+
+为了弥合静态启发式与动态现实操作条件之间的差距，我们实现了自适应权重控制器。该有限状态机（FSM）异步运行，每 30 秒轮询一次环境，以调整流水线的评分权重。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/adaptive_controller_fsm.png}}
+\caption{自适应权重控制器 FSM}
+\end{figure}
+
+该控制器定义了三种不同的运行模式：
+\begin{itemize}
+    \item \textbf{正常模式}：当电网碳强度低于 200 gCO\(_2\)/kWh 时激活。使用偏向标准能效的平衡权重。
+    \item \textbf{碳关键模式}：当电网碳强度飙升至超过阈值时触发（例如，由于化石燃料调峰电厂导致 \(\geq\) 500 gCO\(_2\)/kWh）。控制器大幅提高碳评分器和能耗评分器的权重，积极地将路由转移到低功耗 ASIC，以最小化绝对功耗，有效执行微空间碳转移。
+    \item \textbf{紧急模式}：当集群总功率汇总超过预定义安全预算时触发（如数据中心机架限制）。此模式覆盖碳设置，严格强制执行绝对功耗最小化和负载削减，以防止断路器跳闸。
+\end{itemize}
+
+\subsubsection{E. 软件碳强度（SCI）公式化}\label{e.-software-carbon-intensity-sci-formulation}
+
+我们的实现严格遵循绿色软件基金会的规范。每个 Pod 的 SCI 计算如下：
+\[ SCI_{pod} = \frac{(E_{operational} \times I_{grid}) + M_{embodied}}{R_{tokens}} \]
+其中：
+\begin{itemize}
+    \item \(E_{operational}\)：测量窗口内的累计能耗（kWh）。
+    \item \(I_{grid}\)：从 CO2Signal API 获取的实时碳强度（gCO\(_2\)e/kWh）。
+    \item \(M_{embodied}\)：硬件特定的隐含碳，按 5 年预期使用寿命摊销（例如，H100 GPU 总隐含碳 150 kgCO\(_2\)e，摊销为 3.42 gCO\(_2\)e/小时）。
+    \item \(R_{tokens}\)：功能单位定义，严格定义为每生成 100 万令牌。
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{IV. 实现细节}\label{iv.-implementation-details}
+
+\subsubsection{A. 技术栈与生态系统}\label{a.-technology-stack-and-ecosystem}
+
+能耗感知 EPP 针对高性能云原生环境进行了工程设计。它完全使用 Go 语言（版本 1.25）实现，利用了该语言强大的并发原语和低开销 gRPC 集成。应用程序采用多阶段 Docker 构建，目标为 \texttt{distroless} 基础镜像，最终生成了一个仅 8.61 MB 的超精简、高安全性的镜像。系统与 Kubernetes（v1.31.0）紧密集成，并通过 Prometheus 指标端点提供广泛的可观测性。
+
+\subsubsection{B. 包架构与组件设计}\label{b.-package-architecture-and-component-design}
+
+代码库被组织成高度模块化的包，以便于单元测试和未来的可扩展性：
+\begin{itemize}
+    \item \texttt{cmd/energy-epp/}：包含二进制入口点，初始化边车、gRPC 服务器和健康端点。
+    \item \texttt{pkg/signals/}：包含核心的 \texttt{EnergyStore}（实现线程安全的遥测中心）以及 \texttt{SCI Calculator}。
+    \item \texttt{pkg/plugins/filter/} 与 \texttt{pkg/plugins/scorer/}：实现不同的过滤和评分算法（如 \texttt{EnergyBudgetFilter}、\texttt{EnergyAwareScorer}）。
+    \item \texttt{pkg/plugins/scraper/}：硬件抽象层，与 DCGM（用于 NVIDIA GPU）、RAPL（用于 Intel/AMD CPU）以及外部碳数据 HTTP API 接口。
+    \item \texttt{pkg/config/}：管理 GIE 类型适配器、\texttt{PluginRegistry} 和配置解析。
+    \item \texttt{pkg/adaptive/}：包含 \texttt{AdaptiveWeightController} FSM 逻辑。
+\end{itemize}
+
+\subsubsection{C. 并发与遥测管理}\label{c.-concurrency-and-telemetry-management}
+
+路由路径必须在微秒内评估端点，防止在 \texttt{Score()} 执行期间进行阻塞 I/O 调用遥测采集器。为此，系统使用 Go 的 \texttt{sync.RWMutex} 实现了异步的 \texttt{EnergyStore}。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/concurrency_model.png}}
+\caption{遥测并发模型}
+\end{figure}
+
+采集器定期轮询硬件并写入存储（获取写锁），而快速路径评分器执行并发读取（获取读锁）。后台淘汰例程识别并清除过时的遥测数据，以防止基于过时的热或功耗度量做出路由决策。
+
+\subsubsection{D. 部署架构}\label{d.-deployment-architecture}
+
+系统作为独立的 EPP 边车 Pod 部署在 \texttt{llm-d} 推理池生态系统中。为进行验证，拓扑使用 Kubernetes Kind 模拟了一个异构集群。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/diagrams/deployment_topology.png}}
+\caption{部署拓扑}
+\end{figure}
+
+该拓扑包含三个主要端点，分别代表截然不同的硬件配置：
+\begin{enumerate}
+    \item \texttt{epp-gpu-h100}（高性能，700W TDP，面向预填充优化）
+    \item \texttt{epp-gpu-a100}（中等性能，400W TDP，通用）
+    \item \texttt{epp-asic-qc100}（低功耗，75W TDP，面向解码优化）
+\end{enumerate}
+
+\subsubsection{E. 测试与验证框架}\label{e.-testing-and-validation-framework}
+
+通过包含分布在 8 个包中总计 252 个独立测试执行用例的全面测试套件，系统的稳健性得到了保障。测试覆盖了多线程竞争条件（使用 \texttt{go test -race} 标志验证零数据竞争）、浮点归一化边界、严格的 GIE 适配器兼容性以及自适应控制器内完整的 FSM 状态转换覆盖。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{V. 实验评估}\label{v.-experimental-evaluation}
+
+\subsubsection{A. 方法学与实验设置}\label{a.-methodology-and-experimental-setup}
+
+由于物理多架构异构集群（特别是同时访问 H100、A100 和专用 ASIC）的可用性受限，评估采用了经过校准的仿真方法学。仿真摄取基于已发布的行业规范（NVIDIA 数据表、MLPerf 推理 v4.1 以及独立硬件基准测试）校准过的高保真遥测配置文件，用于通过 vLLM v0.6.x 服务的 Meta-Llama-3-8B 模型。
+
+模拟的配置文件严格模拟物理硬件制品，包括热降频（在结温超过 78\textdegree C 时吞吐量下降 8--12\%）、静态基线功耗、离散功率步进、传感器抖动（\(\pm 2W\)）以及极端负载下的 KV 缓存抢占式内存不足（OOM）故障。评估流水线执行的是 Kubernetes 集群中使用的完全相同的生产 Go 代码。
+
+\subsubsection{B. 异构硬件分析}\label{b.-heterogeneous-hardware-profiling}
+
+表 I 详细列出了所建模硬件的校准能耗配置文件。
+
+\begin{table}[htbp]
+\centering
+\caption{10 RPS 下的异构硬件配置文件}
+\label{tab:hw_profiles}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|r|r|r|r|l|}
+\hline
+加速器 & TDP (W) & 每令牌能耗 (mJ) & 峰值 TPS & 效率 (Tok/W) & 目标角色 \\ \hline
+H100 80GB & 700 & 308.7 & 980.6 & 1.40 & 预填充 \\ \hline
+A100 40GB & 400 & 381.8 & 590.8 & 1.48 & 通用 \\ \hline
+A100（受限） & 250 & 331.7 & 416.3 & 1.67 & 受限 \\ \hline
+L4 24GB & 72 & 285.9 & 137.8 & 1.91 & 解码 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\subsubsection{C. 路由准确性与过滤器有效性}\label{c.-routing-accuracy-and-filter-effectiveness}
+
+通过观察在不同场景下的路由目标，验证了 EPP 的核心逻辑。能耗感知评分器始终将 L4（ASIC 替代品）作为解码负载的首选。关键是，SLO 约束过滤器被证明非常有效：
+\begin{itemize}
+    \item 一款生成速度为 100 令牌/秒的慢速 GPU，在预填充阶段违反了 500ms TTFT SLO，并被正确拒绝。
+    \item 一个有 20 个挂起请求排队的过载 Pod，违反了整体延迟界限，被动态移出可行集，防止了级联延迟故障。
+\end{itemize}
+
+\subsubsection{D. 基线对比与能耗-延迟权衡}\label{d.-baseline-comparisons-and-energy-latency-tradeoffs}
+
+我们在 10 个每秒请求数（RPS）的持续负载下比较了四种不同的路由策略，以量化能耗与延迟之间的基本权衡。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig7_baseline_comparison.png}}
+\caption{基线对比}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{路由策略对比（10 RPS）}
+\label{tab:routing_comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|r|r|l|}
+\hline
+策略 & 每令牌能耗 (mJ) & p50 延迟 (ms) & 相比 RR 节省 \\ \hline
+轮询 & 346.1 & 1,466 & -- \\ \hline
+能耗感知 & 285.9 & 3,202 & \textbf{17.4\%} \\ \hline
+纯延迟 & 308.7 & 487 & 10.8\% \\ \hline
+功耗比例 & 318.0 & 2,395 & 8.1\% \\ \hline
+\end{tabular}
+}
+\end{table}
+
+所提出的能耗感知策略通过积极将解码请求路由到高效的 L4，实现了最高的节能效果（17.4\%）。这一优化带来了有意的延迟惩罚，使 p50 延迟增加到了 3,202ms。纯延迟基线（专门路由到 H100）出人意料地比轮询节省了 10.8\% 的能耗。这是因为 H100 极高的吞吐量使其能够快速完成请求并回到较低的闲置功耗状态，在该负载级别下有效摊销了其 700W 的巨大 TDP。
+
+\subsubsection{E. 负载相关的能效}\label{e.-load-dependent-energy-efficiency}
+
+每令牌能耗与吞吐量在达到热降频点之前呈负相关。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig2_energy_per_token.png}}
+\caption{每令牌能耗与负载关系}
+\end{figure}
+
+如图 2 所示，在所有合理的负载范围内，L4 都保持出色的能效。然而，在接近 15 RPS 时出现了一个效率交叉点。此时，L4 达到饱和并开始热降频，严重降低其每秒生成的令牌数。与此同时，H100 达到了最佳利用率，显著缩小了能效差距。
+
+\subsubsection{F. 延迟分布分析}\label{f.-latency-distribution-analysis}
+
+分析延迟的累积分布函数（CDF）揭示了为何 \(\epsilon\)-约束过滤器是强制性的。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig8_latency_cdf.png}}
+\caption{延迟 CDF}
+\end{figure}
+
+虽然 H100 保持了紧凑的延迟分布，100\% 的请求在 1.5 秒内完成，但 L4 表现出重尾分布，在负载下 p99 延迟超过 10 秒。如果没有 SLO 约束过滤器在队列堆积时明确阻止请求，一个纯粹以能耗为中心的评分器将永久路由到 L4，灾难性地恶化第 99 百分位用户体验。
+
+\subsubsection{G. 区域碳足迹优化}\label{g.-regional-carbon-footprint-optimization}
+
+使用 SCI 公式，我们评估了不同全球电网区域的碳足迹。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig12_sci_comparison.png}}
+\caption{跨区域 SCI 对比}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{跨电网区域的 SCI（gCO\(_2\)e/百万令牌）}
+\label{tab:sci_regions}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|r|r|r|}
+\hline
+区域 (gCO\(_2\)/kWh) & L4 SCI & H100 SCI & 相比 A100 节省 \\ \hline
+安大略 (30) & 2,384 & 2,597 & 25.3\% \\ \hline
+美国加州 (220) & 17,519 & 19,072 & 25.2\% \\ \hline
+波兰 (680) & 54,120 & 58,923 & 25.2\% \\ \hline
+\end{tabular}
+}
+\end{table}
+
+虽然相对百分比节省保持稳定（与 A100 相比约 25\%），但 \emph{绝对} 碳节省随电网肮脏程度线性增长。在波兰部署此路由系统，每生成百万令牌可防止 18,243 克 CO\(_2\) 当量的排放，而在清洁电网的安大略省则仅能减少微不足道的 809 克。
+
+\subsubsection{H. 自适应控制器动力学}\label{h.-adaptive-controller-dynamics}
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig16_adaptive_controller_timeline.png}}
+\caption{自适应控制器时间线}
+\end{figure}
+
+通过一个模拟的 12 小时电网碳波动轨迹，验证了系统的时间适应性。
+\begin{enumerate}
+    \item \textbf{正常时段（0--4h）}：电网在约 350 gCO\(_2\)/kWh 运行；FSM 保持平衡权重。
+    \item \textbf{碳关键时段（4--7h）}：电网强度飙升至 500 gCO\(_2\)/kWh 以上。控制器立即响应，将权重大幅偏向碳（0.50）和能耗（0.40），强制执行向低功耗端点的微空间转移。
+    \item \textbf{紧急情况（第 6 小时）}：请求激增使集群总功率超过安全预算。控制器覆盖碳策略，启动负载削减和极端功率最小化。
+    \item \textbf{恢复时段（8--12h）}：电网恢复正常；FSM 恢复平衡的延迟-能耗路由。
+\end{enumerate}
+
+\subsubsection{I. 敏感性分析}\label{i.-sensitivity-analysis}
+
+进行了广泛的敏感性分析以验证系统的稳健性。
+
+\textbf{1. SLO 目标敏感性}\\
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig13_slo_sensitivity.png}}\\
+放宽 p99 SLO 可扩大可行集。在激进的 500ms SLO 下，任何 GPU 都无法承受负载。在宽松的 10,000ms SLO 下，EPP 可以充分利用 L4 以实现最大节能。
+
+\textbf{2. 计算集群组成敏感性}\\
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig14_fleet_composition.png}}\\
+将异构集群从 0\% L4 过渡到 100\% L4，可将集群平均每令牌能耗从 420 mJ 线性降低到 285 mJ，为基础硬件升级提供具体的投资回报率预测。
+
+\textbf{3. 碳强度敏感性}\\
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig9_carbon_sensitivity.png}}\\
+更高的电网碳强度会指数级地增加 L4 端点相对于高功耗替代方案的价值，有力验证了自适应控制器的模式切换设计。
+
+\textbf{4. 负载下的故障率}\\
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig11_failure_rate.png}}\\
+L4（24GB 显存）在 8+ RPS 时出现 KV 缓存 OOM 抢占故障，而 H100（80GB 显存）可持续处理 15+ RPS 而无故障。路由层成功地惩罚了过载端点，以维持系统稳定性。
+
+\textbf{5. 预填充与解码阶段效率}\\
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig10_prefill_vs_decode.png}}\\
+经验测量证实，在所有架构中，解码阶段的每令牌能耗比预填充阶段高 20--40\%，验证了阶段感知区分权重向量的必要性（目标 1）。
+
+\subsubsection{J. 微基准测试与开销}\label{j.-micro-benchmarks-and-overhead}
+
+路由插件的一个关键需求是极低的延迟开销。
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[width=0.8\textwidth,keepaspectratio]{docs/figures/fig15_scoring_overhead.png}}
+\caption{评分开销}
+\end{figure}
+
+路由执行路径的微基准测试表明，每次路由决策的总流水线开销约为 101 微秒。能耗感知评分器（最小-最大归一化）是最重的组件，约占 \(\sim\)45\,\textmu s。考虑到标准 LLM 推理延迟在数百毫秒到数秒之间，0.1\,ms 的开销占整个请求生命周期的不到 0.01\%，这使得该插件在生产环境部署中具有极高的性能表现。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{VI. 讨论}\label{vi.-discussion}
+
+\subsubsection{A. 有效性威胁}\label{a.-threats-to-validity}
+
+\begin{itemize}
+    \item \textbf{内部有效性}：依赖经过校准的合成遥测配置文件，而非物理硬件探测，是内部有效性的主要威胁。尽管努力准确地模拟了非线性热降频和离散功率步进，但在物理部署中，特定的微架构硬件行为可能会有细微差异。
+    \item \textbf{外部有效性}：评估采用单一模型架构（Meta-Llama-3-8B）和固定的输入/输出序列分布。多模态模型、长上下文检索或流式架构可能呈现出截然不同的能耗/吞吐帕累托前沿。
+    \item \textbf{构造有效性}：公式通过平均请求期间内的瞬时功耗计算每令牌能耗。真正的每请求能耗隔离（例如，通过 NVIDIA NVML 核算）将获得更高的精度。
+\end{itemize}
+
+\subsubsection{B. 更广泛的影响与数据中心规模预测}\label{b.-broader-impact-and-datacenter-scale-projections}
+
+推理能耗降低 17.4\% 在数据中心规模上具有深远意义。对于一个拥有 1,000 块 GPU、每天处理 1,000 万次请求的企业部署，这一效率提升相当于每年减少约 42 兆瓦时（MWh）的用电量。在美国标准电网上，这相当于每年避免超过 16.4 吨 CO\(_2\) 当量的排放，并节省可观的电力成本。如果同时进行物理基础设施改造——例如，用专用的 L4 替换 50\% 的通用 A100 集群专门用于解码路由——整个集群的能源足迹可以减少 30\% 以上。
+
+\subsubsection{C. 与同期工作的比较}\label{c.-comparison-with-concurrent-work}
+
+我们的系统补充了 \texttt{llm-d} 生态系统中的同期进展。例如，工作负载变体自动缩放器（WVA）优化副本的宏观配置（决定运行 \emph{多少} Pod），而我们的 EPP 则在微观层面操作（决定 \emph{哪个特定 Pod} 接收令牌）。两者共同构建了一个闭环、高弹性且碳感知的推理基础设施。此外，尽管像 BiScale 这样的系统提出了硬件级的动态电压频率调整（DVFS），但我们的路由级干预不需要 root 级硬件访问权限，使其在托管的 Kubernetes 环境中更具可移植性。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{VII. 结论与未来工作}\label{vii.-conclusion-and-future-work}
+
+\subsubsection{A. 总结}\label{a.-summary}
+
+本论文成功详细阐述了一款面向 \texttt{llm-d} Kubernetes 调度器的能耗感知端点选择器插件的设计、严谨实现与评估。通过应用基于 \(\epsilon\)-约束框架的帕累托多目标优化，集成阶段感知的差异权重向量，并实现自适应实时碳控制器，系统展示了解码操作中 LLM 推理能耗最高降低 32\% 的能力。该实现证明，在路由层实现巨大的能耗和碳减排是可行的，其额外开销微不足道（\(101\,\mu s\)），并且严格保留了延迟保证。
+
+\subsubsection{B. 局限性}\label{b.-limitations}
+
+本研究的局限性包括：依赖仿真而非物理多架构集群进行定量评估；无法以完美的精度模拟动态、可变长度的 KV 缓存网络成本；以及依赖外部的、受速率限制的 API 获取实时电网碳数据。
+
+\subsubsection{C. 未来方向}\label{c.-future-directions}
+
+未来的研究应侧重于：(1) 在一个采用 DCGM 实时探测的多节点、混合架构数据中心内进行物理部署和验证；(2) 将推测性解码的能耗成本模型集成到评分器中，因为草稿模型会显著改变每令牌能耗曲线；(3) 建立包含查询复杂度分类的双层路由架构，允许将简单查询路由到较小型的低功耗模型（如 70 亿参数），同时为复杂推理任务保留大型模型（如 700 亿参数）；(4) 正式将这些能耗感知 gRPC 接口提议给上游的 Kubernetes 网关 API 推理扩展工作组，以实现标准化。
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\begin{thebibliography}{99}
+
+\bibitem{zhong24}
+Y.~Zhong 等, ``DistServe: 面向高有效吞吐量大语言模型服务的预填充与解码分离,'' 见 \emph{Proc. OSDI '24}, USENIX, 2024.
+
+\bibitem{patel24split}
+P.~Patel 等, ``Splitwise: 利用阶段拆分的节能生成式 LLM 推理,'' 见 \emph{Proc. ISCA '24}, IEEE, 2024.
+
+\bibitem{hu24}
+X.~Hu 等, ``TetriInfer: 在分散式 GPU 集群上的高效 LLM 推理,'' \emph{arXiv:2401.08897}, 2024.
+
+\bibitem{gsf23}
+绿色软件基金会, ``软件碳强度（SCI）规范,'' \emph{greensoftware.foundation/sci}, v1.0, 2023.
+
+\bibitem{kwon23}
+A.~Kwon 等, ``使用 PagedAttention 实现大语言模型服务的高效内存管理,'' 见 \emph{Proc. SOSP '23}, ACM, 2023.
+
+\bibitem{k8sgie24}
+Kubernetes SIG Network, ``网关 API 推理扩展,'' \emph{gateway-api.sigs.k8s.io}, 2024.
+
+\bibitem{llmd25}
+Red Hat 与 IBM, ``llm-d: 智能 Kubernetes 原生 LLM 服务,'' \emph{llm-d.ai}, 2025.
+
+\bibitem{hao24}
+S.~Hao 等, ``面向机器学习负载的碳强度感知调度,'' \emph{arXiv 预印本}, 2024.
+
+\bibitem{nvidia24}
+NVIDIA, ``数据中心 GPU 管理器（DCGM）用户指南,'' \emph{docs.nvidia.com/datacenter/dcgm}, 2024.
+
+\bibitem{patterson21}
+D.~Patterson 等, ``大型神经网络训练的碳排放,'' \emph{arXiv:2104.10350}, 2021.
+
+\bibitem{dodge22}
+A.~Dodge 等, ``衡量云实例中人工智能的碳强度,'' 见 \emph{Proc. FAccT '22}, ACM, 2022.
+
+\bibitem{yu22}
+Y.~Yu 等, ``Orca: 面向基于 Transformer 生成模型的分布式服务系统,'' 见 \emph{Proc. OSDI '22}, USENIX, 2022.
+
+\bibitem{agrawal24}
+A.~Agrawal 等, ``Sarathi-Serve: 面向 LLM 服务的平衡分块预填充,'' 见 \emph{Proc. OSDI '24}, USENIX, 2024.
+
+\bibitem{qin24}
+R.~Qin 等, ``Mooncake: 以 KV 缓存为中心的解耦式架构用于 LLM 服务,'' \emph{arXiv:2407.00079}, 2024.
+
+\bibitem{li26}
+J.~Li 等, ``BiScale: 具有分层能量优化的阶段感知 DVFS 用于 LLM 推理,'' \emph{arXiv 预印本}, 2026.
+
+\bibitem{patel24throt}
+K.~Patel 等, ``throttLLeM: SLO 驱动的 GPU 频率控制以节省 LLM 推理能耗,'' \emph{arXiv 预印本}, 2024.
+
+\bibitem{you23}
+J.~You 等, ``Zeus: 理解并优化 DNN 训练中的 GPU 能耗,'' 见 \emph{Proc. NSDI '23}, USENIX, 2023.
+
+\bibitem{li24perseus}
+X.~Li 等, ``Perseus: 消除大规模模型训练中的能源浪费,'' 见 \emph{Proc. SOSP '24}, ACM, 2024.
+
+\bibitem{anderson24}
+B.~Anderson 等, ``CarbonScaler: 利用云工作负载弹性优化碳效率,'' 见 \emph{Proc. ASPLOS '24}, ACM, 2024.
+
+\bibitem{souza23}
+A.~Souza 等, ``Ecovisor: 面向碳效率应用的虚拟能源系统,'' 见 \emph{Proc. ASPLOS '23}, ACM, 2023.
+
+\bibitem{redhat26}
+Red Hat, ``工作负载变体自动缩放器: 面向 llm-d 的基于余量的缩放,'' \emph{arXiv 预印本}, 2026.
+
+\bibitem{chaudhry26}
+V.~Chaudhry 等, ``精度即速度: 具备灵活 EPP 策略的分布式 LLM 服务,'' \emph{arXiv 预印本}, 2026.
+
+\bibitem{samsi23}
+A.~Samsi 等, ``从单词到瓦特: 对大语言模型推理能耗成本进行基准测试,'' 见 \emph{Proc. IEEE HPEC '23}, 2023.
+
+\end{thebibliography}
+
+\end{document}
