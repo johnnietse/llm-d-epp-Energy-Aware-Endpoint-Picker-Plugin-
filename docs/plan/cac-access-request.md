@@ -78,13 +78,22 @@ Two related questions, for planning research runs on the club's node:
    window, I could compare identical GPUs at two power envelopes, a 1.67x
    range. That is a considerably cleaner experiment than comparing different
    GPU models, since it holds everything except the power budget constant.
-7. **Optional, lowest priority: a root-run DCGM host engine.** NVIDIA's DCGM
-   refuses to read any field as a non-root user
-   (`error watching fields: Host engine is running as non-root`), so I am using
-   NVML instead and my measurements do not depend on DCGM. If `nv-hostengine`
-   happened to be running as a service on a node I had reserved, I could
-   cross-check against the telemetry stack that upstream Kubernetes GPU
-   tooling uses. Entirely dispensable; please ignore if it is inconvenient.
+7. **A question rather than a request: GPU profiling permission differs
+   between nodes.** On frnt148, `/proc/driver/nvidia/params` reports
+   `RmProfilingAdminOnly: 0` and DCGM's profiling counters are readable by an
+   ordinary user. On frnt149 the same parameter is `1` and the same reads are
+   refused. Both are Quadro RTX 6000 nodes on driver 610.43.02; frnt148 is
+   running an older kernel (4.18.0-553.45.1 against 4.18.0-553.148.1), which
+   makes me suspect frnt148 is simply behind rather than deliberately
+   permissive.
+
+   I do not need these counters: my measurements use NVML, which works
+   everywhere. I am flagging it for two reasons. It may be an inconsistency you
+   would want to know about, and if the intended cluster-wide setting is the
+   restrictive one, I would rather know now than build anything that quietly
+   depends on a node being an exception. If anything, a uniform setting would
+   make my results more comparable across nodes. Please treat this as
+   information, not a change request.
 
 For context, the work is an energy-aware routing plugin for the open-source
 llm-d inference router: it measures GPU energy per generated token and routes
