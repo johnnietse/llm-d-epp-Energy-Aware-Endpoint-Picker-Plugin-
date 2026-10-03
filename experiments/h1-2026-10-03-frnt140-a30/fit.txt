@@ -1,0 +1,59 @@
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 27.87 W
+fitted P_idle = 143.4 W
+fitted k_b    = 0.42 W per concurrent request
+R^2           = 0.8518
+max |residual| = 4.14 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   139.78    185.7   0.7529    0.69
+    1   144.02    185.8   0.7752    0.69
+    1   144.29    185.6   0.7773    0.69
+    1   144.66    185.7   0.7789    0.69
+    1   144.82    185.8   0.7796    0.69
+    2   140.15    365.7   0.3832   0.702
+    2   143.32    364.9   0.3928   0.702
+    2    143.2    365.6   0.3917   0.701
+    2   143.38    365.7   0.3921   0.701
+    2   143.59    365.8   0.3925   0.701
+    4    143.0    719.7   0.1987   0.713
+    4   145.51    719.4   0.2023   0.713
+    4   145.57    719.7   0.2022   0.713
+    4   145.86    719.6   0.2027   0.713
+    4   145.51    721.1   0.2018   0.712
+    8    145.6   1420.4   0.1025   0.722
+    8   147.28   1423.7   0.1034   0.723
+    8   147.73   1431.0   0.1032   0.717
+    8   147.71   1427.9   0.1034   0.721
+    8   147.84   1431.3   0.1033   0.718
+   16   152.65   2745.5   0.0556    0.75
+   16   152.85   2750.2   0.0556   0.748
+   16   153.27   2733.6   0.0561   0.752
+   16   153.53   2760.4   0.0556   0.749
+   16   153.66   2748.2   0.0559    0.75
+   32   154.79   4910.7   0.0315    0.84
+   32   155.12   4900.7   0.0317    0.84
+   32   155.64   4919.8   0.0316    0.84
+   32    155.5   4902.9   0.0317   0.839
+   32   155.77   4907.3   0.0317   0.842
+
+J/token range: 0.7796 at c=1 -> 0.0315 at c=32  (24.75x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +111.9 W
+marginal cost per extra concurrent request:  +0.42 W
+ratio: waking an idle GPU costs 267x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 27.9 W = 18% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1025 shared J/tok=0.1036  unique tok/s=1420.4 shared tok/s=1404.2
+c=8: unique J/tok=0.1025 shared J/tok=0.1052  unique tok/s=1420.4 shared tok/s=1401.8
+c=8: unique J/tok=0.1025 shared J/tok=0.1055  unique tok/s=1420.4 shared tok/s=1402.3
+c=8: unique J/tok=0.1025 shared J/tok=0.1053  unique tok/s=1420.4 shared tok/s=1405.1
+c=8: unique J/tok=0.1025 shared J/tok=0.1056  unique tok/s=1420.4 shared tok/s=1403.0
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.8518 WEAK - revisit model form

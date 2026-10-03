@@ -137,7 +137,7 @@ From `experiments/h1-2026-10-03-frnt109/` (job 12303088, pinned, exclusive,
 | Throughput scaling | 20.7x | solid |
 | `J/token = P_active / throughput` | falls 21.2x | solid |
 | Activation step (resident-idle to serving) | **+149.64 W** | solid, and carries the whole routing argument |
-| Marginal power per request | negative slope, indistinguishable from zero | **H1 refuted; do not report a ratio** |
+| Marginal power per request | RTX 6000: negative slope. A30: +0.357 W/req | **architecture-dependent** (see 3.1); do not assume a positive term |
 | Idle floor | 54.33 W = 27% of peak-load power | solid |
 | Prefix caching | 2.6x better J/total-token, 1.32x more requests | the hypothesised conflict was a metric artifact |
 | Cross-node offset, identical model and driver | ~6% at every level, 1.7x in bare idle | needs within-node design |
@@ -147,6 +147,56 @@ From `experiments/h1-2026-10-03-frnt109/` (job 12303088, pinned, exclusive,
 on H100/H200. Ours is calibration for our system, never a contribution.
 
 ---
+
+### 3.1 Second architecture (A30, job 12303200) — three corrections
+
+Run on `frnt140`, **same driver 610.43.02** as the RTX 6000 run so GPU model is
+isolated from driver. Full write-up:
+`experiments/h1-2026-10-03-frnt140-a30/README.md`.
+
+**(a) "H1 is refuted" was too broad.** The linear model `P = P_idle + k_b*b`
+fits the A30 at **R^2 = 0.85** (max residual 4.1 W) with a *positive* slope,
+against **R^2 = 0.17** and a *negative* slope on the RTX 6000. The model form is
+an architecture-dependent empirical question. That is a better claim than
+either "it works" or "it is refuted", and it still forbids a scorer that
+assumes a positive marginal-power term, because on one of two architectures
+measured that term is negative.
+
+**(b) The A30 Pareto-dominates the RTX 6000, which reshapes Stage 2.** Same
+driver, model and workload: the A30 uses **2.32x less energy per token** at
+c=32 (0.0317 vs 0.0735 J/token, and 0.43-0.51x across every level) while also
+delivering **1.81x the throughput** and **1.82x lower p95 latency**, on a 165 W
+limit against 250 W.
+
+This is dominance, not a trade-off. Consequence the plan did not anticipate:
+if one GPU type is better on both energy and latency, energy-aware routing
+degenerates to "prefer the A30s" whenever any are free, and an oracle will
+simply pack A30 first. **The interesting regime is where the dominant hardware
+is saturated or SLO-bound, so the Stage 2 trace replay must be designed to
+reach that regime** or it will measure something trivially true. Added to the
+Stage 2 exit criteria.
+
+**(c) The activation penalty must be per-architecture.** The cost of holding a
+model resident differs by **17x**:
+
+| | RTX 6000 | A30 |
+|---|---|---|
+| Bare idle | 13.10 W | 25.49 W |
+| Idle, model resident | 54.33 W | 27.87 W |
+| **Model-resident overhead** | **+41.2 W** | **+2.4 W** |
+| Activation step to c=1 | +149.64 W | +116.58 W |
+| Idle floor, share of peak | 27% | 18% |
+
+Note the inversion: the A30 draws more power doing nothing, yet far less
+holding a model. So "avoid waking idle GPUs" is a strong lever on the RTX 6000
+and a weak one on the A30, and a single global activation constant would be
+wrong on both.
+
+**What reproduced unchanged:** the warm-up transient (trial 1 low at every
+level on both architectures, always outside the others' interval — now a
+protocol requirement rather than a judgement call), and the prefix-cache metric
+artifact (per total token, shared prefix is 2.5x better on A30 against 2.6x on
+the RTX 6000, with 1.25x more requests completed).
 
 ## 4. Measurement protocol, mandatory
 
@@ -194,7 +244,7 @@ primary metric is declared now and not chosen after seeing results.
 |---|---|---|---|
 | **0. Rescope the code** | Tag `pre-rescope-2026-10-03`; quarantine per section 2; delete `pkg/simulation` and `upstream-port`; stand up the out-of-tree module against llm-d-router | module builds and registers against current llm-d-router | 2-3 d |
 | **1. Characterise** | Sweeps on A30 (`frnt140-147`) and L4 (`frnt201`), plus a 7B model, each pinned by node and driver | per-configuration `P_active` and throughput curves with CIs | 1-2 wk |
-| **2. GATE: offline bound** | Replay Azure arrivals over the measured curves: round-robin vs SLO-aware packing vs post-hoc oracle | **oracle beats packing by >=5% on energy per SLO-satisfied request, or STOP** and write the measurement/negative-result paper | 1 wk |
+| **2. GATE: offline bound** | Replay Azure arrivals over the measured curves: round-robin vs SLO-aware packing vs post-hoc oracle. **Load must be high enough to saturate the dominant GPU type**, or the result is trivially "prefer A30" (see 3.1b) | **oracle beats packing by >=5% on energy per SLO-satisfied request in the saturated regime, or STOP** and write the measurement/negative-result paper | 1 wk |
 | **3. Pre-register** | Commit hypotheses, primary metric, policies, trial count from a power analysis on measured variance, and the analysis script, timestamped in-repo before any comparative run | pre-registration committed and pushed | 2 d |
 | **4. Build the scorer** | `pkg/scorer/activation.go` + tests behind the SLO filter | unit tests pass against recorded fixtures; p99 scorer CPU time recorded | 2 wk |
 | **5. The real experiment** | One node, exclusive, open-loop Poisson from the trace, >=5 trials, 5 arms: stock llm-d, round-robin, SLO-aware packing, ours, ours-without-activation-term, plus random control | all metrics in section 5 with 95% CIs | 2-3 wk |
