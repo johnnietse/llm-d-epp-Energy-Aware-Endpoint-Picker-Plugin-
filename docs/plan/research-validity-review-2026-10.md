@@ -18,9 +18,37 @@ to be narrowed to the integration, not the measurement.**
 | Festina, "Energy-Aware Scheduling for Serverless LLM Serving on Shared GPUs" (arXiv 2606.30391) | Request routing by GPU clock-frequency match + SM partitioning + consolidation with GPU deactivation. 8x H100, vLLM, MPS. Up to **56% energy** saved, SLO within 2%. Ablation: dispatch 12%, runtime 25%, consolidation 11%. | **Strongest competitor.** Already does energy-aware request routing *and* consolidation. Differences: serverless multi-model, needs MPS + frequency control (root), bespoke system, homogeneous H100. |
 | "Routing LLM Inference to the Cleanest Grid in Real Time" (arXiv 2608.06188) | Carbon-aware routing on a production fabric, **region-level**, with offline concurrency sweeps on H100/A100 via DCGM; J/token falls **28-32x** low to saturating concurrency (H100 3.37 -> 0.104 J/token). | Their Phase-0 characterization is methodologically the same as our H1 sweep, and their 28-32x brackets our 21x. **Our measurement is replication.** Their routing is across regions, not endpoints. |
 | "Characterization of Request and Token Energy Costs" (arXiv 2608.28044) | Decomposes request energy into **fixed per-request + marginal per-token**, across models, phases, batch sizes, H100/H200. | Same decomposition we arrived at. Our "activation vs marginal" framing is not new. |
-| "The Energy Cost of Execution-Idle in GPU Clusters" (arXiv 2604.04745) | Quantifies loaded-but-idle GPU power in serving; mean idle time 53% (high load) to 96% (low load). | Covers the idle-floor argument we were planning to make. |
+| "The Energy Cost of Execution-Idle in GPU Clusters" (arXiv 2604.04745, Lei et al., 2026-04-06) | **CORRECTED 2026-10-03** after fetching the abstract: execution-idle is **19.7% of execution time and 10.7% of energy** in their cluster telemetry, with two prototype mitigations (automatic downscaling, load imbalancing). An earlier version of this table recorded "mean idle time 53% to 96%", which is **not in the paper** and must not be cited. | Covers the idle-floor argument we were planning to make, but the magnitude is far smaller than we had written down, so our 27% idle floor is not corroborated by it and must stand on our own measurement. |
 | TokenPowerBench (AAAI), Watt Counts (arXiv 2604.09048), ML.ENERGY | Phase-aware J/token benchmarks across batch sizes, GPUs, models. Batch effect saturates near 256. Watt Counts notes A30 is unusually efficient for small/medium models. | Our batching curve is a smaller-scale instance of these. |
 | "Measured Joules, Learned Routes" (arXiv 2609.23085) | RL router choosing **which model** (0.5B-32B) answers a query; ~23% less energy at similar accuracy. | Different decision (model selection, not replica selection). Not a direct competitor. |
+
+### 1.1 Verification pass and newly found prior art (2026-10-03)
+
+Every identifier in the table above was fetched and checked against the live
+arXiv record on 2026-10-03, rather than carried over from an earlier session.
+All five exist and the titles match. Two substantive notes:
+
+- **2604.04745's figures were recorded wrongly here** (see the corrected row).
+- **2608.06188's headline is simulated.** Its ~51% emissions reduction comes
+  from a year-long historical replay against round-robin and is stated as an
+  upper bound; the live portion demonstrates steering without failures. Our
+  measured comparison is therefore not competing with a measured result.
+
+Prior art the earlier check missed, found by search on 2026-10-03:
+
+| Work | What it is | Relation to us |
+|---|---|---|
+| **vLLM semantic-router issue #2332**, "Connect semantic routing to inference-aware backend selection" | **Open** epic defining an engine-neutral observation contract that explicitly includes "energy/power evidence and its measured/modeled provenance". Planning/early development; energy is one optional field among capacity and latency signals. | **The most important new finding.** A *second* production router is building the plumbing for energy-aware backend selection. Still unimplemented, so the gap is open, but we are no longer the only party moving, and the window is narrowing. |
+| "The Workload-Router-Pool Architecture..." (arXiv 2603.21354, vLLM Semantic Router project) | **Vision paper**, 21 proposed research directions, names "fleet provisioning and energy-efficiency analysis" as an area. No measured energy outcomes. | A second agenda paper alongside 2609.05565. Both are citable evidence that the gap is acknowledged and unfilled. |
+| GreenServ (arXiv 2601.17551) | LinUCB multi-armed bandit routing across **16 different models**, measuring GPU energy directly online; 31% less energy, 22% better accuracy against random routing. | **Model** selection, not replica selection. Same category as 2609.23085. Not a direct competitor, but it is a strong energy-routing result that a reviewer will expect us to position against. |
+| RequestRouter (arXiv 2605.23057) | Request-boundary routing for a **single** GPU, 8B model on A100 via vLLM; 2.10x latency speedup, 0.48x energy ratio over FP16. | Intra-GPU scheduling, not fleet endpoint selection. Shows the energy-routing framing is active at every granularity. |
+| "Dynamic Model Routing and Cascading..." (arXiv 2603.04445) | Survey of model routing and cascading. | Use for related-work framing; confirms model routing is a crowded area and replica routing is not the same thing. |
+
+The practical consequence: **our claim must be stated as replica/endpoint
+selection among interchangeable backends of the same model**, explicitly
+distinguished from model selection, which is where most 2026 energy-routing
+work sits. If that distinction is not made in the abstract, a reviewer will
+mistake the contribution for a crowded one.
 
 ### What this does to our contributions
 
