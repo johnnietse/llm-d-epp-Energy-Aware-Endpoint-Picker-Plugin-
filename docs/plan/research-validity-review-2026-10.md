@@ -72,7 +72,7 @@ Specific defects, in the order they would be attacked by a reviewer:
 
 | # | Defect | Fix |
 |---|---|---|
-| S1 | **Prefix-cache result is backwards and unexplained**: shared-prefix was *worse* (0.2566 vs 0.2423 J/token; 777 vs 839 tok/s). | Verify `--enable-prefix-caching`, measure the actual cache hit rate, then re-run. Do not build a cache term into the scorer until this is understood. |
+| S1 | ~~**Prefix-cache result is backwards and unexplained**~~ **RESOLVED 2026-10-03 (job 12303088)**: a metric artifact. The shared-prefix arm carries 8.5x more prompt tokens, and J/*generated* token penalises it for the extra prefill. Per *total* token processed it is 2.6x better and it completes 1.32x more requests. See plan section 11.5. | No fix needed. Instead: report both denominators everywhere, and treat section 3.4 below as withdrawn pending a matched-prompt-length test with a measured hit rate. |
 | S2 | **No sensor characterization** on these GPUs. We rely on the NVML counter but have not measured its sampling behaviour on RTX 6000 / A30. | Run the SC24 `GPU_Power_Benchmark` microbenchmark; and on the A30 nodes use the `power_ipmi` feature for an independent node-level cross-check. |
 | S3 | **"Activation cost" is imprecisely defined.** The +135 W step from idle-with-model to concurrency 1 bundles the transition *and* the first request's compute. | Define it operationally (power at c=1 minus power at c=0 with the model resident) and say so, or measure a true activation transient. |
 | S4 | **Energy attribution is per-GPU, not per-request.** We divide by engine token counters. | Fine, but state it as an assumption; per-request attribution under batching is not identifiable from GPU-level counters alone. |
@@ -113,16 +113,29 @@ Festina already covers frequency matching, SM partitioning and
 consolidation-with-deactivation. We cannot do those without privileges and
 should not claim them. Our lever is request placement only.
 
-### 3.4 The one genuinely open question we are sitting on
+### 3.4 WITHDRAWN: the cache-versus-energy conflict was a metric artifact
 
-Our own measurement shows prefix-cache affinity and energy efficiency pulling
-in **opposite** directions at c=8. Nobody in the surveyed set studies that
-conflict: Festina has no prefix-cache scorer, the carbon work routes by region,
-and the llm-d agenda paper only names cache-awareness as a desirable property.
-If the effect survives S1, "how should a router trade cache affinity against
-energy?" is a better paper than "energy-aware routing works".
+This section previously argued that our own data showed prefix-cache affinity
+and energy efficiency pulling in opposite directions at c=8, and that "how
+should a router trade cache affinity against energy?" was a better paper than
+"energy-aware routing works".
 
----
+**The 5-trial pinned run (job 12303088) removes the premise.** Judged per token
+actually processed, the shared-prefix arm used 2.6x *less* energy and completed
+1.32x more requests than the unique-prompt arm. The apparent conflict came
+entirely from dividing by generated tokens while the shared-prefix workload
+carried 8.5x more prompt tokens. Prefill is real work; the denominator was
+unfair to the arm that did more of it.
+
+What remains, much smaller: nobody has measured how a cache-affinity scorer and
+an energy scorer interact when prompt lengths are *matched* and the cache hit
+rate is *measured*. That is a legitimate but modest question, and it is no
+longer a candidate headline. The plan should not lean on it until a
+matched-length experiment exists.
+
+The lesson generalises to the whole evaluation: with two defensible
+denominators (per generated token, per token processed) a policy comparison can
+invert, so the paper must fix a primary metric in advance and report both.
 
 ## 4. Step-by-step plan to a defensible paper
 

@@ -390,11 +390,77 @@ Related work -> Conclusion.
   monthly; the differentiators are real-system integration, the cache-aware
   model, and the packing baseline.
 
-## 11. First measurements (2026-10-03, Frontenac `frnt152`, Quadro RTX 6000)
+## 11. First measurements
 
-Run `h1-12302438`: vLLM 0.30.0, Qwen2.5-1.5B-Instruct, 6 load levels x 75 s x 2
-trials, energy from the NVML counter, token counts from vLLM's own Prometheus
-counters. Raw data: `~/energy-epp/results/h1-12302438/` on `hpc6081`.
+### 11.0 Canonical run: pinned, exclusive, 5 trials (`h1-12303088`, `frnt109`)
+
+This supersedes the original `h1-12302438` on `frnt152`, which ran 2 trials on
+a shared node the scheduler chose. The canonical run closes blocking defects
+**B1** (hardware varies between runs) and **B4** (co-tenancy), and part of
+**B3** (underpowered). Full write-up and raw data:
+`experiments/h1-2026-10-03-frnt109/`.
+
+Provenance: `frnt109` pinned with `-w` and `--exclusive`, Quadro RTX 6000,
+driver **610.43.02**, kernel 4.18.0-553.148.1, `RmProfilingAdminOnly=1`, power
+limit 250 W (range 150-250), no co-tenants, vLLM 0.30.0 / torch 2.13.0+cu130,
+Qwen2.5-1.5B-Instruct, 6 levels x 75 s x 5 trials, 56:53 elapsed.
+
+**Trial 1 is a warm-up transient and is excluded.** It sits 17.4 W below the
+others at c=1, far outside their +/- 0.20 W interval; including it widens that
+interval 48-fold. The harness's 15 s warm-up is insufficient, and the protocol
+now discards the first trial.
+
+| concurrency | power (W, 95% CI) | gen tok/s | J / gen token (95% CI) | p95 (s) |
+|---|---|---|---|---|
+| idle, no process | 13.10 | - | - | - |
+| idle, model resident | 54.33 | - | - | - |
+| 1 | 203.97 +/- 0.20 | 130.8 | 1.5596 +/- 0.0005 | 0.980 |
+| 2 | 186.97 +/- 0.17 | 226.2 | 0.8265 +/- 0.0043 | 1.133 |
+| 4 | 187.11 +/- 0.53 | 437.3 | 0.4279 +/- 0.0018 | 1.173 |
+| 8 | 189.33 +/- 0.69 | 839.4 | 0.2256 +/- 0.0016 | 1.224 |
+| 16 | 194.62 +/- 0.70 | 1547.0 | 0.1258 +/- 0.0011 | 1.331 |
+| 32 | 198.72 +/- 0.19 | 2703.6 | 0.0735 +/- 0.0005 | 1.526 |
+
+Intervals are sub-watt and sub-percent: the instrument is repeatable, and the
+earlier spread was warm-up rather than noise.
+
+**H1's linear model is refuted more sharply than before.** Power is
+*non-monotonic* - highest at c=1, minimum at c=2, then rising slowly - so the
+fitted slope from c=1 to c=32 is **negative** (-0.169 W per request). The
+earlier `k_b` values (0.46 W, then 0.24 W) were fitting noise around a
+flat-to-dipping curve. **The marginal-power term is therefore not a reportable
+quantity**, and the ratios built on it ("293x", "547x") are withdrawn.
+
+What survives, tightly: active power near-constant at 187-204 W over a 32x load
+range, throughput scaling 20.7x, hence `J/token = P_active / throughput(b)`
+falling **21.2x**. The c=1 power peak has a clean explanation worth a sentence
+in the thesis: one in-flight request leaves idle gaps that keep clocks boosted,
+so the least efficient operating point is also the highest-power one, which
+strengthens the consolidation argument.
+
+**Activation dominates, and this is the robust half of the measurement:**
+resident-idle 54.33 W to 203.97 W at c=1 is a **+149.64 W** step, while adding
+load to an already-serving GPU is free to within measurement error. Idle floor
+is 27% of peak-load power. Routing implication unchanged: consolidate onto
+active endpoints, avoid waking idle ones.
+
+**Cross-node comparisons need calibration.** Against the superseded run, same
+GPU model and driver, J/token agrees to 0.3% at c=1 but carries a consistent
+**~6% offset at every level c>=2**, always in the same direction. Bare idle
+power was 13.10 W here against 22.0 W on `frnt152`, a 1.7x difference with no
+process on the GPU. A uniform offset between two nodes of identical model and
+driver is a node or die effect, not noise, so policy comparisons must run
+within a node or treat node as an explicit blocking factor. This is the
+hypothesis section 13.5 exists to test, and it now has supporting evidence from
+two independent runs.
+
+**Defect S1 is resolved, and it was a metric artifact.** See 11.5.
+
+### 11.0.1 Superseded run (`frnt152`, 2 trials, shared node)
+
+Kept for the reproduction check only. `h1-12302438`: vLLM 0.30.0,
+Qwen2.5-1.5B-Instruct, 6 levels x 75 s x 2 trials. Raw data in
+`experiments/h1-2026-10-03/`.
 
 | concurrency | power (W) | gen tok/s | J/token | p95 latency (s) |
 |---|---|---|---|---|
@@ -462,10 +528,50 @@ to estimate online, and the activation term is what drives routing decisions.
 ### 11.4 Caveats
 
 Single GPU model (Quadro RTX 6000, 250 W limit), one small model (1.5B), fixed
-128-token outputs, closed-loop load, 2 trials. The activation and batching
-effects are large enough to survive these limits, but the absolute numbers are
-specific to this configuration. A30 and L4 runs, and a 7B model, are the next
-measurements.
+128-token outputs, closed-loop load. The canonical run has 5 trials with
+trial 1 excluded as warm-up; intervals are sub-percent. The activation and
+batching effects are large enough to survive these limits, but the absolute
+numbers are specific to this configuration, and the ~6% cross-node offset in
+11.0 means they are specific to this *node* too. A30 and L4 runs, a 7B model,
+and open-loop arrivals are the next measurements.
+
+### 11.5 Defect S1 resolved: the prefix-cache conflict was a metric artifact
+
+The superseded run showed shared-prefix workloads consuming *more* energy per
+token, which the validity review flagged as the most interesting open question
+in the project: an unstudied conflict between cache-affinity routing and
+energy routing. **It is not a conflict.** At c=8, 5 trials per arm:
+
+| | unique prompts | shared prefix |
+|---|---|---|
+| J / **generated** token | 0.2259 +/- 0.0015 | 0.2391 +/- 0.0012 |
+| J / **total** token processed | 0.1770 +/- 0.0012 | **0.0680 +/- 0.0003** |
+| prompt tokens in window | 17 534 | **148 582** |
+| requests completed | 496 | **655** |
+| latency p50 / p95 (s) | 1.219 / 1.224 | 1.047 / 1.303 |
+
+The shared-prefix arm carries **8.5x more prompt tokens**, and prefill is real
+work. Per generated token it looks 1.06x worse; per token actually processed it
+is **2.6x better**, and it completed **1.32x more requests** in the same window
+at lower median latency. The original result was the denominator penalising the
+arm that did more work.
+
+Three consequences, one of them unwelcome:
+
+1. **Stage 5 is rescoped.** The question "how should a router trade cache
+   affinity against energy?" cannot be asked of this evidence, because at c=8
+   there is no trade: caching improved energy per unit work *and* goodput
+   simultaneously. A real test requires **matched prompt lengths** plus a
+   **measured cache hit rate**, isolating the cache effect from workload
+   composition. Until that is run, the plan should not advertise this as its
+   most novel angle.
+2. **Report both denominators throughout.** J per generated token is the
+   user-facing cost; J per total token is system efficiency. Policies can rank
+   oppositely under the two. That is a reporting hazard for the whole paper,
+   and the metric definition in 13.2 must state which is primary and show both.
+3. The honest headline from this arm is positive and unremarkable: prefix
+   caching helps energy and throughput together. Nothing here is a finding
+   against the grain, so it does not carry a paper.
 
 ## 12. Instrumentation choice on Frontenac (measured 2026-10-03)
 

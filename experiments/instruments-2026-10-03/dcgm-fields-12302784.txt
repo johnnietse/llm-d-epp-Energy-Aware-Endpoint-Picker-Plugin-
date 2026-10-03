@@ -1,0 +1,54 @@
+=== which profiling field breaks the exporter? 2026-10-03T13:30:45-04:00 ===
+node: frnt148.frontenac.local  job: 12302784
+
+baseline: 21 non-profiling fields (known good)
+
+profiling fields in the shipped file:
+  DCGM_FI_PROF_DRAM_ACTIVE
+  DCGM_FI_PROF_GR_ENGINE_ACTIVE
+  DCGM_FI_PROF_PCIE_RX_BYTES
+  DCGM_FI_PROF_PCIE_TX_BYTES
+  DCGM_FI_PROF_PIPE_TENSOR_ACTIVE
+
+--- baseline + DCGM_FI_PROF_DRAM_ACTIVE ---
+exporter UP. energy series: 4. DCGM_FI_PROF_DRAM_ACTIVE series: 4
+    DCGM_FI_PROF_DRAM_ACTIVE gpu=3 => 1e-06
+    DCGM_FI_PROF_DRAM_ACTIVE gpu=0 => 4e-06
+
+--- baseline + DCGM_FI_PROF_GR_ENGINE_ACTIVE ---
+exporter UP. energy series: 4. DCGM_FI_PROF_GR_ENGINE_ACTIVE series: 4
+    DCGM_FI_PROF_GR_ENGINE_ACTIVE gpu=3 => 0
+    DCGM_FI_PROF_GR_ENGINE_ACTIVE gpu=0 => 0
+
+--- baseline + DCGM_FI_PROF_PCIE_RX_BYTES ---
+exporter UP. energy series: 4. DCGM_FI_PROF_PCIE_RX_BYTES series: 4
+    DCGM_FI_PROF_PCIE_RX_BYTES gpu=3 => 1.676153e+06
+    DCGM_FI_PROF_PCIE_RX_BYTES gpu=0 => 1.212193e+06
+
+--- baseline + DCGM_FI_PROF_PCIE_TX_BYTES ---
+exporter UP. energy series: 4. DCGM_FI_PROF_PCIE_TX_BYTES series: 4
+    DCGM_FI_PROF_PCIE_TX_BYTES gpu=3 => 2.831557e+06
+    DCGM_FI_PROF_PCIE_TX_BYTES gpu=0 => 1.696228e+06
+
+--- baseline + DCGM_FI_PROF_PIPE_TENSOR_ACTIVE ---
+exporter UP. energy series: 4. DCGM_FI_PROF_PIPE_TENSOR_ACTIVE series: 4
+    DCGM_FI_PROF_PIPE_TENSOR_ACTIVE gpu=3 => 0
+    DCGM_FI_PROF_PIPE_TENSOR_ACTIVE gpu=0 => 0
+
+--- control: the full shipped file, all profiling fields together ---
+exporter UP (unexpected, given job 12302781)
+    total series: 80
+
+=== DCGM energy versus NVML energy, same die, close in time ===
+# NVML first, then DCGM, then NVML again, so drift is visible
+NVML_UUID GPU-9f0e3ebf-fce1-1df8-23b8-92db4316e6df
+NVML_ENERGY_mJ 164901081136
+NVML_POWER_mW 14146
+# DCGM reading of fields 156 (mJ) and 155 (W), GPU 0 only
+WARNING: CUDA_VISIBLE_DEVICES is set to 0,1,2,3 on dcgmi process. This does not affect which GPUs are selected for diagnostics. Unset CUDA_VISIBLE_DEVICES on dcgmi process. Set CUDA_VISIBLE_DEVICES on nv-hostengine to select GPUs.
+#Entity         TOTEC                   POWER             
+GPU 0           164901192038            13.353            
+GPU 0           164901192038            12.866            
+NVML_ENERGY_mJ_after 164901212094
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/dcgm-fields-12302784.txt ===

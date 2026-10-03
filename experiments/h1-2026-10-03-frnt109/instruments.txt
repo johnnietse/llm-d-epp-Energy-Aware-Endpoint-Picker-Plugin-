@@ -1,0 +1,13 @@
+node=frnt109.frontenac.local job=12303088
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32 seconds=75 trials=5
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-7fae90e9-b02e-5a6d-98e3-538071d1c589, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-732d069e-e02b-3d0f-d6d9-7e7d0882cb4d, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=intel,avx512,avx512_gpu
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
