@@ -3,84 +3,91 @@
 # Runs on the LOGIN node (needs outbound network; compute nodes may not have it).
 # Writes everything it learns to ~/energy-epp/instruments-probe/login.txt
 #
-# Nothing here installs into a system path. Everything lands under
-# ~/energy-epp/opt so it can be deleted with one rm -rf.
+# Facts this script relies on, measured on 2026-10-03 rather than assumed:
+#   - nodes are Rocky Linux 8.10, glibc 2.28  => RHEL8 RPMs, not Ubuntu debs
+#   - the Compute Canada stack is bootstrapped from
+#     /cvmfs/soft.computecanada.ca/config/profile/bash.sh
+#   - the cluster pip is too old for "pip index", so PyPI is queried over HTTP
+#
+# Nothing here installs into a system path.
 
 OUT_DIR="$HOME/energy-epp/instruments-probe"
-OPT_DIR="$HOME/energy-epp/opt"
-mkdir -p "$OUT_DIR" "$OPT_DIR"
+mkdir -p "$OUT_DIR"
 OUT="$OUT_DIR/login.txt"
 
 # Lmod bootstrap must happen before set -u: the CC profile reads unset vars.
-if [ -f /opt/software/cc-wrapper/profile.sh ]; then
-  . /opt/software/cc-wrapper/profile.sh
-elif [ -f /etc/profile.d/z-01-cc-modules.sh ]; then
-  . /etc/profile.d/z-01-cc-modules.sh
+if ! command -v module >/dev/null 2>&1; then
+  source /cvmfs/soft.computecanada.ca/config/profile/bash.sh 2>/dev/null \
+    || source "${LMOD_PKG:-/cvmfs/soft.computecanada.ca/custom/software/lmod/lmod}/init/bash" 2>/dev/null
 fi
 set -uo pipefail
 
+REPO="https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64"
+
 say() { printf '%s\n' "$*" | tee -a "$OUT"; }
-run() { say "\$ $*"; "$@" 2>&1 | tee -a "$OUT"; say ""; }
 
 : > "$OUT"
 say "=== instrumentation discovery, login node, $(date -Is) ==="
 say "host: $(hostname)"
+say "os: $(grep -E '^PRETTY_NAME=' /etc/os-release | cut -d= -f2-)"
+say "glibc: $(ldd --version | head -1)"
+say "module: $(type -t module 2>/dev/null || echo MISSING)"
 say ""
 
-say "--- 1. what the module system offers ---"
-for pkg in dcgm nsight nsight-systems nsight-compute cuda ipmitool papi likwid; do
+say "--- 1. does the module system already carry any of these? ---"
+for pkg in dcgm nsight cuda ipmi papi likwid; do
   say "# module spider $pkg"
-  module spider "$pkg" 2>&1 | head -40 | tee -a "$OUT"
+  module spider "$pkg" 2>&1 | grep -v -E '^\s*$' | head -15 | tee -a "$OUT"
   say ""
 done
 
-say "--- 2. binaries already on PATH ---"
-for b in dcgmi nv-hostengine nsys ncu ipmitool nvidia-smi apptainer singularity podman docker; do
+say "--- 2. binaries in a module-enabled shell ---"
+for b in dcgmi nv-hostengine nsys ncu ipmitool nvidia-smi apptainer rpm2cpio cpio curl; do
   p="$(command -v "$b" 2>/dev/null || true)"
   say "$b: ${p:-MISSING}"
 done
 say ""
 
-say "--- 3. CUPTI shipped with the stack ---"
-say "# any libcupti on the filesystem we can see"
-{ ls -l /usr/local/cuda*/extras/CUPTI/lib64/libcupti.so* 2>/dev/null; \
-  find "$HOME" -maxdepth 6 -name 'libcupti.so*' 2>/dev/null | head; } | tee -a "$OUT"
+say "--- 3. driver version we must stay compatible with ---"
+say "# from the instruments.txt recorded by an earlier GPU job"
+grep -h -i -m 4 -E 'driver|cuda|gpu' "$HOME"/energy-epp/results/*/instruments.txt 2>/dev/null \
+  | head -8 | tee -a "$OUT"
 say ""
 
-say "--- 4. profiling permission (decides CUPTI / Nsight / DCGM-DCP) ---"
-say "# RmProfilingAdminOnly=1 means non-root profiling counters are denied"
-if [ -r /proc/driver/nvidia/params ]; then
-  grep -E 'RmProfilingAdminOnly|RmEnableUnifiedMemory' /proc/driver/nvidia/params | tee -a "$OUT"
-else
-  say "/proc/driver/nvidia/params not readable on this node (expected on a login node)"
-fi
+say "--- 4. DCGM packages published for RHEL8 ---"
+curl -fsSL --max-time 90 "$REPO/" 2>/dev/null \
+  | grep -oE '[a-z0-9._+-]*datacenter-gpu-manager[a-z0-9._+-]*\.rpm' \
+  | sort -u -V | tee -a "$OUT"
 say ""
 
-say "--- 5. IPMI device nodes ---"
-run ls -l /dev/ipmi0 /dev/ipmi/0 /dev/ipmidev/0
-
-say "--- 6. what NVIDIA's apt repo actually publishes (no guessed versions) ---"
-REPO="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64"
-say "# datacenter-gpu-manager packages in $REPO"
-curl -fsSL --max-time 60 "$REPO/" 2>/dev/null \
-  | grep -oE 'datacenter-gpu-manager[^"]*\.deb' | sort -u | tail -20 | tee -a "$OUT"
-say ""
-say "# nsight-systems packages in the same repo"
-curl -fsSL --max-time 60 "$REPO/" 2>/dev/null \
-  | grep -oE 'nsight-systems[^"]*\.deb' | sort -u | tail -10 | tee -a "$OUT"
-say ""
-say "# cuda-cupti packages in the same repo"
-curl -fsSL --max-time 60 "$REPO/" 2>/dev/null \
-  | grep -oE 'cuda-cupti[^"]*\.deb' | sort -u | tail -10 | tee -a "$OUT"
+say "--- 5. Nsight Systems packages for RHEL8 (glibc 2.28 may refuse the new ones) ---"
+curl -fsSL --max-time 90 "$REPO/" 2>/dev/null \
+  | grep -oE 'nsight-systems-[a-z0-9._+-]*\.rpm' \
+  | sort -u -V | tail -12 | tee -a "$OUT"
 say ""
 
-say "--- 7. pip wheels (CUPTI is a torch dependency, so this should exist) ---"
-PY="$(command -v python3 || true)"
-if [ -n "$PY" ]; then
-  run "$PY" -m pip index versions nvidia-cuda-cupti-cu12
-  run "$PY" -m pip index versions nvidia-dcgm
-else
-  say "no python3 on PATH before module load"
-fi
+say "--- 6. CUPTI packages for RHEL8 (the container already has one via torch) ---"
+curl -fsSL --max-time 90 "$REPO/" 2>/dev/null \
+  | grep -oE 'cuda-cupti-[0-9a-z._+-]*\.rpm' \
+  | sort -u -V | tail -8 | tee -a "$OUT"
+say ""
 
-say "=== done. Next: read $OUT, then pick the download targets. ==="
+say "--- 7. PyPI, queried over HTTP since this pip has no 'index' subcommand ---"
+for proj in nvidia-dcgm nvidia-ml-py nvidia-cuda-cupti-cu12; do
+  say "# $proj"
+  curl -fsSL --max-time 60 "https://pypi.org/pypi/$proj/json" 2>/dev/null \
+    | python3 -c "import json,sys
+try:
+    d = json.load(sys.stdin)
+    print('  latest:', d['info']['version'])
+    print('  summary:', (d['info']['summary'] or '')[:90])
+except Exception as e:
+    print('  not on PyPI or query failed:', e)" | tee -a "$OUT"
+done
+say ""
+
+say "--- 8. IPMI device node on this host ---"
+ls -l /dev/ipmi0 /dev/ipmi/0 /dev/ipmidev/0 2>&1 | tee -a "$OUT"
+say ""
+
+say "=== done: $OUT ==="
