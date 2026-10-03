@@ -60,12 +60,6 @@ Two related questions, for planning research runs on the club's node:
    frnt206, the L40S node) for benchmarking? I am happy to schedule these at
    low-usage times and to keep them short.
 
-For context, the work is an energy-aware routing plugin for the open-source
-llm-d inference router: it measures GPU energy per generated token and routes
-requests to the most energy-efficient server that still meets latency
-targets. The L4 and L40S nodes are useful precisely because their power
-envelopes differ so much.
-
 5. **Per-job energy accounting.** `scontrol show config` reports
    `AcctGatherEnergyType = (null)`, so `sacct` returns `ConsumedEnergy=0`.
    Several nodes (frnt140-147) advertise a `power_ipmi` feature. Would it be
@@ -77,6 +71,12 @@ envelopes differ so much.
    node with a lowered limit (or having you pre-apply one on a reserved node)
    would let me compare identical GPUs at two power envelopes, which is a much
    cleaner experiment than comparing different GPU models.
+
+For context, the work is an energy-aware routing plugin for the open-source
+llm-d inference router: it measures GPU energy per generated token and routes
+requests to the most energy-efficient server that still meets latency
+targets. The L4 and L40S nodes are useful precisely because their power
+envelopes differ so much.
 
 Thank you,
 Johnnie Tse
