@@ -66,5 +66,17 @@ requests to the most energy-efficient server that still meets latency
 targets. The L4 and L40S nodes are useful precisely because their power
 envelopes differ so much.
 
+5. **Per-job energy accounting.** `scontrol show config` reports
+   `AcctGatherEnergyType = (null)`, so `sacct` returns `ConsumedEnergy=0`.
+   Several nodes (frnt140-147) advertise a `power_ipmi` feature. Would it be
+   possible to enable IPMI energy accounting on those nodes? It would give
+   per-job node-level energy, which is exactly the independent check my
+   measurements need alongside the GPU counters.
+6. **GPU power limit.** On frnt148 the RTX 6000 reports a 150-250 W range but
+   `nvidia-smi -pl` returns "Insufficient Permissions". Being able to run a
+   node with a lowered limit (or having you pre-apply one on a reserved node)
+   would let me compare identical GPUs at two power envelopes, which is a much
+   cleaner experiment than comparing different GPU models.
+
 Thank you,
 Johnnie Tse

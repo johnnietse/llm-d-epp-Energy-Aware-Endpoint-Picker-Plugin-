@@ -467,6 +467,134 @@ effects are large enough to survive these limits, but the absolute numbers are
 specific to this configuration. A30 and L4 runs, and a 7B model, are the next
 measurements.
 
+## 12. Instrumentation choice on Frontenac (probed 2026-10-03)
+
+Probe on `frnt148` under `--exclusive`:
+
+| Tool | Present? | Verdict |
+|---|---|---|
+| NVML (via `nvidia-smi`, `pynvml`) | yes | **Primary.** Only source of the hardware energy counter; works unprivileged; already validated (counter 25.94 W vs polled 25.96 W at idle). |
+| `dcgmi` / `nv-hostengine` | **missing** | Not installed on compute nodes. Can still be run from the `dcgm-exporter` container under Apptainer; worth testing because it adds SM-activity and DRAM-bandwidth fields that *explain* why power saturates, and because it is the same path upstream llm-d uses (`dcgm-data-source`). Optional, explanatory only. |
+| `nsys` / `ncu` (Nsight) | **missing** | Kernel-level counters we do not need, measurable overhead, and profiling is typically admin-restricted. Skip. |
+| CUPTI | n/a | Same reasoning as Nsight: it answers "which kernel", we are asking "how many joules". Skip. |
+| `ipmitool` | **missing** | We cannot read node power directly. But `power_ipmi` is a node feature on frnt140-147, and Slurm's `AcctGatherEnergyType` is currently `(null)` so `sacct` reports `ConsumedEnergy=0`. **Ask CAC to enable IPMI energy accounting** - that would give per-job node-level energy for free and would be an independent check on the GPU counter. |
+
+Decision: **NVML stays primary.** DCGM is an optional second source for mechanism
+evidence. Nsight/CUPTI are out of scope.
+
+### 12.1 What else the probe settled
+
+- **`--exclusive` works.** The job received `frnt148` with all four GPUs visible
+  and no co-tenant processes. This removes blocking defect B4 at no cost and
+  with no cloud.
+- **Power capping is denied**: `nvidia-smi -pl 150` returns "Insufficient
+  Permissions". Range is 150-250 W on the RTX 6000, so a 1.67x controlled
+  heterogeneity experiment exists *if* CAC grants it. Added to the CAC ask.
+- **Persistence mode is enabled**, so idle power is stable between jobs.
+- **GPU UUIDs are exposed**, which enables the per-die analysis in 13.5.
+
+## 13. Research design additions (2026-10-03)
+
+### 13.1 No simulation, and we do not need any
+
+Everything the plan previously wanted simulation for is available as real
+hardware on Frontenac:
+
+| Previously simulated | Real equivalent on the cluster |
+|---|---|
+| Fleet of 8 endpoints | `frnt154` (8x A100) or `frnt155` (8x RTX 6000), one vLLM per GPU |
+| 16+ endpoints | multi-node job across `frnt148-153` (4x RTX 6000 each) |
+| Hardware heterogeneity | six real GPU types: A30, RTX 6000, RTX 8000, A100, L4, L40S, V100, pinned with `-C` |
+| "Oracle" policy | computed **post hoc from measured runs**, not simulated: the best assignment the measured curves allow. This is analysis of real data, not a model of physics. |
+
+The only modelling that remains is the offline *bound* used at the go/no-go
+gate, and it is explicitly a planning instrument, never a reported result.
+
+### 13.2 Metrics
+
+Report energy-delay product (or SLO-goodput per joule) as the headline, so a
+policy that trades latency for energy is still orderable, with J/token and
+p95 latency alongside it. Keep GPU-seconds active as the mechanism metric.
+
+### 13.3 Experimental rigour
+
+- **Randomised interleaved trials**, not sequential blocks: thermal drift and
+  cluster state otherwise confound the policy comparison. Seed the order and
+  report the seed.
+- **Trial count from a power analysis** on the variance already measured, not
+  a round number.
+- **Negative control**: include a policy that should not help (random). If the
+  harness cannot separate it from the good policy, the measurements are not
+  sensitive enough to support any claim.
+- **Ablations as first-class figures**: activation term on/off, cache term
+  on/off, SLO filter on/off.
+- **Overhead honesty**: report the scorer's own p99 CPU time and the latency it
+  adds to scheduling.
+- **Pre-registration**: hypotheses, metrics and analysis committed to the repo,
+  timestamped, before the final runs.
+- **Co-tenancy guard**: every run records `nvidia-smi --query-compute-apps`;
+  contaminated runs are discarded, not averaged.
+
+### 13.4 Per-request energy attribution under continuous batching
+
+Every paper found in the literature check divides GPU-level energy by aggregate
+tokens, ours included. Under continuous batching, requests overlap, so the
+energy of an individual request is not identifiable from GPU-level counters.
+A defensible method - short windows, request arrival/completion timestamps,
+attribution by token share within each window, validated against controlled
+single-request runs - would be a genuine methodological contribution, and it is
+exactly what the scorer needs, since marginal energy is an attribution
+question.
+
+### 13.5 Intra-model heterogeneity: the same GPU model is not the same GPU
+
+An 8-GPU node gives eight nominally identical dies in different physical slots
+with different airflow. Per-die differences in power at identical load, and
+slot-dependent thermal behaviour, are measurable with the harness we already
+have, and if the spread is large enough to matter they are a routing signal
+that no surveyed work uses. This experiment is only possible on real
+multi-GPU hardware, costs one job, and is a small original result either way.
+
+### 13.6 Deliverable split
+
+The thesis and the paper fail for opposite reasons, so material is routed, not
+duplicated:
+
+| | Thesis | Paper |
+|---|---|---|
+| Question | descriptive: can it be built, what does it cost? | comparative: does it beat SLO-aware packing? |
+| Design space (filters, SCI, carbon, KV-cache model) | Chapter 3, labelled implemented vs designed-only | out |
+| Implementation + conformance | Chapter 4 | half a page + artifact |
+| Measurements | Chapter 5 primary evidence | the whole paper |
+| Risk if the gate fails | none: reports a negative result | paper is rescoped to measurement |
+
+Thesis first; the paper is distilled from the same experiments afterwards.
+
+### 13.7 Claims we will not make
+
+Written down so the drafts' habits do not return: no "first energy-aware
+scheduling", no carbon-awareness claim (one cluster shares one grid), no ASIC
+or cross-vendor heterogeneity, no SCI novelty, no claim that rests on
+simulation. Minimum publishable unit: characterisation on one pinned GPU type
+plus a routing-policy comparison with confidence intervals.
+
+### 13.8 Cloud rental: not needed
+
+Rented GPUs (Massed Compute: A30 $0.35/hr, A100 $1.35/hr, H100 $2.73/hr, bare
+metal available) were considered for single-tenancy, fixed hardware, root and
+fleet size. The probe shows Frontenac already supplies the first two via
+`--exclusive` and `-C`, supplies more GPU diversity than the rental menu, and
+supplies 8-GPU nodes for fleet work. Only privileged power capping is missing,
+and that is a CAC request rather than a purchase. Keep rental as contingency
+only (if CAC refuses reservations, or for a Kubernetes-native demo).
+
+### 13.9 Updated CAC ask
+
+Added to the access request: enable `AcctGatherEnergyType` (IPMI) so `sacct`
+reports per-job energy on the `power_ipmi` nodes; and grant, or pre-apply on a
+reserved node, a lowered GPU power limit so the 150-250 W controlled
+heterogeneity experiment becomes possible.
+
 ---
 
 ## Appendix A. Changes from v1
