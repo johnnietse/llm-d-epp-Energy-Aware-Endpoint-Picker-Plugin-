@@ -65,6 +65,22 @@ grid, so the carbon term is collinear with energy), SCI as a contribution,
 cross-vendor or ASIC heterogeneity, DVFS/MPS/power-capping mechanisms, model
 selection, autoscaling as a headline, and anything resting on simulation.
 
+### 1.1 FINER assessment of the question
+
+| Criterion | Verdict | Basis |
+|---|---|---|
+| **Feasible** | Yes, with one caveat | Hardware, telemetry and harness are all proven on Frontenac. The caveat is effect size: if Stage 2 shows the achievable saving is within noise, the comparative question becomes unanswerable on this cluster and the project pivots to measurement. |
+| **Interesting** | To a systems-integration audience | A reviewer who values deployable artifacts will care. One who wants a new mechanism will not, because we deliberately claim no new mechanism. Venue choice must match. |
+| **Novel** | Narrowly, and the window is closing | Two agenda papers name this gap without filling it (2609.05565, 2603.21354) and vLLM semantic-router #2332 is building the telemetry contract for it. Unimplemented today; not necessarily in six months. |
+| **Ethical** | Yes | No human subjects, no dual use. AI assistance disclosed. |
+| **Relevant** | Yes | Inference energy is the dominant and growing share of LLM energy use, and the unprivileged tenant case is the common one. |
+
+The weakest criterion is **Novel**, and it is weak in a specific way: the
+*measurement* is replication, the *mechanism* is deliberately absent, and the
+*integration* is the contribution. That is a workshop paper. It becomes a full
+conference paper only if Stage 5 produces a comparative result with
+confidence intervals, or if the per-die heterogeneity result in Stage 6 lands.
+
 ---
 
 ## 2. Code disposition
@@ -192,6 +208,24 @@ building costs two months.
 
 ---
 
+
+### 6.1 Thesis and paper split
+
+They fail for opposite reasons, so material is routed rather than duplicated.
+**Thesis first; the paper is distilled from the same experiments afterwards.**
+
+| | Thesis | Paper |
+|---|---|---|
+| Question | descriptive: can it be built, what does it cost? | comparative: does it beat SLO-aware packing? |
+| Design space (carbon, SCI, thermal, KV-cache, adaptive weights) | Chapter 3, labelled **implemented-but-withdrawn** with the measured reason, drawing on tag `pre-rescope-2026-10-03` | out |
+| Implementation and conformance | Chapter 4 | half a page plus the artifact |
+| Measurements | Chapter 5, primary evidence | the whole paper |
+| Deployment heterogeneity (driver, permission, idle power) | Chapter 5 section | a named secondary contribution |
+| Risk if Stage 2 fails | none: reports a negative result, which the thesis can absorb | rescoped to a measurement paper |
+
+The quarantined packages are an asset for the thesis and a liability for the
+paper. That asymmetry is why they are tagged rather than deleted.
+
 ## 7. Venues
 
 - **HotCarbon** (~5 pp) — best fit: integration, constrained setting, and the
@@ -206,6 +240,23 @@ building costs two months.
   vLLM semantic-router (issue #2332, whose contract already names "energy/power
   evidence and its measured/modeled provenance"). Two production routers are
   circling this gap; contributing to both is a timestamp and insurance.
+
+### 7.1 Which research skills to run, and when
+
+The ARS pipeline is expensive and its expensive stages are worthless before
+the evidence settles. Sequence:
+
+| When | Skill / mode | Why now |
+|---|---|---|
+| Now | `deep-research` in `lit-review` mode | Rebuild related work against 2026 sources. The current related work predates Festina, the two agenda papers, GreenServ and the IISWC characterisation. |
+| Now | `fact-check` on every identifier before it enters a bibliography | One figure was already recorded wrongly (2604.04745). Re-verify at submission time too. |
+| After Stage 2 | `deep-research` in `socratic` or `full` | Only after the gate does the hypothesis stop moving. If the gate fails, the research question changes, and anything written before is wasted. |
+| After Stage 5 | `academic-research-skills:ars-full` | The report compiler and editor-in-chief passes pay for themselves only over a complete evidence base. Running them now would polish prose over claims that cannot be defended. |
+| Before Stage 5 | `academic-paper` preregistration template | Stage 3 output; must be timestamped in-repo before the comparative runs. |
+| At write-up | `academic-paper` with the handoff materials | RQ brief, methodology blueprint, bibliography, synthesis. |
+
+Do **not** run `ars-full` yet. That decision was already made in
+`draft-assessment-2026-10.md` section 6 and it still holds.
 
 ---
 
@@ -244,7 +295,52 @@ building costs two months.
 
 ---
 
-## 10. One-line status
+
+## 10. Decision log
+
+Kept so that reversals are visible and so the same ground is not re-litigated.
+
+| Date | Decision or correction | Reason |
+|---|---|---|
+| 2026-09 | Out-of-tree plugin module, no fork | upstream llm-d-router changes too fast to maintain a fork |
+| 2026-10-03 | H1's linear power model **refuted** | measured slope negative; power non-monotonic in concurrency |
+| 2026-10-03 | Marginal-energy term and its ratios **withdrawn** | fitting noise around a flat curve; two runs gave 0.46 W and 0.24 W |
+| 2026-10-03 | Cache-versus-energy conflict **withdrawn** | metric artifact; per total token, caching helps energy and goodput together |
+| 2026-10-03 | "DCGM unusable without root" **retracted** | wrong: bad `dcgmi` argument order plus a single-node generalisation |
+| 2026-10-03 | "Permissive node is behind on patching" **refuted** | cluster survey: `frnt110` is permissive on the same kernel five restricted nodes run |
+| 2026-10-03 | 2604.04745 figures **corrected** | we had "53% to 96%"; paper says 19.7% of time, 10.7% of energy |
+| 2026-10-03 | No simulation, no cloud rental | user instruction plus the measured inventory: 3x 8-GPU A100 nodes exist |
+| 2026-10-03 | Primary metric fixed before results | two denominators were shown to invert a ranking |
+| 2026-10-03 | Code rescoped away from the drafts' design | plan-code divergence audit, section 0 |
+| 2026-10-03 | Claim restated as **replica** selection | most 2026 energy-routing work is model selection |
+
+## 11. Calendar
+
+Anchored at 2026-10-03. Durations from section 6; dates assume part-time work
+and no cluster outage.
+
+| Stage | Target window |
+|---|---|
+| 0. Rescope the code | 2026-10-04 to 2026-10-07 |
+| 1. Characterise (A30, L4, 7B) | 2026-10-07 to 2026-10-20 |
+| 2. **GATE: offline bound** | 2026-10-20 to 2026-10-27 |
+| 3. Pre-register | 2026-10-27 to 2026-10-29 |
+| 4. Build the scorer | 2026-10-29 to 2026-11-12 |
+| 5. The real experiment | 2026-11-12 to 2026-12-03 |
+| 6. Secondary results | 2026-12-03 to 2026-12-10 |
+| 7. Write and upstream | 2026-12-10 to 2027-01-07 |
+
+Submission target depends on the venue's actual dates, which must be checked
+directly rather than taken from this document. The artifact PR goes upstream
+at the end of Stage 4, independent of any paper deadline, because it is both
+the contribution and the timestamp.
+
+Dependencies outside our control, all of which can move these dates: the CAC
+access request (group restore, GPU association, reservations, IPMI accounting,
+power-limit permission), cluster availability for `--exclusive` jobs, and
+whether llm-d-router's plugin API churns again.
+
+## 12. One-line status
 
 Measurement apparatus: **sound and reproducible.** Topic: **still open, window
 narrowing.** Claim: **narrow but defensible.** Code: **misaligned with the
