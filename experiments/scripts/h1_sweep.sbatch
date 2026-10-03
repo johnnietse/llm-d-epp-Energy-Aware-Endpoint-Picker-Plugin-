@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --account=def-hpcg1971_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --exclusive
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=48G
 #SBATCH --time=03:00:00
@@ -25,7 +26,7 @@ mkdir -p "$RUN"
 MODEL=${MODEL:-Qwen/Qwen2.5-1.5B-Instruct}
 LEVELS=${LEVELS:-1,2,4,8,16,32}
 SECONDS_PER_LEVEL=${SECONDS_PER_LEVEL:-75}
-TRIALS=${TRIALS:-2}
+TRIALS=${TRIALS:-5}
 export HF_HOME=${HF_HOME:-$ROOT/.hf}
 
 # python with pynvml (module python has it, /usr/bin/python3 does not)
@@ -39,7 +40,17 @@ done
 {
   echo "node=$(hostname) job=$SLURM_JOB_ID"
   echo "model=$MODEL levels=$LEVELS seconds=$SECONDS_PER_LEVEL trials=$TRIALS"
-  nvidia-smi --query-gpu=index,name,driver_version,power.limit,memory.total,persistence_mode --format=csv
+  nvidia-smi --query-gpu=index,uuid,name,driver_version,power.limit,power.min_limit,power.max_limit,memory.total,persistence_mode --format=csv
+  # Non-uniform across this cluster (survey 2026-10-03), so comparability
+  # depends on recording them per run, not on assuming they match:
+  echo "kernel=$(uname -r)"
+  echo "rm_profiling_admin_only=$(grep -oE 'RmProfilingAdminOnly: [0-9]+' /proc/driver/nvidia/params 2>/dev/null | awk '{print $2}' || echo NA)"
+  echo "slurm_constraint=${SLURM_JOB_CONSTRAINTS:-none} exclusive=${SLURM_JOB_NUM_NODES:-?}node"
+  echo "node_features=$(scontrol show node "$(hostname -s)" 2>/dev/null | tr ' ' '
+' | grep -oE 'ActiveFeatures=.*' || echo NA)"
+  # Co-tenancy guard: anything listed here but our own vLLM invalidates the run
+  echo "cotenants_at_start:"
+  nvidia-smi --query-compute-apps=pid,used_memory --format=csv
   echo "vllm_image=$(ls -l $ROOT/images/vllm-v0.30.0.sif | awk '{print $5}')"
   "$APPTAINER" exec $ROOT/images/vllm-v0.30.0.sif python3 -c "import vllm,torch;print('vllm',vllm.__version__,'torch',torch.__version__)"
 } | tee "$RUN/instruments.txt"
