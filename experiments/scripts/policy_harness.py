@@ -50,7 +50,33 @@ except ImportError:  # the container python has it; fail loudly if not
 import urllib.request
 import urllib.error
 
+try:
+    import httpx
+except ImportError:
+    # The load generator must not fall back to blocking urllib in a thread
+    # pool. The default asyncio executor is capped at min(32, cpu_count+4)
+    # workers, which silently turns an open-loop test into a closed-loop one
+    # at concurrency 32. Job 12303327 lost its entire 8-GPU sweep that way:
+    # 112.5 req/s offered, 26.7 req/s achieved, every cell client-limited.
+    raise SystemExit("httpx missing - the harness needs real async HTTP; "
+                     "a thread-pool client caps concurrency at 32")
+
 OUTPUT_TOKENS = 128
+
+# Two different things look identical in the achieved request rate, and only
+# one of them is a defect:
+#
+#   * the generator could not get requests out on schedule  -> invalid cell
+#   * the servers could not serve them fast enough          -> real overload
+#
+# Completion rate alone cannot tell them apart, which is why job 12303327 read
+# as "all policies saturated" when in fact the client was the bottleneck. The
+# dispatch delay is purely client-side, so it is the discriminator: if the
+# generator kept to its own Poisson schedule, any shortfall in completions is
+# physics. SEND_DELAY_SLO_FRAC is expressed as a fraction of the SLO, floored
+# so a tight SLO cannot make the check hypersensitive.
+SEND_DELAY_SLO_FRAC = 0.05
+SEND_DELAY_FLOOR_S = 0.025
 
 
 # ----------------------------------------------------------------- NVML energy
@@ -163,14 +189,22 @@ def rapl_read(zones):
 
 def rapl_delta(before, after):
     """Joules per zone. RAPL counters wrap, so a negative delta is dropped
-    rather than guessed at."""
+    rather than guessed at.
+
+    Keys are zone-id + name, not name alone: on a two-socket node both
+    intel-rapl:0:0 and intel-rapl:1:0 are named "dram", so keying by name
+    collapsed them and silently discarded one DRAM domain. Caught in the smoke
+    run (job 12303326), where only a single "dram" figure appeared.
+    """
     res = {}
     for z, (name, a) in before.items():
         if z not in after:
             continue
         _, b = after[z]
         if b >= a:
-            res[name] = (b - a) / 1e6
+            zid = z.rsplit("/", 1)[-1]          # e.g. intel-rapl:1:0
+            res[zid + ":" + name] = (b - a) / 1e6
+    res["_total_j"] = round(sum(v for k, v in res.items() if not k.startswith("_")), 3)
     return res
 
 
@@ -315,15 +349,23 @@ POLICIES = ["round_robin", "least_loaded", "slo_packing",
 
 # ------------------------------------------------------------------ the driver
 
-async def one_request(base_url, prompt, timeout=300):
+async def one_request(client, base_url, prompt, timeout=300):
     """Stream the completion so TTFT and inter-token latency are measurable.
 
     This used to send stream=False, which made TTFT and TPOT impossible to
     collect - only end-to-end latency. For an SLO-based study that is
     disqualifying: TTFT (prefill-dominated) and TPOT/ITL (decode-dominated) are
     the two standard SLO dimensions in LLM serving, and the field reports them
-    separately because a policy can trade one for the other. Returns
-    (ttft_s, itls, n_tokens).
+    separately because a policy can trade one for the other.
+
+    It then used blocking urllib inside loop.run_in_executor(None, ...), which
+    capped in-flight requests at the default executor width - 32 on a 32-core
+    node. Above ~27 req/s the generator stopped being open-loop and the offered
+    rate became fiction, while TTFT (timed from dispatch, after the queue wait)
+    still looked healthy. Real async HTTP removes the ceiling; the caller now
+    also records the dispatch delay so the remaining backlog is visible.
+
+    Returns (ttft_s, itls, n_tokens).
     """
     body = json.dumps({
         "model": "served",
@@ -332,40 +374,36 @@ async def one_request(base_url, prompt, timeout=300):
         "temperature": 0.0,
         "stream": True,
     }).encode()
-    req = urllib.request.Request(
-        base_url + "/v1/completions", data=body,
-        headers={"Content-Type": "application/json"})
-    loop = asyncio.get_running_loop()
-
-    def _do():
-        t0 = time.time()
-        ttft = None
-        stamps = []
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            for raw in r:
-                line = raw.decode("utf-8", "replace").strip()
-                if not line.startswith("data:"):
-                    continue
-                payload = line[5:].strip()
-                if payload == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(payload)
-                except json.JSONDecodeError:
-                    continue
-                text = ""
-                for ch in chunk.get("choices", []):
-                    text += ch.get("text") or ""
-                if not text:
-                    continue
-                now = time.time()
-                if ttft is None:
-                    ttft = now - t0
-                stamps.append(now)
-        itls = [stamps[i] - stamps[i - 1] for i in range(1, len(stamps))]
-        return ttft, itls, len(stamps)
-
-    return await loop.run_in_executor(None, _do)
+    t0 = time.time()
+    ttft = None
+    stamps = []
+    async with client.stream(
+            "POST", base_url + "/v1/completions", content=body,
+            headers={"Content-Type": "application/json"},
+            timeout=timeout) as r:
+        r.raise_for_status()
+        async for raw in r.aiter_lines():
+            line = raw.strip()
+            if not line.startswith("data:"):
+                continue
+            payload = line[5:].strip()
+            if payload == "[DONE]":
+                break
+            try:
+                chunk = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            text = ""
+            for ch in chunk.get("choices", []):
+                text += ch.get("text") or ""
+            if not text:
+                continue
+            now = time.time()
+            if ttft is None:
+                ttft = now - t0
+            stamps.append(now)
+    itls = [stamps[i] - stamps[i - 1] for i in range(1, len(stamps))]
+    return ttft, itls, len(stamps)
 
 
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
@@ -382,9 +420,17 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
 
     latencies = []
     ttfts = []
+    ttfts_from_send = []
+    send_delays = []
     all_itls = []
     errors = 0
     completed = 0
+
+    # One pooled client for the whole cell. The pool must be wider than any
+    # concurrency the arrival schedule can produce, or it reintroduces exactly
+    # the ceiling we are removing; httpx queues beyond max_connections.
+    limits = httpx.Limits(max_connections=max(1024, 4 * n_requests),
+                          max_keepalive_connections=max(1024, 4 * n_requests))
 
     zones = rapl_zones()
     rapl_before = rapl_read(zones)
@@ -393,18 +439,26 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     poll_task = asyncio.create_task(meter.poll_forever())
     t_start = time.time()
 
-    async def fire(delay, idx):
+    async def fire(client, delay, idx):
         nonlocal errors, completed
         await asyncio.sleep(max(0.0, delay - (time.time() - t_start)))
         i = router.pick(policy)
         url = "http://" + endpoints[i]
         prompt = f"Request {idx}: " + "explain distributed systems. " * rng.randint(4, 12)
-        t0 = time.time()
+        # Two clocks. t_sched is when the Poisson schedule said this request
+        # should arrive; t_send is when the client actually got it out. Latency
+        # and TTFT are reported from t_sched, because that is what a user
+        # experiences and it cannot hide client backlog. ttft_from_send keeps
+        # the server-side view, and the gap between them is send_delay.
+        t_sched = t_start + delay
+        t_send = time.time()
+        send_delays.append(t_send - t_sched)
         try:
-            ttft, itls, _ntok = await one_request(url, prompt)
-            latencies.append(time.time() - t0)
+            ttft, itls, _ntok = await one_request(client, url, prompt)
+            latencies.append(time.time() - t_sched)
             if ttft is not None:
-                ttfts.append(ttft)
+                ttfts.append(ttft + (t_send - t_sched))
+                ttfts_from_send.append(ttft)
             all_itls.extend(itls)
             completed += 1
         except Exception:
@@ -412,7 +466,10 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         finally:
             router.release(i)
 
-    await asyncio.gather(*(fire(a, k) for k, a in enumerate(arrivals)))
+    async with httpx.AsyncClient(limits=limits, http2=False) as client:
+        await asyncio.gather(*(fire(client, a, k)
+                               for k, a in enumerate(arrivals)))
+    t_end = time.time()
     energy = meter.end()
     rapl_after = rapl_read(zones)
     engine_after = scrape_engine_metrics(endpoints)
@@ -430,10 +487,31 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
 
     lat_sorted = sorted(latencies)
     met = sum(1 for l in latencies if l <= slo_s)
-    elapsed = max(1e-9, (arrivals[-1] if arrivals else 0.0) + (lat_sorted[-1] if lat_sorted else 0.0))
+    # Measured wall clock, not the intended schedule. The old denominator was
+    # arrivals[-1] + worst latency, which is what the schedule *asked* for, so
+    # goodput looked plausible even when the client never kept up.
+    elapsed = max(1e-9, t_end - t_start)
+    achieved = (completed + errors) / elapsed
+    fidelity = achieved / rate if rate else 0.0
+    sd_p99 = pct(send_delays, 0.99)
+    sd_budget = max(SEND_DELAY_FLOOR_S, SEND_DELAY_SLO_FRAC * slo_s)
     return {
         "policy": policy,
         "offered_rate_rps": rate,
+        "achieved_rate_rps": achieved,
+        "rate_fidelity": fidelity,
+        # Hard integrity flag, and the only one that invalidates a cell: the
+        # generator fell behind its own arrival schedule, so the offered rate
+        # is fiction and these energy and SLO numbers describe the client.
+        "client_limited": (sd_p99 or 0.0) > sd_budget,
+        "send_delay_budget_s": sd_budget,
+        # Not a defect. The generator kept up and the servers could not, which
+        # is the overload regime this study is about.
+        "server_saturated": ((sd_p99 or 0.0) <= sd_budget
+                             and fidelity < 0.95),
+        "send_delay_p50": pct(send_delays, 0.50),
+        "send_delay_p99": sd_p99,
+        "send_delay_max": max(send_delays) if send_delays else None,
         "requests": n_requests,
         "completed": completed,
         "errors": errors,
@@ -450,6 +528,10 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "ttft_p95": pct(ttfts, 0.95),
         "ttft_p99": pct(ttfts, 0.99),
         "ttft_mean": st.mean(ttfts) if ttfts else None,
+        # Server-side TTFT, excluding any client dispatch delay. Reported only
+        # as a diagnostic: when it diverges from ttft_p50 the client is behind.
+        "ttft_from_send_p50": pct(ttfts_from_send, 0.50),
+        "ttft_from_send_p95": pct(ttfts_from_send, 0.95),
         "tpot_mean": st.mean(all_itls) if all_itls else None,
         "itl_p50": pct(all_itls, 0.50),
         "itl_p95": pct(all_itls, 0.95),
@@ -516,15 +598,38 @@ def main():
               + "s  ITL p99/max " + g("itl_p99", 4) + "/" + g("itl_max", 4)
               + "s  e2e p99 " + g("latency_p99")
               + "s  errors " + str(r["errors"]), flush=True)
+        print("    offered " + format(r["offered_rate_rps"], ".1f")
+              + " req/s  achieved " + g("achieved_rate_rps", 1)
+              + " req/s  fidelity " + format(r["rate_fidelity"] * 100, ".1f")
+              + "%  send delay p99 " + g("send_delay_p99")
+              + "s  TTFT from send p50 " + g("ttft_from_send_p50"), flush=True)
+        if r["client_limited"]:
+            print("    *** CLIENT LIMITED: dispatch delay p99 "
+                  + g("send_delay_p99") + "s exceeds the "
+                  + format(r["send_delay_budget_s"], ".3f")
+                  + "s budget. The generator fell behind its own schedule, so"
+                  " this cell measures the client and must not be reported.",
+                  flush=True)
+        elif r["server_saturated"]:
+            print("    (server-saturated: generator kept schedule, servers did"
+                  " not keep up. Valid overload data point.)", flush=True)
         results.append(r)
         time.sleep(20)   # let the GPUs settle between policies
 
+    bad = [r["policy"] for r in results if r["client_limited"]]
     with open(args.out, "w") as fh:
         json.dump({"results": results,
                    "endpoints": endpoints,
                    "types": types,
-                   "gpus": gpus}, fh, indent=2)
+                   "gpus": gpus,
+                   "client_limited_policies": bad}, fh, indent=2)
     print("wrote", args.out)
+    if bad:
+        # Exit nonzero so the batch script stops instead of writing a results
+        # table that looks like a policy comparison but is a client benchmark.
+        raise SystemExit("client-limited cells at " + format(args.rate, ".1f")
+                         + " req/s: " + ",".join(bad)
+                         + " - lower the offered rate or widen the generator")
 
 
 if __name__ == "__main__":

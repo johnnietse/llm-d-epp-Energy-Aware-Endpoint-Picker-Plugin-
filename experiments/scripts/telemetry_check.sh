@@ -62,6 +62,33 @@ say ""
 
 say "--- REQUIRED sources ---"
 
+# 0. Load generator capability, checked inside the image the harness runs in.
+#
+# This is a measurement instrument like any other. Job 12303327 produced a
+# complete, plausible-looking 8-GPU policy comparison that was entirely
+# invalid: the harness issued requests through the default asyncio executor,
+# whose width is min(32, cpu_count+4), so on a 32-core node it could never
+# exceed ~27 req/s no matter what rate was offered. Every cell from 50 to
+# 137.5 req/s measured the client. Nothing in the telemetry gate noticed,
+# because the gate only checked energy instruments.
+#
+# A generator that cannot deliver the offered load is a broken instrument, so
+# it belongs here, and it must be checked in the CONTAINER python - the login
+# node's CVMFS python is a different interpreter.
+if env -u SSL_CERT_FILE "$APPTAINER" exec "$IMG" python3 -c "
+import httpx, asyncio
+l = httpx.Limits(max_connections=1024, max_keepalive_connections=1024)
+c = httpx.AsyncClient(limits=l)
+asyncio.get_event_loop_policy()
+print(httpx.__version__)
+" > /tmp/httpx.$$ 2>/dev/null; then
+  req "async load generator (httpx in image)" 0 "httpx $(cat /tmp/httpx.$$)"
+else
+  req "async load generator (httpx in image)" 1 \
+    "absent or unusable; a thread-pool client caps offered load at ~27 req/s"
+fi
+rm -f /tmp/httpx.$$
+
 # 1. nvidia-smi provenance
 if nvidia-smi --query-gpu=index,uuid,name,driver_version,power.limit,power.min_limit,power.max_limit,persistence_mode \
      --format=csv > /tmp/nvsmi.$$ 2>/dev/null; then
