@@ -143,6 +143,47 @@ def per_rate_tables(rows):
     return by_rate
 
 
+def mean_cells(trials):
+    """Average each (policy, rate) cell across trials.
+
+    Pooling must not be done by throwing every trial's cells into one pile and
+    letting best_feasible pick the maximum: that takes each policy's LUCKIEST
+    trial, so whichever policy drew a favourable run wins by selection bias.
+    With a ranking already known to turn on sub-percent latency differences,
+    that is not a small distortion. Averaging the matched cells first, then
+    choosing the best feasible operating point on the averages, is the honest
+    statistic. Feasibility is judged on the MEAN attainment, so a policy that
+    met the SLO in one trial and missed in another does not qualify.
+    """
+    buckets = {}
+    for rows in trials.values():
+        for r in rows:
+            buckets.setdefault((r["policy"], r["offered_rate_rps"]), []).append(r)
+
+    def avg(rs, key):
+        vals = [r.get(key) for r in rs if r.get(key) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    out = []
+    for (policy, rate), rs in buckets.items():
+        out.append({
+            "policy": policy,
+            "offered_rate_rps": rate,
+            "n_trials": len(rs),
+            "slo_rate": avg(rs, "slo_rate") or 0.0,
+            "j_per_request": avg(rs, "j_per_request"),
+            "j_per_slo_request": avg(rs, "j_per_slo_request"),
+            "goodput_per_joule": avg(rs, "goodput_per_joule"),
+            "slo_margin_p95": avg(rs, "slo_margin_p95"),
+            "achieved_rate_rps": avg(rs, "achieved_rate_rps"),
+            "client_limited": any(r.get("client_limited") for r in rs),
+            "server_saturated": all(r.get("server_saturated") for r in rs),
+            "router_out_of_range": max((r.get("router_out_of_range") or 0)
+                                       for r in rs),
+        })
+    return out
+
+
 def best_feasible(rows):
     """Each policy's best operating point among load levels where it meets the
     SLO, scored on SLO-goodput per joule."""
@@ -184,15 +225,26 @@ def brittle_note(best):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("run_dir")
+    ap.add_argument("run_dir", nargs="+",
+                    help="one directory per trial; with two or more, a "
+                         "policy must beat the baseline in EVERY trial "
+                         "to count as a winner")
     args = ap.parse_args()
 
-    rows = load(args.run_dir)
-    if not rows:
-        raise SystemExit("no policies-rate*.json in " + args.run_dir)
+    trials = {}
+    for d in args.run_dir:
+        rows = load(d)
+        if not rows:
+            raise SystemExit("no policies-rate*.json in " + d)
+        trials[d] = rows
+    rows = [r for rs in trials.values() for r in rs]
 
     print("=" * 72)
-    print("Stage 2 gate analysis:", args.run_dir)
+    print("Stage 2 gate analysis: %d trial(s)" % len(trials))
+    for d in args.run_dir:
+        seeds = sorted({r.get("seed") for r in trials[d]})
+        print("  %s  (%d cells, seed(s) %s)"
+              % (d, len(trials[d]), ",".join(str(x) for x in seeds)))
     print("=" * 72)
     if not validity_audit(rows):
         return 2
@@ -207,7 +259,8 @@ def main():
     print("BEST FEASIBLE OPERATING POINT PER POLICY (SLO attainment >= %.0f%%)"
           % (FEASIBLE_SLO * 100))
     print("=" * 72)
-    best = best_feasible(rows)
+    # Pooled on per-cell means, never on best-of-trials.
+    best = best_feasible(mean_cells(trials))
     if not best:
         print("NO policy met the SLO at any swept load level.")
         print("The sweep is on the wrong side of the knee: lower the load "
@@ -231,28 +284,73 @@ def main():
               "against an infeasible cell.")
         return 1
 
-    print("\n--- VERDICT vs slo_packing ---")
+    print("\n--- VERDICT vs slo_packing, pooled across trials ---")
     pack_gpj = pack.get("goodput_per_joule") or 0.0
-    winners = []
+    pooled = {}
     for name, r in best.items():
         if name == "slo_packing":
             continue
         gpj = r.get("goodput_per_joule") or 0.0
-        gain = (gpj - pack_gpj) / pack_gpj * 100 if pack_gpj else 0.0
-        verdict = "beats packing" if gain > 0 else "does not beat packing"
-        print("  %-20s %+6.1f%% SLO-goodput/J   %s" % (name, gain, verdict))
-        if gain > 0:
-            winners.append((gain, name))
-    if winners:
-        gain, name = max(winners)
-        print("\nGATE PASSED: %s is the best measured rule, %+.1f%% "
-              "SLO-goodput per joule over slo_packing." % (name, gain))
-        print("Stage 4 builds THAT rule and nothing else.")
-    else:
+        pooled[name] = (gpj - pack_gpj) / pack_gpj * 100 if pack_gpj else 0.0
+        print("  %-20s %+6.1f%%" % (name, pooled[name]))
+
+    # Per-trial verdicts. A ranking decided by a sub-percent latency difference
+    # is exactly what job 12303355 produced, so a policy that wins pooled but
+    # not in every trial is reported as unreplicated rather than as a result.
+    per_trial = {}
+    for d, rs in trials.items():
+        tb = best_feasible(rs)
+        tpack = tb.get("slo_packing")
+        if not tpack or not tpack.get("goodput_per_joule"):
+            per_trial[d] = None
+            continue
+        base = tpack["goodput_per_joule"]
+        per_trial[d] = {n: ((r.get("goodput_per_joule") or 0.0) - base)
+                        / base * 100
+                        for n, r in tb.items() if n != "slo_packing"}
+
+    if len(trials) > 1:
+        print("\n--- per-trial, to check the pooled number replicates ---")
+        names = sorted(pooled)
+        print("%-20s %s" % ("policy", "".join("%12s" % ("trial %d" % (i + 1))
+                                              for i in range(len(trials)))))
+        for n in names:
+            cells = []
+            for d in args.run_dir:
+                v = per_trial.get(d)
+                cells.append("%11.1f%%" % v[n] if v and n in v else "         n/a")
+            print("%-20s %s" % (n, "".join(cells)))
+
+    consistent = []
+    for n, gain in pooled.items():
+        if gain <= 0:
+            continue
+        signs = [per_trial[d].get(n) for d in args.run_dir
+                 if per_trial.get(d) and n in per_trial[d]]
+        if signs and all(x > 0 for x in signs) and len(signs) == len(trials):
+            consistent.append((min(signs), n, signs))
+
+    if not pooled or max(pooled.values(), default=0.0) <= 0:
         print("\nGATE FAILED: no policy beat slo_packing on SLO-goodput per "
               "joule at a feasible operating point.")
         print("That is a publishable negative result, not a reason to retune "
               "the policies until one wins.")
+        return 0
+
+    if not consistent:
+        print("\nGATE INCONCLUSIVE: a policy leads when trials are pooled, "
+              "but the lead does not hold in every trial.")
+        print("Job 12303355 produced exactly this shape - a 1.1% latency "
+              "spread deciding a 9-point attainment gap - so an unreplicated "
+              "lead is not reported as a finding. Add trials.")
+        return 1
+
+    worst, name, signs = max(consistent)
+    print("\nGATE PASSED: %s beats slo_packing in all %d trial(s), by at "
+          "least %+.1f%% SLO-goodput per joule (per trial: %s)."
+          % (name, len(trials), worst,
+             ", ".join("%+.1f%%" % x for x in signs)))
+    print("Stage 4 builds THAT rule and nothing else.")
     return 0
 
 
