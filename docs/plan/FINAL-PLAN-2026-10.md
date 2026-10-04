@@ -679,6 +679,7 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
+| 2026-10-03 | **Reference list consolidated with verification status** | 7 fetched, 6 search-sourced, 2 inherited-unverified; 2312.02741 and 2604.09048 are load-bearing and unverified, which is exactly how 2604.04745's wrong figures survived for weeks |
 | 2026-10-03 | Metric set **grounded in literature**; harness switched to streaming | TTFT and TPOT were unmeasurable with stream:false; ITL distribution added per arXiv 2507.09019's metric-design anti-pattern |
 | 2026-10-03 | Energy relabelled **GPU-package, not system** | MLPerf Power measures at the wall; ours excludes CPU, DRAM, fans, PSU, so it is a subset and not comparable |
 | 2026-10-03 | **NVML confirmed irreplaceable for energy**; its limits are about kernel counters, not joules | DCGM 156 is the same counter; CUPTI/Nsight have no energy counter; IPMI is the only independent sensor |
@@ -712,7 +713,74 @@ access request (group restore, GPU association, reservations, IPMI accounting,
 power-limit permission), cluster availability for `--exclusive` jobs, and
 whether llm-d-router's plugin API churns again.
 
-## 12. One-line status
+## 12. References, with verification status
+
+Every entry carries how it was checked. The skill rule we work under is that
+"difficult to verify" counts as FAIL, so anything not independently fetched is
+marked and **must be verified before it enters a bibliography**. Status values:
+
+- **FETCHED** - the arXiv abstract page was retrieved and the title, authors and
+  content were read directly (dates below are from that page).
+- **SEARCH** - the identifier and title came from a web search result, not from
+  fetching the record. Plausible, not confirmed.
+- **INHERITED** - carried over from an earlier session's notes and never
+  independently checked by this session. Highest risk; one such entry was
+  already found to carry wrong figures (see 2604.04745).
+
+### 12.1 The gap: our topic, named and unfilled
+
+| ID | Work | Status | Why it matters to us |
+|---|---|---|---|
+| **2609.05565** | Sisodia, "Toward Sustainable Distributed LLM Inference: ... an Energy-, Carbon-, and Cache-Aware llm-d Control Plane" (2026-09-03) | **FETCHED** | States plainly it is a design proposal with **no experiments**, and lists energy-aware endpoint selection as future work. Our strongest citable evidence the gap is real. Also the source of our reporting set (section 5.1). |
+| **2603.21354** | Chen, Liu, He et al., "The Workload-Router-Pool Architecture for LLM Inference Optimization: A Vision Paper from the vLLM Semantic Router Project" (2026-03-22, rev 2026-04-08) | **FETCHED** | Second agenda paper. Names "fleet provisioning and energy-efficiency analysis" as an area; **no measured energy outcomes**. 21 proposed directions. |
+| **vllm-project/semantic-router#2332** | "[Epic] Connect semantic routing to inference-aware backend selection" | **FETCHED** | **Open** epic whose engine-neutral observation contract explicitly includes "energy/power evidence and its measured/modeled provenance". A second production router is building this plumbing. The window is narrowing. |
+
+### 12.2 Closest competitors
+
+| ID | Work | Status | Relation |
+|---|---|---|---|
+| **2606.30391** | Wang, Rattihalli, Dhakal, Shangguan, Milojicic, "Energy-Aware Scheduling for Serverless LLM Serving on Shared GPUs" (Festina, 2026-06-29) | **FETCHED** | Strongest competitor: up to **56% energy** saved, SLO within 2%. But requires MPS and frequency control, i.e. **root**. Our "no privileged control" clause is the distinction, and it is a real one. |
+| **2608.06188** | Bernhard, Yardimci, "Routing LLM Inference to the Cleanest Grid in Real Time" (2026-08-06) | **FETCHED** | Region-level carbon routing. Its ~51% headline is a **year-long historical replay** stated as an upper bound; only the steering mechanism ran live. So our measured comparison is not competing with a measured result. |
+| **2601.17551** | "GreenServ: Energy-Efficient Context-Aware Dynamic Routing for Multi-Model LLM Inference" | **SEARCH** | LinUCB bandit across **16 different models**, 31% energy saved vs random. **Model** selection, not replica selection - the distinction our abstract must make in its first two sentences. |
+| **2609.23085** | "Measured Joules, Learned Routes: Learning to Route for Energy-Efficient LLM Serving" | **SEARCH** | RL router choosing **which model** answers. Same category as GreenServ. |
+| **2605.23057** | "RequestRouter: Request-Boundary Routing for Efficient Single-GPU LLM Inference" | **SEARCH** | Intra-GPU scheduling on one A100; 2.10x latency speedup, 0.48x energy ratio. Different granularity. |
+| **2603.04445** | "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey" | **SEARCH** | Use for related-work framing; confirms model routing is crowded and replica routing is not the same problem. |
+
+### 12.3 Characterisation we replicate rather than contribute
+
+| ID | Work | Status | Relation |
+|---|---|---|---|
+| **2608.28044** | Vellaisamy, Lam, Blanton, Shen, "Characterization of Request and Token Energy Costs for LLM Inference Workloads on GPU Platforms" (2026-08-28, **accepted IISWC 2026**) | **FETCHED** | Fixed prefill + marginal per-token decomposition on H100/H200; 7.46 to 0.72 J/token as output length grows 10 to 512. **Our H1 characterisation is replication of this.** Cite as calibration, never as contribution. |
+| **2604.04745** | Lei, Fernandez, Kypriotis, Skarlatos, Strubell, Sherry, Vosler, "The Energy Cost of Execution-Idle in GPU Clusters" (2026-04-06) | **FETCHED, and previously MISQUOTED here** | Execution-idle is **19.7% of execution time and 10.7% of energy**. An earlier version of our notes recorded "53% to 96%", which is **not in the paper**. Our 27% idle floor is therefore *not* corroborated by it and must stand on our own measurement. |
+| **2512.03024** | "TokenPowerBench: Benchmarking the Power Consumption of LLM Inference" | **SEARCH** | Phase-aware J/token benchmarks. Overlaps our sweep methodology. |
+| **2604.09048** | "Watt Counts" | **INHERITED** | Cited in earlier notes as observing the A30 is unusually efficient for small/medium models - which, if true, is directly relevant to our A30 dominance finding. **Must be fetched and verified before use.** |
+
+### 12.4 Measurement methodology
+
+| ID | Work | Status | How we use it |
+|---|---|---|---|
+| **2507.09019** | Agrawal, Kedia, Agarwal, Mohan, Kwatra, Kundu, Ramjee, Tumanov, "On Evaluating Performance of LLM Inference Serving Systems" (2025-07-11) | **FETCHED** | Anti-pattern taxonomy: baseline fairness, evaluation setup, **metric design** (normalisations that obscure generation stalls and token-generation variance). Adopted as plan requirements - see 5.1. |
+| **2410.12032** | "MLPerf Power: Benchmarking the Energy Efficiency of Machine Learning Systems from Microwatts to Megawatts for Sustainable AI" | **SEARCH** | The field's gold standard: **wall-level** measurement via a SPEC PTDaemon-certified analyser, <1% AC uncertainty, energy divided by inferences. Defines the limitation we must state: our GPU-package energy is a subset and is **not** comparable. |
+| **2312.02741** | Yang et al. (SC24), GPU energy-counter sampling behaviour | **INHERITED** | The basis for our whole counter-accuracy concern - A100/H100 reportedly sample power only ~25% of the time. We cite it constantly and **this session has never fetched it**. Verify before submission; `counter_characterisation.sbatch` tests the claim on our own GPUs regardless. |
+
+### 12.5 Non-arXiv references to pin down
+
+SPEC PTDaemon (power-analyser interface used by MLPerf Power), the ML.ENERGY
+leaderboard, and the Green500 FLOPS/W convention are all referenced in our
+reasoning and none has a citation recorded yet. Resolve before the
+bibliography is finalised.
+
+### 12.6 Verification debt, as a task
+
+**FETCHED: 7 works + 1 GitHub epic. SEARCH: 6. INHERITED: 2.**
+
+The eight non-FETCHED entries are the verification debt. Two of them
+(2312.02741, 2604.09048) are load-bearing for arguments we already make, which
+makes them the priority. The precedent for taking this seriously is 2604.04745:
+it was INHERITED, we quoted figures from it for weeks, and when finally fetched
+the numbers were not in the paper at all.
+
+## 13. One-line status
 
 Measurement apparatus: **sound and reproducible.** Stage 1: **complete, four
 configurations.** Topic: **still open, window narrowing.** Claim: **narrow but
