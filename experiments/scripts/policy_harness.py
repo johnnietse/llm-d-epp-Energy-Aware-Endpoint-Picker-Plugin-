@@ -351,6 +351,15 @@ class Router:
         self._oor = (mp.get_context("fork").Value("l", 0, lock=False)
                      if shared else None)
         self._oor_local = 0
+        # Picks where EVERY endpoint was outside the measured curve, so the
+        # policy had no grounded option and fell through to its fallback.
+        # This, not the raw out-of-range lookup count, is the number that can
+        # invalidate a policy claim: a lookup above the range that correctly
+        # excludes an endpoint is the curve doing its job, and a consolidating
+        # policy probes above the ceiling constantly by design.
+        self._ung = (mp.get_context("fork").Value("l", 0, lock=False)
+                     if shared else None)
+        self._ung_local = 0
 
     def _note_out_of_range(self):
         if self._oor is not None:
@@ -358,9 +367,19 @@ class Router:
         else:
             self._oor_local += 1
 
+    def _note_ungrounded(self):
+        if self._ung is not None:
+            self._ung.value += 1
+        else:
+            self._ung_local += 1
+
     @property
     def out_of_range(self):
         return self._oor.value if self._oor is not None else self._oor_local
+
+    @property
+    def ungrounded_picks(self):
+        return self._ung.value if self._ung is not None else self._ung_local
 
     # The policy bodies below index these as plain sequences, so the shared and
     # unshared cases read identically and cannot drift apart.
@@ -433,19 +452,42 @@ class Router:
             i = min(range(self.n), key=lambda k: self.inflight[k])
         elif policy == "slo_packing":
             feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
-            i = (max(feas, key=lambda k: self.inflight[k]) if feas
-                 else min(range(self.n), key=lambda k: self.inflight[k]))
+            if feas:
+                i = max(feas, key=lambda k: self._inflight[k])
+            else:
+                # This fallback was already sound - balance load when the curve
+                # cannot say which endpoint is safe - but it is still a pick
+                # made without grounded information, so it is counted.
+                self._note_ungrounded()
+                i = min(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_greedy":
-            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo] \
-                   or list(range(self.n))
-            i = min(feas, key=self._jtok)
+            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
+            if feas:
+                i = min(feas, key=self._jtok)
+            else:
+                # No endpoint has curve data for its current concurrency. The
+                # old code did `or list(range(self.n))` and then min() by
+                # _jtok, which is +inf for every out-of-range endpoint - so
+                # min() returned the FIRST index and the policy silently
+                # degraded to "always endpoint 0" while still being reported
+                # as energy-aware. Without energy information the defensible
+                # action is to balance load, which is what least_loaded does.
+                self._note_ungrounded()
+                i = min(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_consolidate":
             # prefer an already-busy endpoint of the most efficient type, and
             # only wake an idle one when no busy endpoint is SLO-feasible
             feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
-            busy = [k for k in feas if self.inflight[k] > 0]
-            pool = busy or feas or list(range(self.n))
-            i = min(pool, key=lambda k: (self._jtok(k), -self.inflight[k]))
+            busy = [k for k in feas if self._inflight[k] > 0]
+            pool = busy or feas
+            if pool:
+                i = min(pool, key=lambda k: (self._jtok(k), -self._inflight[k]))
+            else:
+                # Same defect as energy_greedy: the old `or list(range(self.n))`
+                # made every candidate's key (+inf, ...) so the tuple compare
+                # fell through to index order.
+                self._note_ungrounded()
+                i = min(range(self.n), key=lambda k: self._inflight[k])
         else:
             raise SystemExit("unknown policy " + policy)
         if self._was_idle[i]:
@@ -781,6 +823,11 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         # this cell were not grounded in measurement, so the cell cannot
         # support a policy claim however clean its energy numbers look.
         "router_out_of_range": router.out_of_range,
+        # Picks where no endpoint had curve data. Unlike the raw lookup
+        # count above, this one can invalidate a policy claim.
+        "router_ungrounded_picks": router.ungrounded_picks,
+        "router_ungrounded_frac": (router.ungrounded_picks / completed
+                                   if completed else None),
         "router_curve_max_concurrency": {
             t: (c["levels"][-1] if c.get("levels") else None)
             for t, c in curves.items()},
@@ -878,13 +925,18 @@ def main():
               + " req/s  fidelity " + format(r["rate_fidelity"] * 100, ".1f")
               + "%  send delay p99 " + g("send_delay_p99")
               + "s  TTFT from send p50 " + g("ttft_from_send_p50"), flush=True)
-        if r.get("router_out_of_range"):
-            print("    *** CURVE OUT OF RANGE on %d routing decisions: the "
-                  "energy/latency model was asked about concurrencies the "
-                  "Stage 1 sweep never measured. Those endpoints were treated "
-                  "as infeasible rather than guessed. Extend the curve before "
-                  "making any claim about this policy."
-                  % r["router_out_of_range"], flush=True)
+        if r.get("router_ungrounded_picks"):
+            print("    *** UNGROUNDED ROUTING on %d of %d picks (%.1f%%): no "
+                  "endpoint had curve data for its concurrency, so the policy "
+                  "fell back to load balancing. Above a few percent this is "
+                  "not the policy being measured."
+                  % (r["router_ungrounded_picks"], r["completed"],
+                     (r.get("router_ungrounded_frac") or 0) * 100), flush=True)
+        elif r.get("router_out_of_range"):
+            print("    (curve probed above its measured range %d time(s); "
+                  "those endpoints were excluded as infeasible, which is the "
+                  "intended conservative behaviour, and every pick still had "
+                  "a grounded option)" % r["router_out_of_range"], flush=True)
         if r["client_limited"]:
             print("    *** CLIENT LIMITED: dispatch delay p99 "
                   + g("send_delay_p99") + "s exceeds the "

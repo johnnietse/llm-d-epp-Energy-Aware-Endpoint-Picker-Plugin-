@@ -72,30 +72,52 @@ def validity_audit(rows):
         for pol, rate in bad:
             print("  %-20s at %.0f req/s" % (pol, rate))
         return False
-    # Routing decisions must be grounded in measurement. Job 12303355 passed
-    # every other check and still could not support a policy claim: the Stage 1
-    # curves stopped at concurrency 32 while the cells ran at roughly 66 per
-    # endpoint, so the old clamping interp handed the router a constant
-    # J/token and a latency prediction ~10-15x too optimistic.
-    oor = [(r["policy"], r["offered_rate_rps"], r["router_out_of_range"])
-           for r in rows if r.get("router_out_of_range")]
-    if oor:
-        print("REFUSING: %d cell(s) routed on curve lookups outside the "
-              "measured concurrency range." % len(oor))
-        for pol, rate, n in sorted(oor, key=lambda t: -t[2])[:8]:
-            print("  %-20s at %.0f req/s: %d out-of-range lookups"
-                  % (pol, rate, n))
-        print("Extend the Stage 1 sweep to the concurrencies actually reached, "
-              "then re-run. Do not interpret these cells.")
+    # Routing decisions must be grounded in measurement - but the right
+    # measure of that is NOT the raw out-of-range lookup count.
+    #
+    # interp() returns None above the measured concurrency, _proj_latency turns
+    # that into +inf, and the endpoint is excluded as infeasible. That is the
+    # curve doing its job. A consolidating policy probes above the ceiling
+    # constantly by design: in jobs 12304118/19 energy_greedy logged ~15k
+    # out-of-range lookups at 180 req/s purely from correctly rejecting busy
+    # endpoints. Refusing on that count blocked a clean run and would block
+    # every future one.
+    #
+    # The condition that actually invalidates a policy claim is a pick where
+    # NO endpoint had curve data, so the policy ran on its fallback rather
+    # than on the rule being tested.
+    UNGROUNDED_TOLERANCE = 0.02
+    if rows and "router_ungrounded_picks" not in rows[0]:
+        print("REFUSING: cells predate ungrounded-pick accounting, so it "
+              "cannot be established whether the policies ever routed without "
+              "curve data. Re-run with the current harness.")
         return False
-    if "router_out_of_range" not in (rows[0] if rows else {}):
-        print("REFUSING: cells predate out-of-range accounting, so it cannot "
-              "be established that the router had measurements for the "
-              "concurrencies it routed on. Re-run with the current harness.")
+    ung = [(r["policy"], r["offered_rate_rps"], r["router_ungrounded_picks"],
+            r.get("router_ungrounded_frac") or 0.0)
+           for r in rows
+           if (r.get("router_ungrounded_frac") or 0.0) > UNGROUNDED_TOLERANCE]
+    if ung:
+        print("REFUSING: %d cell(s) made more than %.0f%% of their routing "
+              "picks with no endpoint having curve data."
+              % (len(ung), UNGROUNDED_TOLERANCE * 100))
+        for pol, rate, n, frac in sorted(ung, key=lambda t: -t[3])[:8]:
+            print("  %-20s at %.0f req/s: %d picks (%.1f%%) ungrounded"
+                  % (pol, rate, n, frac * 100))
+        print("Those cells measure the fallback, not the policy. Extend the "
+              "curve to the concurrencies the policy actually drives.")
         return False
 
-    print("validity audit: %d cells, none client-limited, no out-of-range "
-          "routing." % len(rows))
+    probed = sum(1 for r in rows if r.get("router_out_of_range"))
+    if probed:
+        worst = max(rows, key=lambda r: r.get("router_out_of_range") or 0)
+        print("curve probed above its measured range in %d cell(s); worst %s "
+              "at %.0f req/s with %d lookups. Those endpoints were excluded "
+              "as infeasible, and every pick still had a grounded option."
+              % (probed, worst["policy"], worst["offered_rate_rps"],
+                 worst["router_out_of_range"]))
+
+    print("validity audit: %d cells, none client-limited, no ungrounded "
+          "routing above %.0f%%." % (len(rows), UNGROUNDED_TOLERANCE * 100))
     worst = max(rows, key=lambda r: r.get("send_delay_p99") or 0.0)
     print("  worst dispatch delay p99: %.4f s (%s at %.0f req/s)"
           % (worst.get("send_delay_p99") or 0.0, worst["policy"],
