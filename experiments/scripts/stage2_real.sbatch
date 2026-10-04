@@ -40,7 +40,7 @@
 #   sbatch -w frnt154 --gres=gpu:a100:8    stage2_real.sbatch     # 8x A100
 #   sbatch -w frnt140 --gres=gpu:a30:2     stage2_real.sbatch     # 2x A30 (smoke)
 #
-# Environment knobs: MODEL, RATES, DURATION, SLO, POLICIES, MAX_GPUS, WORKERS,
+# Environment knobs: MODEL, RATES, DURATION, SLO, POLICIES, MAX_GPUS, WORKERS, SEED,
 #                    PEAK_RPS, CALIBRATE
 #
 # NOTE: do NOT add --disable-log-requests to the vllm serve line. vLLM 0.30.0
@@ -68,6 +68,12 @@ export HF_HOME="${HF_HOME:-$ROOT/.hf}"
 MODEL="${MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 # Cell length in seconds. Defined here, before anything echoes it.
 DURATION="${DURATION:-60}"
+# Arrival-process seed. The rejected verdict from job 12303355 rested on a
+# sub-percent latency difference with one trial per cell and no confidence
+# interval, so repeat trials under different seeds are mandatory before any
+# policy ordering is reported. make_prompt() derives prompt length from
+# (seed, request index), so a seed now genuinely reproduces a workload.
+SEED="${SEED:-7}"
 # Load-generator processes. 0 = let the harness choose from core count.
 # One asyncio process was measured at ~115 req/s on this node (job
 # 12303350), below the SLO knee, so the generator has to shard.
@@ -101,7 +107,7 @@ fi
 # ---------------------------------------------------------------- provenance
 {
   echo "node=$(hostname) job=$SLURM_JOB_ID"
-  echo "model=$MODEL cell_window_s=$DURATION policies=$POLICIES generator_workers=$WORKERS"
+  echo "model=$MODEL cell_window_s=$DURATION policies=$POLICIES generator_workers=$WORKERS seed=$SEED"
   nvidia-smi --query-gpu=index,uuid,name,driver_version,power.limit,power.min_limit,power.max_limit,memory.total,persistence_mode --format=csv
   echo "kernel=$(uname -r)"
   echo "rm_profiling_admin_only=$(grep -oE 'RmProfilingAdminOnly: [0-9]+' /proc/driver/nvidia/params 2>/dev/null | awk '{print $2}' || echo NA)"
@@ -321,7 +327,7 @@ for rate in "${RATE_ARR[@]}"; do
       --endpoint-types "$TYPES" \
       $CURVE_ARGS \
       --policies "$POLICIES" \
-      --rate "$rate" --requests "$n_req" --slo "$SLO" --workers "$WORKERS" --scratch "$RUN" \
+      --rate "$rate" --requests "$n_req" --slo "$SLO" --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
       --out "$RUN/policies-rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
 done
 
@@ -352,7 +358,7 @@ if [ -n "${CALIBRATE:-}" ]; then
   exit 0
 fi
 echo "=========== Pass A-control: counter-only at ${CTRL_RATE} req/s ==========="
-env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO"     --workers "$WORKERS" --scratch "$RUN"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
+env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO"     --workers "$WORKERS" --scratch "$RUN" --seed "$SEED"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
 
 echo "--- perturbation check: full telemetry vs counter-only ---"
 python3 "$ROOT/scripts/perturbation_check.py"   "$RUN/policies-rate${CTRL_RATE}.json" "$RUN/control-counteronly.json"   2>&1 | tee -a "$RUN/harness.log"
