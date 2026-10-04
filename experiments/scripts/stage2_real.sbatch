@@ -234,28 +234,72 @@ print(','.join(f'{p*f:.1f}' for f in (0.4,0.7,1.0,1.3,1.6)))" 2>/dev/null || ech
 echo "load levels: $RATES req/s"
 
 TYPES="$(python3 -c "print(','.join(['$GPU_NAME']*$NGPU))")"
-CURVE_ARGS=""
-# Two bugs lived here and both were caught by the smoke run (job 12303325):
-#   1. the pairs were passed WITHOUT the --curves flag, so argparse rejected
-#      them as positional and Pass A failed at every load level;
-#   2. several h1.csv files share a GPU type name, including the 7B run, so the
-#      last one won and the router would have been handed the 7B curve while
-#      serving 1.5B. Now the curve must match the model actually being served.
-for c in "$ROOT"/results/h1-*/h1.csv; do
-  [ -f "$c" ] || continue
-  inst="$(dirname "$c")/instruments.txt"
-  [ -f "$inst" ] || continue
-  # only curves measured with the SAME model we are serving
-  grep -q "model=$MODEL" "$inst" || continue
-  n="$(grep -m1 -oE 'NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,]*|NVIDIA L40S|Quadro RTX 8000|Tesla V100[^,]*'         "$inst" 2>/dev/null | tr ' ' '_')"
-  [ -n "$n" ] || continue
-  # first match per type wins, so a later duplicate cannot silently replace it
-  case " $CURVE_ARGS " in
-    *"=$n "*) echo "  skipping duplicate curve for $n: $c" ;;
-    *) CURVE_ARGS="$CURVE_ARGS $c=$n"; echo "  curve for $n: $c" ;;
-  esac
-done
-[ -n "$CURVE_ARGS" ] && CURVE_ARGS="--curves $CURVE_ARGS"
+
+# Curve selection. Three bugs have lived here.
+#
+#   1. The pairs were passed WITHOUT the --curves flag, so argparse took them
+#      as positional arguments and Pass A failed at every load level (job
+#      12303325).
+#   2. Several h1.csv files share a GPU type name, including the 7B sweep, so
+#      the last match won and the router could be handed a 7B energy curve
+#      while serving 1.5B.
+#   3. "First match per type wins" plus a lexically sorted glob meant the
+#      OLDEST curve won, which is the WORST one. The A30 curve in use was
+#      h1-12302437 with levels=1,4 - two points - while h1-12303200 has six.
+#      And an extended curve measured to concurrency 128 would have been
+#      discarded as a duplicate of the 32-level one it was meant to replace,
+#      silently leaving the router extrapolating exactly as before.
+#
+# So selection is now explicit: among curves measured with the SAME model and
+# matching the GPU type, take the one whose top concurrency level is highest,
+# breaking ties on the newest job id. Coverage is what matters, because a
+# lookup above the top measured level now returns no answer at all.
+CURVE_ARGS="$(python3 - "$ROOT" "$MODEL" <<'PYSEL'
+import glob
+import os
+import re
+import sys
+
+root, model = sys.argv[1], sys.argv[2]
+TYPES = (r"NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,\s]*|NVIDIA L40S"
+         r"|Quadro RTX 8000|Tesla V100[^,\s]*")
+
+best = {}
+for csv_path in glob.glob(os.path.join(root, "results", "h1-*", "h1.csv")):
+    run_dir = os.path.dirname(csv_path)
+    try:
+        text = open(os.path.join(run_dir, "instruments.txt")).read()
+    except OSError:
+        continue
+    if "model=" + model not in text:
+        continue
+    gpu = re.search(TYPES, text)
+    if not gpu:
+        continue
+    levels = re.search(r"levels=([0-9,]+)", text)
+    if not levels:
+        continue
+    try:
+        tops = max(int(x) for x in levels.group(1).split(",") if x)
+    except ValueError:
+        continue
+    jobid = re.search(r"h1-(\d+)", run_dir)
+    jobid = int(jobid.group(1)) if jobid else 0
+    name = gpu.group(0).replace(" ", "_")
+    key = (tops, jobid)
+    if name not in best or key > best[name][0]:
+        best[name] = (key, csv_path, levels.group(1))
+
+args = []
+for name in sorted(best):
+    (tops, jobid), csv_path, levels = best[name]
+    print("  curve for %s: %s (levels=%s, top concurrency %d)"
+          % (name, csv_path, levels, tops), file=sys.stderr)
+    args.append("%s=%s" % (csv_path, name))
+if args:
+    print("--curves " + " ".join(args))
+PYSEL
+)"
 echo "curves passed to the router: $CURVE_ARGS"
 
 # ------------------------------------------------------------------- the runs

@@ -29,13 +29,46 @@ SECONDS_PER_LEVEL=${SECONDS_PER_LEVEL:-75}
 TRIALS=${TRIALS:-5}
 export HF_HOME=${HF_HOME:-$ROOT/.hf}
 
-# python with pynvml (module python has it, /usr/bin/python3 does not)
+# Python that can actually READ THE ENERGY COUNTER, not merely import pynvml.
+#
+# This probe used to be `python3 -c "import pynvml"`. pynvml is pip-installed
+# under ~/.local for the CVMFS python, so the import succeeds there even when
+# the driver library is not on that interpreter's loader path - and nvmlInit()
+# then dies with "libnvidia-ml.so.1: cannot open shared object file". Job
+# 12303357 was lost exactly that way, after the probe had reported success.
+#
+# So the probe now exercises the whole path we depend on: import, nvmlInit,
+# and one read of the total-energy counter. If the host pythons cannot do it,
+# fall back to the container python, where apptainer --nv injects the driver
+# libraries. PY is a command PREFIX so either case is invoked the same way.
+pynvml_works() {  # $@ = candidate command prefix
+  "$@" - <<'PROBE' >/dev/null 2>&1
+import pynvml
+pynvml.nvmlInit()
+pynvml.nvmlDeviceGetTotalEnergyConsumption(pynvml.nvmlDeviceGetHandleByIndex(0))
+PROBE
+}
+
 PY=""
 for cand in "$(command -v python3)" /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/python3; do
   [ -x "$cand" ] || continue
-  "$cand" -c "import pynvml" 2>/dev/null && { PY="$cand"; break; }
+  if pynvml_works "$cand"; then PY="$cand"; break; fi
 done
-[ -n "$PY" ] || { echo "FATAL: no python with pynvml"; exit 1; }
+if [ -z "$PY" ]; then
+  echo "no host python can read the NVML energy counter; trying the container"
+  if pynvml_works env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$ROOT/images/vllm-v0.30.0.sif" python3; then
+    PY="env -u SSL_CERT_FILE $APPTAINER exec --nv $ROOT/images/vllm-v0.30.0.sif python3"
+  fi
+fi
+if [ -z "$PY" ]; then
+  echo "FATAL: no python can read the NVML energy counter."
+  echo "An import check is not sufficient here: pynvml imports from ~/.local"
+  echo "even when libnvidia-ml.so.1 is unreachable, which is how job 12303357"
+  echo "failed after its probe passed. Refusing to run a sweep with no"
+  echo "energy instrument."
+  exit 1
+fi
+echo "energy-counter python: $PY"
 
 {
   echo "node=$(hostname) job=$SLURM_JOB_ID"
@@ -56,7 +89,7 @@ done
 } | tee "$RUN/instruments.txt"
 
 # 1. idle power with NO process on the GPU (one of the three idle states H3 needs)
-"$PY" - <<'PY' | tee "$RUN/idle_bare.txt"
+$PY - <<'PY' | tee "$RUN/idle_bare.txt"
 import pynvml as n, time
 n.nvmlInit(); h = n.nvmlDeviceGetHandleByIndex(0)
 e0 = n.nvmlDeviceGetTotalEnergyConsumption(h); t0 = time.time()
@@ -66,7 +99,7 @@ print(f"idle_bare_w={(e1-e0)/1000/(t1-t0):.2f}")
 PY
 
 # 2. background power trace for the whole sweep
-"$PY" $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl" &
+$PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl" &
 EXPORTER=$!
 
 # 3. one vLLM on the GPU
@@ -84,7 +117,7 @@ done
 curl -sf http://127.0.0.1:8100/v1/models >/dev/null || { echo "FATAL: vllm never came up"; tail -20 "$RUN/vllm.log"; kill $EXPORTER; exit 1; }
 
 # 4. the sweep
-"$PY" $ROOT/scripts/h1_sweep.py \
+$PY $ROOT/scripts/h1_sweep.py \
   --base http://127.0.0.1:8100 --model "$MODEL" --gpu 0 \
   --levels "$LEVELS" --seconds "$SECONDS_PER_LEVEL" --warmup 15 \
   --max-tokens 128 --trials "$TRIALS" --prefix-levels 8 \
@@ -96,5 +129,5 @@ sleep 20
 kill $EXPORTER 2>/dev/null
 
 # 6. fit
-"$PY" $ROOT/scripts/h1_fit.py "$RUN/h1.csv" 2>&1 | tee "$RUN/fit.txt"
+$PY $ROOT/scripts/h1_fit.py "$RUN/h1.csv" 2>&1 | tee "$RUN/fit.txt"
 echo "results in $RUN"
