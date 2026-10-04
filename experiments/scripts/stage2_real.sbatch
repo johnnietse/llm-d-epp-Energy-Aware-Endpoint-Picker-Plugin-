@@ -2,8 +2,12 @@
 #SBATCH --job-name=stage2-real
 #SBATCH --account=def-hpcg1971_gpu
 #SBATCH --exclusive
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=240G
+# No --cpus-per-task or fixed --mem. --exclusive already grants the whole
+# node, so naming frnt155's spec (32 CPUs, 240G) only made the job
+# unschedulable anywhere else: every 4-GPU rtx6000 node has 20 CPUs and
+# 192G, so such a submission sits in PENDING forever and Slurm does not
+# say why. --mem=0 means all memory on whatever node we land on.
+#SBATCH --mem=0
 #SBATCH --time=05:00:00
 #SBATCH --output=%x-%j-%N.out
 #
