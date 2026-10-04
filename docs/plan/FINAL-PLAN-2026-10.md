@@ -970,6 +970,88 @@ exactly the kind of claim a reviewer checks.
 
 ---
 
+### 12.5 STAGE 2 RESULT, measured 2026-10-04
+
+Jobs **12304137** (seed 7) and **12304138** (seed 11), 4x Quadro RTX 6000,
+Qwen2.5-1.5B-Instruct, 60 s cells, 12 generator workers, routing grounded in
+the c=256 curve from job 12304133. 38 usable cells after excluding 6 in which
+every policy was inactive. Zero client-limited cells, worst dispatch delay p99
+0.0060 s, telemetry perturbation +0.98% and +0.40%.
+
+At 120 req/s, means across both trials:
+
+| policy | J/req | SLO% | SLO-goodput/J | p95 / SLO |
+|---|---|---|---|---|
+| **round_robin** | **6.71** | **100.0** | **0.1491** | 0.947 |
+| least_loaded | 7.18 | 100.0 | 0.1392 | 0.939 |
+| slo_packing | 7.45 | 50.0 | 0.0670 | 1.012 |
+| energy_greedy | 7.46 | 56.8 | 0.0762 | 1.012 |
+| energy_consolidate | 7.48 | 55.9 | 0.0747 | 1.013 |
+
+**The three policies that consult the energy curve have no feasible operating
+point at any swept load level.** None reaches 95% SLO attainment anywhere from
+120 to 180 req/s. The two that ignore the curve entirely are both feasible, and
+plain `round_robin` is the best measured policy on SLO-goodput per joule while
+also using the least energy per request.
+
+The mechanism is in the last column. At the lowest swept load the consolidating
+policies already sit at p95 = 1.012-1.013 x SLO, just outside, while
+`round_robin` is at 0.947, inside. Concentrating load to improve J/token pushes
+p95 past the deadline **before the energy saving can be collected**. The
+extended curve shows why this is structural rather than a tuning error: on this
+GPU, p95 first exceeds 2.0 s at concurrency 96, while J/token keeps improving
+all the way to 256. The efficient concurrency and the serviceable concurrency
+do not overlap.
+
+**This is a negative result for energy-aware routing on a homogeneous fleet,
+and it is the honest headline.** It was reproduced across four independent runs
+(two seeds x two submissions) with the ordering identical every time.
+
+What it does **not** establish: that energy-aware replica selection is useless.
+The fleet used here is six identical Turing cards, and the per-type curves
+measured the same day show that is the worst possible setting for the idea -
+see 12.6.
+
+### 12.6 Why the question moves to a heterogeneous fleet
+
+Per-GPU-type curves, all at concurrency 128, same model, same window:
+
+| GPU | req/s | power | J/gen-token | tok/J | p95 |
+|---|---|---|---|---|---|
+| A100-PCIE-40GB | 146.1 | 247.6 W | 0.0132 | 75.5 | 0.904 s |
+| L40S | 99.9 | 314.5 W | 0.0246 | 40.6 | 1.503 s |
+| A30 | 94.8 | 163.8 W | 0.0135 | 74.1 | 1.401 s |
+| RTX 8000 | 54.6 | 221.6 W | 0.0318 | 31.5 | 2.363 s |
+| **RTX 6000** | 52.2 | 235.3 W | **0.0353** | **28.4** | 2.511 s |
+| L4 | 45.2 | 71.9 W | **0.0124** | **80.5** | 2.899 s |
+
+Two facts reframe the Stage 2 result:
+
+1. **Every Stage 2 measurement so far used the least efficient GPU in the
+   fleet.** RTX 6000 is 2.7x worse on J/token than A100, A30 or L4. A policy
+   choosing *between* replicas has nothing to exploit when all replicas are the
+   same bad card.
+2. **Efficiency and throughput are nearly inverted across types.** L4 is the
+   most efficient per joule and the slowest; A100 is the fastest and second
+   most efficient; L40S buys throughput at roughly half A100's efficiency. L4
+   cannot hold a 2 s p95 past concurrency 32, where A100 is still at 0.904 s.
+   That is a real trade-off for a router to arbitrate, and it does not exist
+   within one GPU type.
+
+**Caveat that must travel with the L4 and L40S rows:** the container's torch
+2.13.0+cu130 was compiled for sm_75, sm_80, sm_86, sm_90, sm_100 and sm_120
+(job 12304136). `sm_89` is absent, so Ada cards run sm_86 Ampere cubins through
+minor-version compatibility rather than native kernels. The L4's
+best-in-fleet efficiency is therefore probably understated.
+
+**V100 is excluded, not missing.** `sm_70` is absent from the same build, so
+job 12304130 died with `cudaErrorNoKernelImageForDevice`. A CUDA 12 container
+would run it but would produce numbers from a different kernel set and vLLM
+build, so they would not be comparable to the rest. Exclusion is the correct
+methodological choice here rather than a convenience.
+
+---
+
 ## 13. Progress tracker
 
 Updated 2026-10-04. One line per item so nothing silently drops.
@@ -1012,9 +1094,11 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 30b | Generator CPU cost recorded per cell (quantifies N7) | **done** |
 | 31 | Stage 2 real, verified load levels | **RUN, VERDICT REJECTED** job 12303355. Apparatus sound (25 cells, 0 client-limited, dispatch p99 0.0051 s, perturbation -0.14%) but routing was ungrounded (N10) and the apparent +9.9% round_robin win was an SLO-boundary artifact: p50 1.946/1.956/1.968 s against a 2.0 s SLO gave 99.0/94.3/90.0% attainment |
 | 31a | Extend RTX 6000 curve to concurrency 128 | **running** job 12303358 on `frnt153` (12303357 was lost to N12) |
-| 31b | Re-run Stage 2 with the grounded curve | **blocked** on 31a |
-| 31c | Repeat trials + confidence intervals at the knee | **open** - one trial per cell cannot support a sub-percent latency ranking |
-| 31d | Heterogeneous-fleet Stage 2 (the actual research question) | **open** - see status note |
+| 31b | Re-run Stage 2 with the grounded curve | **DONE 2026-10-04**, jobs 12304137/12304138. Verdict: **GATE FAILED informatively** - every curve-using policy is infeasible, `round_robin` wins. See 12.5 |
+| 31c | Repeat trials | **done** - two seeds x two submissions, four runs, ordering identical in all. Formal CIs still to compute for the paper |
+| 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.6); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
+| 31e | Per-GPU-type curves to c=128+ | **done** - A100, A30, L4, L40S, RTX 8000, RTX 6000 (to c=256). V100 excluded, sm_70 absent from the container build |
+| 31f | In-node heterogeneity via clock control | **closed - NOT POSSIBLE.** `-pl` and `--lock-gpu-clocks` denied; `--lock-memory-clocks` and `-ac` accept and do nothing (job 12304132: clamped GPU within 1% of an untouched control, reverted run had the lowest clock of the four) |
 | 32 | Locate the SLO knee | **partly done** - NOT between 67.8 and 118.6 (that reading was a client artifact, retracted). With a verified generator: 100% through 220.3 req/s, 96.2% at 271.2. Knee is at or beyond 271 req/s; needs a sweep past the current top rate |
 | 33 | Report CPU/DRAM energy with the generator-contamination caveat, or move the generator off-node | **open** - see threat N7 |
 

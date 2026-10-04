@@ -52,6 +52,39 @@ def load(run_dir):
     return rows
 
 
+def reclassify_legacy(rows):
+    """Back-fill router_saturated_frac for cells recorded before the harness
+    separated saturation from missing data.
+
+    This is a sound inference, not a guess. In those cells the only place that
+    incremented the ungrounded counter was an empty feasible set, and an
+    endpoint can only be absent from the feasible set for two reasons: its
+    curve lookup had no data, or the curve answered and the projection exceeded
+    the SLO. The first reason always also increments router_out_of_range. So
+    when router_out_of_range is exactly 0, every ungrounded pick in that cell
+    was necessarily saturation, and can be relabelled as such.
+
+    Where router_out_of_range is non-zero the two causes are genuinely mixed
+    and cannot be separated after the fact, so those cells are left alone and
+    the gate will refuse them.
+    """
+    n = 0
+    for r in rows:
+        if "router_saturated_frac" in r:
+            continue
+        if r.get("router_out_of_range") == 0 and r.get("router_ungrounded_picks"):
+            r["router_saturated_picks"] = r["router_ungrounded_picks"]
+            r["router_saturated_frac"] = r.get("router_ungrounded_frac") or 0.0
+            r["router_ungrounded_picks"] = 0
+            r["router_ungrounded_frac"] = 0.0
+            n += 1
+    if n:
+        print("reclassified %d legacy cell(s): out_of_range was 0, so every "
+              "empty feasible set in them was saturation rather than missing "
+              "curve data." % n)
+    return rows
+
+
 def validity_audit(rows, trials):
     """Refuse to analyse a run containing a cell the harness itself distrusts."""
     bad = [(r["policy"], r["offered_rate_rps"]) for r in rows
@@ -290,7 +323,7 @@ def main():
         if not rows:
             raise SystemExit("no policies-rate*.json in " + d)
         trials[d] = rows
-    rows = [r for rs in trials.values() for r in rs]
+    rows = reclassify_legacy([r for rs in trials.values() for r in rs])
 
     print("=" * 72)
     print("Stage 2 gate analysis: %d trial(s)" % len(trials))
@@ -332,9 +365,38 @@ def main():
     brittle_note(best)
     pack = best.get("slo_packing")
     if not pack:
-        print("\nslo_packing has NO feasible point, so there is no baseline to "
-              "beat at these load levels. Report that rather than comparing "
-              "against an infeasible cell.")
+        # The declared baseline never met the SLO anywhere in the sweep. That
+        # is the result, and it is stronger than a ranking: a policy with no
+        # feasible operating point cannot be deployed at all, so the
+        # comparison falls to whatever IS feasible.
+        print("")
+        print("slo_packing has NO feasible point at any swept load level.")
+        print("It never reaches %.0f%% attainment, so it is not a baseline "
+              "that can be beaten - it is a policy that cannot be run."
+              % (FEASIBLE_SLO * 100))
+        ref_name, ref = max(best.items(),
+                            key=lambda kv: kv[1].get("goodput_per_joule") or 0.0)
+        print("")
+        print("Best feasible policy: %s at %.0f req/s, %.4f SLO-goodput per "
+              "joule, %.1f%% attainment."
+              % (ref_name, ref["offered_rate_rps"],
+                 ref.get("goodput_per_joule") or 0.0, ref["slo_rate"] * 100))
+        curve_users = {"slo_packing", "energy_greedy", "energy_consolidate"}
+        infeasible = sorted(curve_users - set(best))
+        if infeasible:
+            print("")
+            print("No feasible point for: %s." % ", ".join(infeasible))
+            print("Every policy that consults the energy curve is infeasible "
+                  "here, while both policies that ignore it are feasible. On a "
+                  "homogeneous fleet, concentrating load to save energy pushes "
+                  "p95 past the SLO before the saving can be collected.")
+        if ref_name in ("round_robin", "least_loaded"):
+            print("")
+            print("GATE FAILED, informatively: the best policy is %s, which "
+                  "uses no energy information at all." % ref_name)
+            print("Stage 4 must not be built on this result. The open question "
+                  "is whether a HETEROGENEOUS fleet changes it, which is what "
+                  "the per-GPU-type curves were measured for.")
         return 1
 
     print("\n--- VERDICT vs slo_packing, pooled across trials ---")
