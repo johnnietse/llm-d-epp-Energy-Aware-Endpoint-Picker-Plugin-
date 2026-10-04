@@ -680,7 +680,10 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
 | 2026-10-03 | **Verification debt cleared**: 11 of 13 works fetched | four of our own claims were wrong (2604.04745 idle figures, 2604.09048 A30 attribution, 2609.23085 "~23%", GreenServ "LinUCB") plus two usage errors on 2312.02741 |
-| 2026-10-03 | **Per-request attribution may not be ours to claim** | TokenPowerBench (AAAI'26) attributes energy to prefill/decode per request; read it before Stage 3 and drop the claim if sound |
+| 2026-10-03 | **Per-request attribution claim SURVIVES**, sharpened against TokenPowerBench | they do phase attribution by tagging samples with the active stage; per-request under multiplexing is explicitly not addressed |
+| 2026-10-03 | **RAPL added** for CPU+DRAM energy | TokenPowerBench pairs it with NVML; we were GPU-package only. May be root-only per CVE-2020-8694 |
+| 2026-10-03 | Energy labelled **GPU-package** on all published results | MLPerf comparability |
+| 2026-10-03 | **Per-request attribution - superseded by the row above** | TokenPowerBench (AAAI'26) attributes energy to prefill/decode per request; read it before Stage 3 and drop the claim if sound |
 | 2026-10-03 | 2312.02741 criticises **nvidia-smi polling, not the energy counter** | so it supports our counter-over-polling choice rather than threatening it; also it is not an SC24 paper, as we had been asserting |
 | 2026-10-03 | **Reference list consolidated with verification status** | 7 fetched, 6 search-sourced, 2 inherited-unverified; 2312.02741 and 2604.09048 are load-bearing and unverified, which is exactly how 2604.04745's wrong figures survived for weeks |
 | 2026-10-03 | Metric set **grounded in literature**; harness switched to streaming | TTFT and TPOT were unmeasurable with stream:false; ITL distribution added per arXiv 2507.09019's metric-design anti-pattern |
@@ -751,30 +754,58 @@ because this project has already been bitten three times.
 | **2604.04745** | Lei, Fernandez, Kypriotis, Skarlatos, Strubell, Sherry, Vosler, "The Energy Cost of Execution-Idle in GPU Clusters" (2026-04-06) | FETCHED, **previously misquoted by us** | Execution-idle is **19.7% of execution time, 10.7% of energy**. Our notes had said "53% to 96%", which is **not in the paper**. Our 27% idle floor is not corroborated by it. |
 | **2604.09048** | Fadel Argerich, Fürst, Patiño-Martínez, "Watt Counts: Energy-Aware Benchmark for Sustainable LLM Inference on Heterogeneous GPU Architectures" (2026-04-10) | FETCHED, **previously misattributed by us** | **50 LLMs across 10 NVIDIA GPUs**, batch and server scenarios; "optimal hardware choices vary significantly across models and deployment scenarios". It does **NOT** mention the A30 or claim any GPU is unusually efficient for small/medium models - our note claiming that is **withdrawn**. The paper is still highly relevant, as independent support for our heterogeneity and A30-dominance results. |
 
-#### 12.3.1 TokenPowerBench overlaps two of our positions
+#### 12.3.1 TokenPowerBench, read 2026-10-03: our attribution claim survives, sharpened
 
-Fetched 2026-10-03. Two of its features bear directly on claims we were making.
+Fetched the full paper to settle whether it had already solved what plan 13.4
+and validity defect S4 call our possible methodological contribution.
 
-**It may remove our "per-request attribution" contribution.** Plan 13.4 (and the
-validity review's S4) treated per-request energy attribution under continuous
-batching as an unsolved problem and a possible methodological contribution.
-TokenPowerBench ships a "phase-aligned metrics pipeline" that "attributes
-energy to the prefill and decode stages of **every request**". If that is a
-sound solution, our contribution there is gone and we should cite them instead
-of claiming it. **Action: read the full paper and establish how the attribution
-works and what it assumes.** Until then, do not claim per-request attribution
-as novel.
+**It has not, and the distinction is now precise.** TokenPowerBench does
+**phase** attribution, not **per-request** attribution. Its mechanism, quoted:
+*"Each power sample is tagged with the stage that is active at that moment"*,
+then *"integrate these tagged samples to obtain two clear numbers: energy
+consumed during prefill and energy consumed during decode."* Under continuous
+batching many requests are in flight at once, so a stage tag yields aggregate
+prefill-versus-decode energy for the **server**, not a figure for an individual
+request. The paper is explicit about the limits: it does not address
+*"request attribution precision under heavy multiplexing"*, gives no
+synchronisation mechanism, and states no sampling rate.
 
-**It may give us a system-level number without a wall meter.** Its measurement
-layer captures power "at GPU, **node, and system levels** without specialised
-hardware". That is exactly the gap 5.1 identifies between our GPU-package
-energy and MLPerf Power's wall measurement. If their node/system method works
-unprivileged, it could close that gap without the CAC IPMI grant. **Action:
-find their method; if viable, adopt it and reduce the IPMI ask to a
-cross-check.**
+So our claim stands, but it must be stated against theirs rather than in a
+vacuum:
 
-Both actions are reading tasks, not experiments, and both change what we claim.
-Priority: high, before Stage 3 pre-registration.
+> Phase-level energy attribution exists (TokenPowerBench). **Per-request**
+> attribution under continuous batching, where many requests overlap within a
+> single power sample, does not. That is the open problem, and the scorer needs
+> exactly that quantity because marginal energy is an attribution question.
+
+That is a narrower and better-defended claim than "per-request attribution is
+unsolved", and it now cites the nearest prior work instead of ignoring it.
+
+**Their "system level without specialised hardware" is IPMI, so there is no
+shortcut.** Their stack is: GPU via *"NVML/DCGM"*, CPU and DRAM via *"Intel
+RAPL"*, full node via *"IPMI or a rack-mounted PDU"*. The claim means
+"vendor-native telemetry instead of a wall meter", which is precisely the IPMI
+route we had already identified. **The CAC IPMI ask is not reducible** - it
+remains the only route to a node-level figure here.
+
+**But RAPL is a free coverage gain we had missed, and it is now instrumented.**
+We were measuring GPU-package energy only. Intel/AMD RAPL exposes CPU and DRAM
+energy through `/sys/class/powercap/*/energy_uj`, needing no privilege in
+principle. Added to `telemetry_check.sh` as a recorded-not-required probe and
+to `policy_harness.py` as a per-cell measurement.
+
+One caveat, recorded in advance so a denial is not a surprise:
+**CVE-2020-8694 (Platypus)** caused many distributions to restrict `energy_uj`
+to root, so this may read as DENIED on Rocky 8. If it is readable, our energy
+coverage goes from GPU-package to GPU + CPU + DRAM, which is materially closer
+to a system figure. If it is denied, that is one more entry in the
+permission-inhomogeneity finding.
+
+**Also now instrumented, from the 5.1 gap list:** cache hit rate and queue
+depth, scraped from each vLLM server's own `/metrics`
+(`gpu_prefix_cache_hit_rate`, `gpu_cache_usage_perc`, `num_requests_running`,
+`num_requests_waiting`, token counters). Those close two items of the
+2609.05565 reporting set that no GPU tool can supply.
 
 ### 12.4 Measurement methodology
 
@@ -818,7 +849,43 @@ criticises). Every one of those came from carrying a note forward without
 fetching the record. The lesson is cheap to state and was expensive to learn:
 **fetch before citing, every time.**
 
-## 13. One-line status
+## 13. Progress tracker
+
+Updated 2026-10-03. One line per item so nothing silently drops.
+
+| # | Item | State |
+|---|---|---|
+| 1 | Measurement apparatus + protocol | **done**, validated |
+| 2 | Stage 0 code rescope to `legacy/` | **done** `baef80d` |
+| 3 | Stage 1: RTX 6000 / A30 / L4 at 1.5B, 7B on same die | **done** `f49a179` |
+| 4 | Modelled gate, then retired | **done** `42bd624`, superseded by measured Stage 2 |
+| 5 | Stage 2 harness, measured, 5 policies | **written** `c581f3a`, not yet run |
+| 6 | Mandatory telemetry, two passes + fail-fast gate | **done** `e7738ad` |
+| 7 | Telemetry-overhead control arm | **done** `a7b4f17` |
+| 8 | Counter characterisation (closes S2) | **written** `0bce8f6`, not yet run |
+| 9 | Metric set grounded in literature; streaming TTFT/TPOT/ITL | **done** `610179e` |
+| 10 | Reference list with verification status | **done** `c0c7f43` |
+| 11 | Verification debt cleared (11/13 fetched) | **done** `f8c45bb`, 4 own claims corrected |
+| 12 | TokenPowerBench read; attribution claim sharpened | **done**, see 12.3.1 |
+| 13 | RAPL (CPU+DRAM) probe and per-cell measurement | **done**, pending a node to test on |
+| 14 | Cache hit rate + queue depth from vLLM `/metrics` | **done**, pending a run |
+| 15 | GPU-package energy labelling on all published results | **done** |
+| 16 | Verify 2605.23057 and 2603.04445 (framing-only) | **open**, low priority |
+| 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **open** |
+| 18 | Confirm MLPerf PTDaemon / 1% AC figures in the full paper | **open** |
+| 19 | Run: counter characterisation | **queued**, needs cluster login |
+| 20 | Run: Stage 2 smoke, 2 GPU on `frnt140` | **queued**, needs cluster login |
+| 21 | Run: Stage 2 real, 8 GPU on `frnt155` | **queued**, after the smoke run |
+| 22 | Stage 3 pre-registration | **blocked** on Stage 2 result |
+| 23 | Stage 4 scorer, only for a rule Stage 2 proved | **blocked** on Stage 2 |
+| 24 | CAC request (7 asks incl. IPMI, power limit) | **drafted, unsent** - user's call |
+| 25 | Rotate two exposed CAC passwords | **open** - user action |
+| 26 | A100 / L40S / RTX 8000 / V100 sweeps | **optional**, hardware available |
+
+Blocking path: 19-21 then 22. Everything else is either done or not on the
+critical path.
+
+## 14. One-line status
 
 Measurement apparatus: **sound and reproducible.** Stage 1: **complete, four
 configurations.** Topic: **still open, window narrowing.** Claim: **narrow but

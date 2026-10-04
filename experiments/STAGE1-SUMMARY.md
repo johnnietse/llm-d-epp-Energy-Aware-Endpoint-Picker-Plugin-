@@ -1,5 +1,12 @@
 # Stage 1 complete: four measured configurations (2026-10-03)
 
+> **Energy scope.** Every joule figure here is **GPU-package energy**, read from
+> NVML's hardware counter (`nvmlDeviceGetTotalEnergyConsumption`). It
+> **excludes** CPU, DRAM, fans, PSU conversion losses and any other node
+> component. It is therefore a *subset* of system energy and is **not
+> comparable to an MLPerf Power figure**, which is measured at the wall. See
+> `docs/plan/FINAL-PLAN-2026-10.md` section 5.1.
+
 All runs pinned with `-w`, `--exclusive`, 5 trials, trial 1 discarded as a
 warm-up transient, full provenance per run. Every number below is from NVML's
 hardware energy counter on a named physical GPU; nothing is modelled.

@@ -1,5 +1,12 @@
 # H1 on pinned hardware: 5 trials, exclusive node (job 12303088)
 
+> **Energy scope.** Every joule figure here is **GPU-package energy**, read from
+> NVML's hardware counter (`nvmlDeviceGetTotalEnergyConsumption`). It
+> **excludes** CPU, DRAM, fans, PSU conversion losses and any other node
+> component. It is therefore a *subset* of system energy and is **not
+> comparable to an MLPerf Power figure**, which is measured at the wall. See
+> `docs/plan/FINAL-PLAN-2026-10.md` section 5.1.
+
 Supersedes `../h1-2026-10-03/` (job 12302438), which ran 2 trials on a shared
 node whose GPU the scheduler chose. This run closes blocking defects B1
 (hardware varies) and B4 (co-tenancy), and part of B3 (underpowered).

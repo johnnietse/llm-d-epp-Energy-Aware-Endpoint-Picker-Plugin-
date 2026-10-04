@@ -1,5 +1,12 @@
 # Alternative telemetry sources on Frontenac: measured verdicts (2026-10-03)
 
+> **Energy scope.** Every joule figure here is **GPU-package energy**, read from
+> NVML's hardware counter (`nvmlDeviceGetTotalEnergyConsumption`). It
+> **excludes** CPU, DRAM, fans, PSU conversion losses and any other node
+> component. It is therefore a *subset* of system energy and is **not
+> comparable to an MLPerf Power figure**, which is measured at the wall. See
+> `docs/plan/FINAL-PLAN-2026-10.md` section 5.1.
+
 Question: is NVML still the right choice, or would DCGM, CUPTI, Nsight or IPMI
 serve better on this cluster? Answered by running each one.
 

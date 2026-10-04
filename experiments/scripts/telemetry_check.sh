@@ -118,6 +118,31 @@ else
   say "--- RECORDED, not required (kernel-gated) ---"
 fi
 
+# Intel/AMD RAPL: CPU and DRAM energy. Recorded, not required.
+# TokenPowerBench (AAAI'26) uses RAPL for CPU/DRAM alongside NVML/DCGM for GPU
+# and IPMI for the node. We were measuring GPU-package only, so RAPL is a free
+# coverage gain IF readable - note CVE-2020-8694 (Platypus) caused many distros
+# to restrict energy_uj to root, so this may be denied. Either way it is data.
+say ""
+say "--- RAPL (CPU + DRAM energy), recorded not required ---"
+RAPL_OK=0
+if [ -d /sys/class/powercap ]; then
+  for z in /sys/class/powercap/intel-rapl:*/ /sys/class/powercap/amd-rapl:*/; do
+    [ -d "$z" ] || continue
+    nm="$(cat "$z/name" 2>/dev/null || echo unknown)"
+    if uj="$(cat "$z/energy_uj" 2>/dev/null)"; then
+      say "  [readable] $(basename "$z") name=$nm energy_uj=$uj"
+      RAPL_OK=1
+    else
+      say "  [DENIED]   $(basename "$z") name=$nm — energy_uj not readable "
+      say "             (expected: CVE-2020-8694 hardening makes this root-only)"
+    fi
+  done
+  [ "$RAPL_OK" -eq 0 ] && say "  RESULT: RAPL present but unreadable; CPU/DRAM energy unavailable to us"
+else
+  say "  /sys/class/powercap absent — no RAPL on this kernel"
+fi
+
 # Nsight Systems presence and permission (used in the mechanism pass only)
 if [ -x "$NSYS" ]; then
   say "  nsys: $("$NSYS" --version 2>&1 | head -1)"

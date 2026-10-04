@@ -1,5 +1,12 @@
 # Stage 2 gate, first run (2026-10-03)
 
+> **Energy scope.** Every joule figure here is **GPU-package energy**, read from
+> NVML's hardware counter (`nvmlDeviceGetTotalEnergyConsumption`). It
+> **excludes** CPU, DRAM, fans, PSU conversion losses and any other node
+> component. It is therefore a *subset* of system energy and is **not
+> comparable to an MLPerf Power figure**, which is measured at the wall. See
+> `docs/plan/FINAL-PLAN-2026-10.md` section 5.1.
+
 Script: `../scripts/stage2_gate.py`. Inputs: the two measured curves
 (`h1-2026-10-03-frnt140-a30`, `h1-2026-10-03-frnt109`), trials 2+ only.
 

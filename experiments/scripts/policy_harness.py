@@ -122,6 +122,91 @@ class EnergyMeter:
         return {"window_s": dt, "total_energy_j": total, "per_gpu": per_gpu}
 
 
+# -------------------------------------------------- RAPL (CPU + DRAM energy)
+
+def rapl_zones():
+    """Readable RAPL energy counters, if the kernel allows it.
+
+    TokenPowerBench pairs NVML/DCGM (GPU) with RAPL (CPU/DRAM) and IPMI (node).
+    We were GPU-package only, so this is free coverage - but CVE-2020-8694
+    hardening makes energy_uj root-only on many distros, so it may be empty.
+    """
+    import glob
+    zones = []
+    for z in sorted(glob.glob("/sys/class/powercap/*-rapl:*")):
+        ej = z + "/energy_uj"
+        try:
+            with open(ej) as fh:
+                fh.read()
+            name = "unknown"
+            try:
+                with open(z + "/name") as fh:
+                    name = fh.read().strip()
+            except OSError:
+                pass
+            zones.append((z, name))
+        except OSError:
+            continue
+    return zones
+
+
+def rapl_read(zones):
+    out = {}
+    for z, name in zones:
+        try:
+            with open(z + "/energy_uj") as fh:
+                out[z] = (name, int(fh.read().strip()))
+        except OSError:
+            pass
+    return out
+
+
+def rapl_delta(before, after):
+    """Joules per zone. RAPL counters wrap, so a negative delta is dropped
+    rather than guessed at."""
+    res = {}
+    for z, (name, a) in before.items():
+        if z not in after:
+            continue
+        _, b = after[z]
+        if b >= a:
+            res[name] = (b - a) / 1e6
+    return res
+
+
+# ------------------------------------------------- engine-side metrics scrape
+
+def scrape_engine_metrics(endpoints):
+    """Cache hit rate and queue depth from each server's own /metrics.
+
+    Flagged in plan 5.1 as cheap and unmeasured. These are vLLM's counters, not
+    ours, and they answer two reporting-set items (cache hit rate, utilisation)
+    that no GPU tool can provide.
+    """
+    wanted = ("gpu_prefix_cache_hit_rate", "gpu_cache_usage_perc",
+              "num_requests_running", "num_requests_waiting",
+              "prompt_tokens_total", "generation_tokens_total")
+    out = {}
+    for ep in endpoints:
+        vals = {}
+        try:
+            with urllib.request.urlopen("http://" + ep + "/metrics", timeout=10) as r:
+                for line in r.read().decode("utf-8", "replace").splitlines():
+                    if line.startswith("#") or not line.strip():
+                        continue
+                    for w in wanted:
+                        if w in line:
+                            try:
+                                vals.setdefault(w, []).append(float(line.rsplit(" ", 1)[1]))
+                            except (ValueError, IndexError):
+                                pass
+        except Exception as exc:
+            vals["error"] = str(exc)[:80]
+        out[ep] = {k: (sum(v) / len(v) if isinstance(v, list) and v else v)
+                   for k, v in vals.items()}
+    return out
+
+
 # ------------------------------------------------------------- measured curves
 
 def load_curve(path):
@@ -301,6 +386,9 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     errors = 0
     completed = 0
 
+    zones = rapl_zones()
+    rapl_before = rapl_read(zones)
+    engine_before = scrape_engine_metrics(endpoints)
     meter.begin()
     poll_task = asyncio.create_task(meter.poll_forever())
     t_start = time.time()
@@ -326,6 +414,8 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
 
     await asyncio.gather(*(fire(a, k) for k, a in enumerate(arrivals)))
     energy = meter.end()
+    rapl_after = rapl_read(zones)
+    engine_after = scrape_engine_metrics(endpoints)
     poll_task.cancel()
     try:
         await poll_task
@@ -372,6 +462,10 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "activations": router.activations,
         "seed": seed,
         "poll_interval_s": poll_interval,
+        "rapl_energy_j": rapl_delta(rapl_before, rapl_after),
+        "rapl_available": bool(zones),
+        "engine_metrics_before": engine_before,
+        "engine_metrics_after": engine_after,
     }
 
 

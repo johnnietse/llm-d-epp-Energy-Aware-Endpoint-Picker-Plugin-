@@ -1,5 +1,12 @@
 # H1 on A30: the model form is architecture-dependent (job 12303200)
 
+> **Energy scope.** Every joule figure here is **GPU-package energy**, read from
+> NVML's hardware counter (`nvmlDeviceGetTotalEnergyConsumption`). It
+> **excludes** CPU, DRAM, fans, PSU conversion losses and any other node
+> component. It is therefore a *subset* of system energy and is **not
+> comparable to an MLPerf Power figure**, which is measured at the wall. See
+> `docs/plan/FINAL-PLAN-2026-10.md` section 5.1.
+
 Second pinned run, deliberately on the **same driver** as the Quadro RTX 6000
 run so that GPU model is isolated from driver version.
 
