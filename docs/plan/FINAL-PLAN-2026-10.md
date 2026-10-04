@@ -405,6 +405,50 @@ fidelity of the numbers or the speed of the serving path. The only cost is
 wall-clock time on an exclusive node we hold anyway, which is the cheapest
 resource in this project.
 
+#### 6.0.2 Could a better tool replace NVML? No - for energy it is the ceiling
+
+Asked directly, and worth recording because NVML's well-known limitations are
+about a *different* quantity than the one we measure.
+
+| Tool | Measures energy? | Verdict for our use |
+|---|---|---|
+| **NVML** `nvmlDeviceGetTotalEnergyConsumption` | **Yes - hardware counter integrated in GPU firmware** | The only true energy counter. Irreplaceable. |
+| DCGM field 156 | Yes, but it **is** that same counter | Verified: its reading fell between two NVML readings taken either side. A second *reader*, not a second *sensor*. Keep it for the upstream integration surface, not for accuracy. |
+| CUPTI | **No energy counter at all** | Time and kernel counters. A downgrade for joules. |
+| Nsight Systems | Only by sampling NVML power | Strictly worse than reading the counter, plus overhead. |
+| Nsight Compute | No | Kernel counters, serialises execution. |
+| `nvidia-smi` | Yes - it *is* NVML | Same numbers, worse interface. Keep for provenance. |
+| **IPMI** | Yes, node-level, **genuinely independent** | The only real cross-check. Root-only here, hence the CAC ask. |
+
+NVML's real limitations - no instruction counts, cache hit rates, warp
+occupancy or pipeline stalls - are about *explaining* power, not *quantifying
+energy*. Those live in Pass B, where CUPTI and Nsight belong. For joules there
+is nothing better to switch to.
+
+**The limitation that does bite, and was unaddressed.** The counter's own
+sampling behaviour. The SC24 result we cite (arXiv 2312.02741) found A100/H100
+sample power only ~25% of the time, so a short-window counter read can
+quantise. Our 75 s windows should make this immaterial - but we had never
+measured it on our GPUs, which is validity defect **S2**, open since the first
+review. "Should" is not a measurement.
+
+`experiments/scripts/counter_characterisation.sbatch` closes S2 per GPU type:
+
+1. **Counter update period and quantum**, from 1 ms polling - establishes the
+   floor on trustworthy window length.
+2. **Three estimates of the same energy** over identical load: counter delta,
+   integral of instantaneous power, and integral of the firmware-averaged
+   field `NVML_FI_DEV_POWER_AVERAGE` - a less noisy source than
+   `nvmlDeviceGetPowerUsage` that we were not using.
+3. **The same under a 2 Hz square wave**, where instantaneous sampling should
+   alias and the counter should win. If it does, that is direct evidence the
+   protocol picked the right instrument.
+4. **The shortest window agreeing with a 60 s reference to within 1%**, which
+   becomes an enforced protocol minimum rather than a guess.
+
+Run it once per GPU type before Stage 5. It is its own job, so it perturbs
+nothing, and it converts "we trust the counter" into "we measured the counter".
+
 ### 6.1 Thesis and paper split
 
 They fail for opposite reasons, so material is routed rather than duplicated.
@@ -515,7 +559,7 @@ Do **not** run `ars-full` yet. That decision was already made in
 | B3 | Underpowered, one model, one output length, closed-loop | partly closed (5 trials, CIs); model size, output length and open-loop remain |
 | B4 | Co-tenancy | **closed** by `--exclusive` with a recorded guard |
 | S1 | Prefix-cache result backwards | **closed** — metric artifact, resolved |
-| S2 | No sensor characterisation | open; DCGM cross-check available, but it is the same counter |
+| S2 | No sensor characterisation | **addressed**: `counter_characterisation.sbatch` measures update period, quantum, counter-vs-integrated agreement, aliasing under square-wave load, and the minimum trustworthy window, per GPU type. Run before Stage 5. |
 | S3 | Activation cost imprecisely defined | now operational: power at c=1 minus power at c=0 with model resident |
 | S4 | Per-request attribution under batching | open, stated as an assumption |
 | **N1** | **"No privileged control" is partly an artifact of our account** | open. Mitigation: argue from the measured permission non-uniformity that a tenant genuinely cannot rely on privilege. |
@@ -564,6 +608,8 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
+| 2026-10-03 | **NVML confirmed irreplaceable for energy**; its limits are about kernel counters, not joules | DCGM 156 is the same counter; CUPTI/Nsight have no energy counter; IPMI is the only independent sensor |
+| 2026-10-03 | Counter characterisation added to **close defect S2** | the SC24 ~25% sampling result was cited but never tested on our GPUs; also adds the unused firmware-averaged power field |
 | 2026-10-03 | Telemetry overhead **verified, not assumed** | mandatory counter-only control arm per job; >1% difference trims the telemetry rather than caveating the result |
 | 2026-10-03 | All telemetry **mandatory, split into two passes** | every tool used on real hardware every job; profiling perturbs energy, and counters are denied on 13 of 15 nodes, so they cannot share a run with the measurement |
 
