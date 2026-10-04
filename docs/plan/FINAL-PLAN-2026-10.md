@@ -659,6 +659,9 @@ Do **not** run `ars-full` yet. That decision was already made in
 | **N2** | Effect size may be too small to matter | open. This is what Stage 2 exists to settle. |
 | **N4** | **Load generator was not open-loop** | **closed 2026-10-04.** `one_request()` issued blocking urllib through the default asyncio executor, capping in-flight requests at `min(32, cpu_count+4)` = 32 on a 32-core node, so offered load above ~27 req/s was fiction. Job 12303327's entire 8-GPU, 5-policy, 4-load sweep was client-limited and is discarded. Fixed with httpx async streaming; the generator is now gated as an instrument in Pass 0, and every cell records `achieved_rate_rps` and `rate_fidelity`. This is B3's "open-loop remains" clause, discharged. |
 | **N5** | **TTFT was measured after the client's own queue wait** | **closed 2026-10-04.** TTFT was timed inside the worker thread, so it excluded dispatch delay and read 0.028 s while end-to-end p99 was 23 s. The SLO argument leans on TTFT, so the misleading number was the reassuring one. TTFT and latency are now timed from the scheduled arrival; `ttft_from_send` keeps the server-side view and `send_delay` is the gap. |
+| **N10** | **The router extrapolated its energy and latency model** | **closed 2026-10-04.** `interp` clamped above the top measured concurrency level. Stage 1 stopped at 32; job 12303355 ran at ~66 in flight per endpoint. So `_jtok` returned `power(32)/tok_s(32)` = 0.0784 J/token for every endpoint at c >= 32 - all tied, `min()` fell through to index order, and `energy_greedy` was bin-packing by endpoint index with no energy signal. `_proj_latency` predicted 1.99 s at c=42 where measured p95 was 30.97 s, optimistic by 10-15x. `interp` now returns None above the measured range, the router treats that as infeasible, and every cell reports `router_out_of_range`. |
+| **N11** | **Curve selection picked the worst available curve per GPU type** | **closed 2026-10-04.** First match from a lexically sorted glob means the oldest wins. The A30 curve in use was `h1-12302437` with `levels=1,4` - two points - while `h1-12303200` has six. It did not affect the homogeneous RTX 6000 run but would corrupt the heterogeneous comparison the research question is about, and it would have silently discarded the extended 128-level curve as a duplicate of the one it replaces. Selection is now by widest measured coverage, tie-broken on newest job. |
+| **N12** | **An instrument probe tested the wrong thing** | **closed 2026-10-04.** `h1_sweep.sbatch` chose its Python with `python3 -c "import pynvml"`. pynvml imports from `~/.local` even when `libnvidia-ml.so.1` is unreachable, so job 12303357 passed the probe and then died on `nvmlInit`. The probe now performs import, `nvmlInit` and one counter read, and falls back to the container Python. |
 | **N9** | Deep-overload cells may reflect **CPU contention, not GPU saturation** | open. The generator reached 9.8 of the node's 32 cores at 590 req/s while sharing the node with 8 vLLM servers, so server-side degradation at the top of the range is partly confounded. In the measurement region (240-360 req/s) it is 4.8-6.2 cores. Mitigations if the top cells are ever load-bearing: pin generator and servers to disjoint cores, or move the generator to a second node. |
 | **N7** | **RAPL CPU+DRAM includes the load generator itself** | **open, now quantified.** The generator runs on the same node as the servers, so its CPU time is inside the RAPL package energy. Sharding the generator across processes makes this larger. GPU-package energy, the primary metric, is unaffected. Every cell now records `generator_cpu_s` and `generator_cpu_cores_mean`, so the contamination is measured rather than unknown. Any CPU/DRAM figure must be reported with that caveat, or measured with the generator on a separate node. |
 | **N8** | Prompt mix was not reproducible from the seed | **closed 2026-10-04.** Prompt length came from an rng shared by all coroutines, so the draw order depended on asyncio scheduling and the seed did not reproduce a workload. Now derived from (seed, request index), identical under any worker count or interleaving. |
@@ -932,11 +935,15 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 30c | Extend calibration past 271 req/s to find the real knee | **done** job 12303354. Knee is 271-350 req/s and sharp |
 | 30d | SLO-brittleness diagnostic (margin percentiles, fraction near boundary) | **done** |
 | 30b | Generator CPU cost recorded per cell (quantifies N7) | **done** |
-| 31 | Re-run Stage 2 real with verified load levels | **running** job 12303355: 5 policies x 240/271/300/330/360 req/s, 60 s windows, 12 generator workers |
+| 31 | Stage 2 real, verified load levels | **RUN, VERDICT REJECTED** job 12303355. Apparatus sound (25 cells, 0 client-limited, dispatch p99 0.0051 s, perturbation -0.14%) but routing was ungrounded (N10) and the apparent +9.9% round_robin win was an SLO-boundary artifact: p50 1.946/1.956/1.968 s against a 2.0 s SLO gave 99.0/94.3/90.0% attainment |
+| 31a | Extend RTX 6000 curve to concurrency 128 | **running** job 12303358 on `frnt153` (12303357 was lost to N12) |
+| 31b | Re-run Stage 2 with the grounded curve | **blocked** on 31a |
+| 31c | Repeat trials + confidence intervals at the knee | **open** - one trial per cell cannot support a sub-percent latency ranking |
+| 31d | Heterogeneous-fleet Stage 2 (the actual research question) | **open** - see status note |
 | 32 | Locate the SLO knee | **partly done** - NOT between 67.8 and 118.6 (that reading was a client artifact, retracted). With a verified generator: 100% through 220.3 req/s, 96.2% at 271.2. Knee is at or beyond 271 req/s; needs a sweep past the current top rate |
 | 33 | Report CPU/DRAM energy with the generator-contamination caveat, or move the generator off-node | **open** - see threat N7 |
 
-Blocking path: 30a, then 31, then 22. Item 21 is discarded, not pending.
+Blocking path: 31a, then 31b, then 31c, then 22. Items 21 and 31 are run and rejected, not pending.
 Everything else is either done or not on the critical path.
 
 ## 14. One-line status
@@ -958,10 +965,30 @@ the efficient strategy and an energy-aware policy has to beat it at the knee;
 only GPU-package energy is clean.** The knee itself is now **measured**:
 271-350 req/s, with goodput per joule peaking there.
 
-Twice now a client artifact has been read as a server result, and the second
-time was after the first had been diagnosed. Both times the wrong number moved
-in the direction we expected. The generator is now instrumented so that the
-question "was this the client?" is answerable from the cell itself.
+Five defects this session shared one shape: a component answering a question
+it had no data for, plausibly. The thread pool reported an offered rate it
+never delivered. TTFT reported a latency excluding its own queue. The curve
+reported J/token for concurrencies nobody measured. The curve *selector* picked
+the narrowest coverage while reporting a choice. The NVML probe reported a
+usable interpreter after testing only the import. Each produced clean, monotone,
+publishable-looking output, and one of them was believed again after the first
+had been diagnosed.
+
+The countermeasure is not closer reading. It is that each component now states
+its own domain beside its answer: achieved rate beside offered, dispatch delay
+beside TTFT, out-of-range count beside the routing decision, chosen levels
+beside the chosen curve. A number that cannot be checked against the conditions
+it was produced under is not yet evidence.
+
+**Where the question actually lives.** On a homogeneous 8x RTX 6000 fleet the
+three load-balancing policies came within +-1% of each other on J/req at every
+load level. If that survives a grounded curve, it says routing barely matters
+when every replica is identical - which is the expected result, and it points
+at heterogeneous replicas as the only place an energy-aware scorer can earn its
+keep. Frontenac has seven GPU types but one type per node, so this needs either
+a multi-node allocation or an explicit statement that the claim is scoped to
+heterogeneous fleets and untested here. That decision is now on the critical
+path, ahead of Stage 4.
 
 The lesson from 12303327 is worth keeping in front: a pipeline that fails
 loudly is cheap, and this one failed silently and handed back a publishable
