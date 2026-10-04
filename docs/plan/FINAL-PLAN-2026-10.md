@@ -885,8 +885,25 @@ bibliography is final.
 
 ### 12.6 Verification scoreboard
 
-**FETCHED: 11 works + 1 GitHub epic. SEARCH remaining: 2** (2605.23057,
-2603.04445, both framing-only).
+**FETCHED: 13 works + 1 GitHub epic + 4 standards/benchmark sources.
+SEARCH remaining: 0.**
+
+Verified 2026-10-04:
+
+* **arXiv 2605.23057** - *RequestRouter: Request-Boundary Routing for
+  Efficient Single-GPU LLM Inference* (Sunesh, Alshehhi, Dhakne; v1 2026-05-21,
+  v2 2026-08-19). Selects an inference **configuration** per request (FP16,
+  quantized, speculative decoding, prefix caching, continuous batching,
+  hybrid) on a **single** A100 under vLLM: 2.10x mean latency speedup over
+  FP16, 0.48x energy ratio, 99.6% of FP16 macro accuracy, 0.00475 ms mean
+  routing overhead, 30,000 executions. Framing only, and usefully so: it is
+  configuration selection on one device, not replica selection across a
+  fleet, so it does not contest our claim.
+* **arXiv 2603.04445** - *Dynamic Model Routing and Cascading for Efficient
+  LLM Inference: A Survey* (Moslem, Kelleher; v1 2026-02-23, v3 2026-08-30).
+  A survey of **model** selection. This is direct support for our framing
+  point that the 2026 routing literature overwhelmingly selects models while
+  we select replicas of one model.
 
 **Four of our own claims were wrong and are now corrected:** 2604.04745's idle
 figures, 2604.09048's A30 attribution, 2609.23085's "~23%", and GreenServ's
@@ -894,6 +911,64 @@ figures, 2604.09048's A30 attribution, 2609.23085's "~23%", and GreenServ's
 criticises). Every one of those came from carrying a note forward without
 fetching the record. The lesson is cheap to state and was expensive to learn:
 **fetch before citing, every time.**
+
+### 12.4 Standards and benchmark sources, and a fifth correction of our own
+
+**We had been asserting that MLPerf Power establishes "<1% AC uncertainty".
+That is wrong on three counts and is withdrawn.**
+
+What the sources actually say, fetched 2026-10-04:
+
+* **MLPerf Power** (arXiv 2410.12032, HPCA 2025; Tschand et al.; 1,841
+  reproducible measurements from 60 systems) states **no percentage tolerance
+  anywhere**. Its accuracy language is qualitative: systems "must meet
+  stringent accuracy standards", edge systems "must employ SPEC-approved
+  devices". Measurement location varies by scale: the inference/edge path uses
+  a SPEC-certified analyser such as the Yokogawa WT310 measuring **AC wall
+  power**, while datacenter and training submissions use "the submitter's own
+  telemetry systems, such as IPMI or RedFish", or measure at the PDU. It talks
+  to analysers through **PTD (Power-Thermal Daemon)** API calls - our notes
+  called this "SPEC PTDaemon", which is the SPEC tool's name, not the term the
+  paper uses in that sentence.
+* **The 1% figure belongs to SPEC, not MLPerf**, and it is an uncertainty
+  budget rather than a tolerance on AC power. SPECpower_ssj2008 Run and
+  Reporting Rules section 2.13.2: *"Measurements must be reported by the
+  analyzer with an overall uncertainty of 1% or better for the ranges measured
+  during the benchmark run"*, where *"Overall uncertainty means the sum of all
+  specified analyzer uncertainties for the measurements made during the
+  benchmark run."* It is explicitly range-dependent: *"a power analyzer may
+  meet these requirements when used in some power ranges but not in others"*,
+  and *"the usage of power analyzer's auto-ranging function is discouraged."*
+  Note for anyone re-checking this: the PDF versions of the SPEC setup guide
+  and acceptance process both extracted as "+/-2% of the measured load", and
+  that extraction is unreliable - the PDFs are compressed and the parser said
+  so. The HTML run-reporting rules are the clean source and say 1% overall
+  uncertainty. Cite the HTML.
+* **ML.ENERGY Benchmark** (arXiv 2505.06371; Chung, Ma, Wu, Liu, Kweon, Xia,
+  Wu, Chowdhury; v1 2025-05-09, v2 2025-10-16). 40 model architectures across 6
+  tasks, with automated optimisation reaching "sometimes more than 40%" energy
+  savings. Grew out of the Zeus energy measurement library from the same group.
+  **Its measurement level and tool are not stated in the abstract**, so we do
+  not assert NVML or Zeus for it until the full paper is read.
+* **Green500** (TOP500/Green500, biannual). Ranks TOP500 systems by
+  **GFLOPS/Watt**, computed from HPL Rmax over average power across the whole
+  HPL run, and critically **"limited to the total power consumed by all compute
+  nodes involved in computing the benchmark, excluding the power consumed by
+  the storage nodes and front nodes"**. That scoping precedent is directly
+  useful to us: a respected list defines its boundary explicitly and excludes
+  parts of the machine, which is the same move as our GPU-package labelling.
+  The EEHPC Working Group measurement levels (1/2/3) are referenced in the
+  Green500 power-measurement tutorial but we have **not** verified their
+  definitions, so nothing may rest on them yet.
+
+**This is the fifth citation error we have found in our own notes**, after
+2604.04745's idle figures, 2604.09048's A30 attribution, 2609.23085's "~23%",
+and GreenServ's "LinUCB". Every one came from carrying a note forward without
+fetching the record. The MLPerf case is the worst of the five because the
+number was plausible, specific, and attached to the wrong authority - which is
+exactly the kind of claim a reviewer checks.
+
+---
 
 ## 13. Progress tracker
 
@@ -916,9 +991,9 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 13 | RAPL (CPU+DRAM) probe and per-cell measurement | **done**, pending a node to test on |
 | 14 | Cache hit rate + queue depth from vLLM `/metrics` | **done**, pending a run |
 | 15 | GPU-package energy labelling on all published results | **done** |
-| 16 | Verify 2605.23057 and 2603.04445 (framing-only) | **open**, low priority |
-| 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **open** |
-| 18 | Confirm MLPerf PTDaemon / 1% AC figures in the full paper | **open** |
+| 16 | Verify 2605.23057 and 2603.04445 (framing-only) | **done 2026-10-04**, both fetched; see 12.3 |
+| 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **done 2026-10-04**, see 12.4 |
+| 18 | Confirm MLPerf PTDaemon / 1% AC figures | **done 2026-10-04 - our claim was WRONG and is withdrawn.** MLPerf Power states no percentage; the 1% is SPEC's overall-uncertainty budget. See 12.4 |
 | 19 | Run: counter characterisation | **done** - jobs 12303200 (A30) and 12303324 (RTX 6000); S2 closed on both |
 | 20 | Run: Stage 2 smoke, 2 GPU | **done** job 12303326 on `frnt155`; pipeline proved end to end, but see item 21 |
 | 21 | Run: Stage 2 real, 8 GPU on `frnt155` | **DISCARDED** job 12303327. Completed clean, every cell client-limited (112.5 offered / 26.7 achieved). See threats N4-N6 |
