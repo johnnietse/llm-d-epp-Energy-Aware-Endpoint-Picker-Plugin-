@@ -17,6 +17,24 @@
 # contention, real energy. The only computed quantity is the lower bound, which
 # is a bound by definition and is derived from the measured h1 curves.
 #
+# THREE MANDATORY PHASES, every job:
+#   Pass 0  telemetry_check.sh  - verifies NVML energy+power, nvidia-smi
+#                                 provenance and DCGM fields 156/155, and
+#                                 ABORTS the job if any is missing. Records
+#                                 kernel-gated sources (DCP, ncu) as data.
+#   Pass A  policy_harness.py   - the energy measurement. No profiling tools
+#                                 run here, because they perturb power and
+#                                 timing.
+#   Pass B  mechanism_pass.sh   - every profiling tool NVIDIA offers: CUPTI
+#                                 tracing and counter probe, Nsight Systems
+#                                 trace + stats, Nsight Compute, DCGM DCP
+#                                 fields, nvidia-smi high-rate sampling.
+#
+# The split is why all tools can be mandatory without corrupting the headline
+# numbers. Measured on 2026-10-03: RmProfilingAdminOnly=1 on 13 of 15 Frontenac
+# nodes, so counter-based tools are denied there; the job records the denial
+# rather than skipping silently.
+#
 # Submit pinned to a multi-GPU node, e.g.
 #   sbatch -w frnt155 --gres=gpu:rtx6000:8 stage2_real.sbatch     # 8x RTX 6000
 #   sbatch -w frnt154 --gres=gpu:a100:8    stage2_real.sbatch     # 8x A100
@@ -47,6 +65,15 @@ POLICIES="${POLICIES:-round_robin,least_loaded,slo_packing,energy_greedy,energy_
 NGPU="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
 GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 | tr ' ' '_')"
 echo "node=$(hostname) gpus=$NGPU type=$GPU_NAME model=$MODEL"
+
+# ------------------------------------------- MANDATORY telemetry gate (Pass 0)
+# Fails the job if any required source is missing, so no numbers can come from
+# a degraded instrument set. Records kernel-gated sources as data.
+echo "=== mandatory telemetry check ==="
+if ! bash "$ROOT/scripts/telemetry_check.sh" "$RUN/telemetry.txt"; then
+  echo "FATAL: required telemetry unavailable on $(hostname); see $RUN/telemetry.txt"
+  exit 1
+fi
 
 # ---------------------------------------------------------------- provenance
 {
@@ -160,5 +187,15 @@ for rate in "${RATE_ARR[@]}"; do
       --out "$RUN/policies-rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
 done
 
+# ------------------------------------------------------- Pass B: mechanism
+# Separate pass, mandatory, AFTER all energy measurement is complete. These
+# tools perturb timing and power, so they must never share a run with Pass A.
+echo "=========== Pass B: mechanism (all profiling tools) ==========="
+bash "$ROOT/scripts/mechanism_pass.sh" "$RUN/mechanism" 2>&1 | tail -40
+
 echo "results in $RUN"
 ls -l "$RUN"
+echo
+echo "Pass A (measured energy): policies-rate*.json"
+echo "Pass B (mechanism):       mechanism/mechanism.txt"
+echo "Telemetry gate:           telemetry.txt"

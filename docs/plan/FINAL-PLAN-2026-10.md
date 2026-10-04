@@ -310,6 +310,51 @@ the marginal term at zero or negative, routing-only savings may be small once
 SLO constraints bind. Finding that out costs one job; finding it out after
 building costs two months.
 
+### 6.0 Telemetry is mandatory, in two passes
+
+Every Stage 2+ job runs three phases and cannot skip any of them.
+
+| Phase | Script | Contents |
+|---|---|---|
+| **Pass 0** gate | `telemetry_check.sh` | Verifies NVML energy counter + power, `nvidia-smi` provenance, and DCGM fields **156**/**155**. **Aborts the job** if any is missing, so numbers can never come from a degraded instrument set. Records kernel-gated sources as data. |
+| **Pass A** measurement | `policy_harness.py` | The energy numbers. **No profiling tool runs here.** |
+| **Pass B** mechanism | `mechanism_pass.sh` | CUPTI tracing, CUPTI counter probe, Nsight Systems trace + `nsys stats`, Nsight Compute, DCGM DCP fields 1002/1005, `nvidia-smi` high-rate sampling. |
+
+**Why two passes rather than everything at once.** Two measured reasons, not
+preference:
+
+1. **Profiling perturbs what it measures.** Nsight Compute serialises kernels
+   and can slow them by an order of magnitude; CUPTI counter collection adds
+   overhead. Energy recorded while profiling is not the energy of normal
+   serving, so mixing them would invalidate the headline figures.
+2. **Counter access is denied on most of this cluster.**
+   `RmProfilingAdminOnly=1` on **13 of 15 nodes** surveyed, where CUPTI
+   counters, Nsight Compute and DCGM DCP fields return `Result: -29`. Requiring
+   them everywhere would make the experiment unrunnable on 87% of Frontenac,
+   including every A30 and the L4.
+
+The split delivers full tool coverage in every job while keeping the energy
+measurement clean. Where a tool is denied, the job **records the denial as a
+result** rather than skipping silently - and that per-node inhomogeneity is one
+of our own findings (3.1.1, 3.1.2).
+
+What each source is actually for:
+
+- **NVML** - the measurement. The only hardware *energy* counter, works
+  unprivileged everywhere. It does **not** expose instruction counts, cache hit
+  rates, warp occupancy or pipeline stalls, and we never claim otherwise.
+- **DCGM 156/155** - a second reader of the same NVML counter (verified: its
+  value fell between two NVML readings taken either side of it), plus the
+  integration surface upstream llm-d scrapes. Not an independent sensor.
+- **nvidia-smi** - provenance and high-rate sampling. It is NVML underneath.
+- **CUPTI / Nsight Systems** - tracing. Answers "which kernels, in what order",
+  available even where counters are denied.
+- **Nsight Compute / DCGM DCP** - the actual hardware performance counters
+  (SM activity, DRAM throughput, occupancy). These are what NVML cannot give,
+  and they are exactly what this cluster withholds on 13 of 15 nodes.
+- **IPMI** - node-level energy, the only genuinely *independent* check on the
+  GPU counter. Device exists, root-only; pending the CAC request.
+
 ### 6.1 Thesis and paper split
 
 They fail for opposite reasons, so material is routed rather than duplicated.
@@ -469,6 +514,7 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
+| 2026-10-03 | All telemetry **mandatory, split into two passes** | every tool used on real hardware every job; profiling perturbs energy, and counters are denied on 13 of 15 nodes, so they cannot share a run with the measurement |
 
 ## 11. Calendar
 
