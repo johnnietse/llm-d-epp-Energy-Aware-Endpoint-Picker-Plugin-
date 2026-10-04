@@ -659,6 +659,8 @@ Do **not** run `ars-full` yet. That decision was already made in
 | **N2** | Effect size may be too small to matter | open. This is what Stage 2 exists to settle. |
 | **N4** | **Load generator was not open-loop** | **closed 2026-10-04.** `one_request()` issued blocking urllib through the default asyncio executor, capping in-flight requests at `min(32, cpu_count+4)` = 32 on a 32-core node, so offered load above ~27 req/s was fiction. Job 12303327's entire 8-GPU, 5-policy, 4-load sweep was client-limited and is discarded. Fixed with httpx async streaming; the generator is now gated as an instrument in Pass 0, and every cell records `achieved_rate_rps` and `rate_fidelity`. This is B3's "open-loop remains" clause, discharged. |
 | **N5** | **TTFT was measured after the client's own queue wait** | **closed 2026-10-04.** TTFT was timed inside the worker thread, so it excluded dispatch delay and read 0.028 s while end-to-end p99 was 23 s. The SLO argument leans on TTFT, so the misleading number was the reassuring one. TTFT and latency are now timed from the scheduled arrival; `ttft_from_send` keeps the server-side view and `send_delay` is the gap. |
+| **N7** | **RAPL CPU+DRAM includes the load generator itself** | **open, now quantified.** The generator runs on the same node as the servers, so its CPU time is inside the RAPL package energy. Sharding the generator across processes makes this larger. GPU-package energy, the primary metric, is unaffected. Every cell now records `generator_cpu_s` and `generator_cpu_cores_mean`, so the contamination is measured rather than unknown. Any CPU/DRAM figure must be reported with that caveat, or measured with the generator on a separate node. |
+| **N8** | Prompt mix was not reproducible from the seed | **closed 2026-10-04.** Prompt length came from an rng shared by all coroutines, so the draw order depended on asyncio scheduling and the seed did not reproduce a workload. Now derived from (seed, request index), identical under any worker count or interleaving. |
 | **N6** | Measurement window shrank as offered load rose | **closed 2026-10-04.** A fixed 600-request cell is a 12 s window at 50 req/s but 4.4 s at 137.5 req/s, so the high-load cells that the research question is about had the shortest energy windows. Cells are now sized by `DURATION` (default 60 s), and the counter-only control uses the same window as the Pass A cell it is compared against. |
 | **N3** | Artifact self-contradiction: `pkg/ebpf` and SPANK require privilege | closed by quarantining both. |
 
@@ -723,7 +725,12 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-04 | Offered **and achieved** rate reported for every cell | a result that reports only offered load cannot be checked for this class of error at all. This is the durable fix; the thread pool was only the instance |
 | 2026-10-04 | Capacity derived from the **measured Stage 1 curve**, not a tokens/s constant | the old estimate `NGPU * 2000/128` gave 125 req/s for 8x RTX 6000; measured single-GPU peak is 21.1 req/s at p95 1.53 s, so the real figure is ~169 req/s. The guess was 26% low, which would have put the swept range below the SLO knee even with a working generator. Absent a matching curve the job now refuses to run rather than invent a figure |
 | 2026-10-04 | Cells sized by **window length**, not request count | equal windows across load levels, and every cell far above the measured counter floor (1.0 s A30, 0.5 s RTX 6000) |
-| 2026-10-04 | **SLO may not bind at all** in the swept range | Stage 1 p95 never exceeded 1.53 s against a 2.0 s SLO, even at concurrency 32 per GPU. If calibration confirms this, the SLO must be tightened or the load pushed past 1.6x capacity, or there is no trade-off region for routing to exploit and the study has no question to answer. Open; job 12303350 settles it |
+| 2026-10-04 | ~~**SLO knee located between 67.8 and 118.6 req/s**~~ **RETRACTED same day** | job 12303350 showed attainment falling to 66% at 118.6 req/s and 2.1% at 169.5 req/s. That was not the servers: it was the single-process client's dispatch delay (p99 0.189 s and 1.97 s) inflating latency measured from scheduled arrival. The same artifact as the thread-pool ceiling, one level up, and it fooled us a second time because the number moved in the direction we expected |
+| 2026-10-04 | **SLO knee is at or beyond 271 req/s**, measured with a verified generator | job 12303353, 8 worker processes, dispatch delay p99 0.001-0.007 s: attainment is 100% through 220.3 req/s and 96.2% at 271.2 req/s. The 2.0 s SLO is generous against a ~0.05 s TTFT, so the trade-off region is further out than any estimate so far suggested |
+| 2026-10-04 | Energy per request **falls monotonically with load** | 20.44 J at 67.8 req/s down to 5.53 J at 271.2 req/s, goodput/J rising 0.049 to 0.174, with SLO attainment still at or near 100%. Fixed idle power amortises over more requests, so on this hardware the energy-efficient operating point is high load. Any energy-aware policy has to beat that, and consolidation is working with the same effect |
+| 2026-10-04 | Generator **sharded across processes**, routing state genuinely shared | one asyncio process was measured at ~115 req/s achieved, with dispatch delay already at the budget by 67.8 req/s, so a single process cannot cover the knee. Per-token stream parsing is CPU-bound in the event loop. Critically, every policy except round_robin routes on GLOBAL in-flight counts, so the counters live in shared memory under a lock: giving each worker its own view would leave the policies running on 1/W of the picture and still producing numbers - the same silent-substitution failure as the thread pool |
+| 2026-10-04 | Achieved rate **collapses** beyond the generator's ceiling | 146 req/s achieved at 169.5 offered, then 121 at 220.3, then 104 at 271.2. More concurrent connections means more event-loop work per request, so pushing harder makes the client slower. A naive sweep would read this as the servers degrading |
+| 2026-10-04 | Tuple seeds for `random.Random` **are invalid on Python 3.11+** | caught locally before submission; the container runs 3.12, so it would have raised on every request |
 
 ## 11. Calendar
 
@@ -916,11 +923,15 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 27 | Open-loop load generator (httpx), two-clock timing, rate-fidelity reporting | **done** `44013f2` |
 | 28 | Load generator gated as an instrument in Pass 0 | **done** `44013f2` |
 | 29 | Capacity derived from the measured Stage 1 curve; cells sized by window length | **done** |
-| 30 | Run: generator calibration, 8 GPU | **running** job 12303350 - finds the generator ceiling and the SLO knee |
+| 30 | Run: generator calibration, single process | **done** job 12303350. Ceiling ~115 req/s achieved; SLO knee located between 67.8 and 118.6 req/s |
+| 30a | Sharded generator (8 processes, shared routing state) | **done** job 12303353. Dispatch delay p99 0.001-0.007 s, 259.5 req/s achieved, no client-limited cell |
+| 30c | Extend calibration past 271 req/s to find the real knee | **next** |
+| 30b | Generator CPU cost recorded per cell (quantifies N7) | **done** |
 | 31 | Re-run Stage 2 real with verified load levels | **blocked** on 30 |
-| 32 | Decide whether the 2.0 s SLO binds at all in range | **open** - Stage 1 p95 peaked at 1.53 s; if it never binds, tighten the SLO or push past 1.6x capacity, or there is no trade-off region |
+| 32 | Locate the SLO knee | **partly done** - NOT between 67.8 and 118.6 (that reading was a client artifact, retracted). With a verified generator: 100% through 220.3 req/s, 96.2% at 271.2. Knee is at or beyond 271 req/s; needs a sweep past the current top rate |
+| 33 | Report CPU/DRAM energy with the generator-contamination caveat, or move the generator off-node | **open** - see threat N7 |
 
-Blocking path: 30, then 31, then 22. Item 21 is discarded, not pending.
+Blocking path: 30a, then 31, then 22. Item 21 is discarded, not pending.
 Everything else is either done or not on the critical path.
 
 ## 14. One-line status
@@ -931,10 +942,19 @@ single-stream, no generator involved.** Stage 2: **one full sweep run and
 discarded** (job 12303327, client-limited in every cell); re-run blocked on
 calibration job 12303350. Topic: **still open.** Claim: **narrow but
 defensible.** Code: **rescoped (`legacy/`), builds clean.** Blocking gap:
-**still no baselines.** Biggest risks, in order: **(1) the 2.0 s SLO may not
-bind anywhere in reachable load, in which case there is no trade-off region for
-routing to exploit; (2) the A30 dominates, so there may be no useful headroom
-outside saturation.**
+**still no baselines.** Biggest risks, in order: **(1) the SLO knee has still not been located - it
+is at or beyond 271 req/s, further out than every estimate so far, and the
+sweep has to reach it before any policy comparison means anything; (2) energy
+per request falls monotonically with load on this hardware, so "run hot" is
+already the efficient strategy and an energy-aware policy has to beat it;
+(3) the A30 dominates, so there may be no useful headroom outside saturation;
+(4) CPU/DRAM energy is contaminated by the co-located load generator (threat
+N7), so only GPU-package energy is clean.**
+
+Twice now a client artifact has been read as a server result, and the second
+time was after the first had been diagnosed. Both times the wrong number moved
+in the direction we expected. The generator is now instrumented so that the
+question "was this the client?" is answerable from the cell itself.
 
 The lesson from 12303327 is worth keeping in front: a pipeline that fails
 loudly is cheap, and this one failed silently and handed back a publishable

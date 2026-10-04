@@ -37,6 +37,9 @@ import asyncio
 import csv
 import json
 import math
+import multiprocessing as mp
+import os
+import resource
 import random
 import statistics as st
 import time
@@ -281,15 +284,53 @@ def interp(curve, c, key):
 # -------------------------------------------------------------------- policies
 
 class Router:
-    def __init__(self, n, types, curves, slo_s):
+    """Routing state. Every policy except round_robin depends on the GLOBAL
+    in-flight count per endpoint, so when the generator is sharded across
+    processes this state has to be genuinely shared. Giving each worker its own
+    copy would leave every worker routing on 1/W of the picture - the policies
+    would still run and still produce numbers, but they would not be the
+    policies being claimed. That is the same silent-substitution failure as the
+    thread-pool ceiling, so the shared path is the default once W > 1.
+
+    With `shared=True` the counters live in multiprocessing.Array and pick() /
+    release() take a lock. Contention is two acquisitions per request, so a few
+    hundred per second: irrelevant next to a ~1 s service time.
+    """
+
+    def __init__(self, n, types, curves, slo_s, shared=False):
         self.n = n
         self.types = types
         self.curves = curves
         self.slo = slo_s
-        self.inflight = [0] * n
-        self.rr = 0
-        self.activations = [0] * n
-        self.was_idle = [True] * n
+        self.shared = shared
+        if shared:
+            ctx = mp.get_context("fork")
+            self.lock = ctx.Lock()
+            self._inflight = ctx.Array("i", n, lock=False)
+            self._activations = ctx.Array("i", n, lock=False)
+            self._was_idle = ctx.Array("i", [1] * n, lock=False)
+            self._rr = ctx.Value("i", 0, lock=False)
+        else:
+            self.lock = None
+            self._inflight = [0] * n
+            self._activations = [0] * n
+            self._was_idle = [1] * n
+            self._rr = None
+            self.rr = 0
+
+    # The policy bodies below index these as plain sequences, so the shared and
+    # unshared cases read identically and cannot drift apart.
+    @property
+    def inflight(self):
+        return self._inflight
+
+    @property
+    def activations(self):
+        return list(self._activations)
+
+    @property
+    def was_idle(self):
+        return self._was_idle
 
     def _proj_latency(self, i):
         c = self.inflight[i] + 1
@@ -309,9 +350,26 @@ class Router:
         return interp(cur, c, "power") / thr if thr > 0 else math.inf
 
     def pick(self, policy):
+        if self.lock is not None:
+            with self.lock:
+                return self._pick_locked(policy)
+        return self._pick_locked(policy)
+
+    def release(self, i):
+        if self.lock is not None:
+            with self.lock:
+                self._release_locked(i)
+        else:
+            self._release_locked(i)
+
+    def _pick_locked(self, policy):
         if policy == "round_robin":
-            i = self.rr % self.n
-            self.rr += 1
+            if self._rr is not None:
+                i = self._rr.value % self.n
+                self._rr.value += 1
+            else:
+                i = self.rr % self.n
+                self.rr += 1
         elif policy == "least_loaded":
             i = min(range(self.n), key=lambda k: self.inflight[k])
         elif policy == "slo_packing":
@@ -331,16 +389,16 @@ class Router:
             i = min(pool, key=lambda k: (self._jtok(k), -self.inflight[k]))
         else:
             raise SystemExit("unknown policy " + policy)
-        if self.was_idle[i]:
-            self.activations[i] += 1
-            self.was_idle[i] = False
-        self.inflight[i] += 1
+        if self._was_idle[i]:
+            self._activations[i] += 1
+            self._was_idle[i] = 0
+        self._inflight[i] += 1
         return i
 
-    def release(self, i):
-        self.inflight[i] -= 1
-        if self.inflight[i] == 0:
-            self.was_idle[i] = True
+    def _release_locked(self, i):
+        self._inflight[i] -= 1
+        if self._inflight[i] == 0:
+            self._was_idle[i] = 1
 
 
 POLICIES = ["round_robin", "least_loaded", "slo_packing",
@@ -406,45 +464,39 @@ async def one_request(client, base_url, prompt, timeout=300):
     return ttft, itls, len(stamps)
 
 
-async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
-                     slo_s, seed, poll_interval=0.25):
-    rng = random.Random(seed)
-    router = Router(len(endpoints), types, curves, slo_s)
-    meter = EnergyMeter(gpus, poll_interval=poll_interval)
+def make_prompt(idx, seed):
+    """Deterministic per-request prompt.
 
-    arrivals = []
-    t = 0.0
-    for _ in range(n_requests):
-        t += rng.expovariate(rate)
-        arrivals.append(t)
+    The prompt length used to come from an rng shared by every coroutine in the
+    cell, so the sequence of draws depended on asyncio scheduling order: the
+    seed did not actually reproduce a workload, and it would certainly not
+    survive sharding across processes. Deriving the length from (seed, idx)
+    makes the workload identical regardless of worker count or interleaving.
+    """
+    # A string seed, not a tuple: Python 3.11 removed tuple support from
+    # random.seed ("The only supported seed types are: None, int, float, str,
+    # bytes, bytearray"), and the container runs 3.12, so a tuple would raise
+    # on every single request.
+    n = random.Random("%d:%d" % (seed, idx)).randint(4, 12)
+    return "Request %d: " % idx + "explain distributed systems. " * n
 
-    latencies = []
-    ttfts = []
-    ttfts_from_send = []
-    send_delays = []
-    all_itls = []
-    errors = 0
-    completed = 0
 
-    # One pooled client for the whole cell. The pool must be wider than any
-    # concurrency the arrival schedule can produce, or it reintroduces exactly
-    # the ceiling we are removing; httpx queues beyond max_connections.
-    limits = httpx.Limits(max_connections=max(1024, 4 * n_requests),
-                          max_keepalive_connections=max(1024, 4 * n_requests))
+async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
+                      pool):
+    """Issue one worker's share of the arrival schedule.
 
-    zones = rapl_zones()
-    rapl_before = rapl_read(zones)
-    engine_before = scrape_engine_metrics(endpoints)
-    meter.begin()
-    poll_task = asyncio.create_task(meter.poll_forever())
-    t_start = time.time()
+    `arrivals` are absolute offsets from the common t_start, so every worker
+    schedules against the same origin and the aggregate arrival process is the
+    one that was generated, not W independent ones.
+    """
+    out = {"latencies": [], "ttfts": [], "ttfts_from_send": [],
+           "send_delays": [], "itls": [], "completed": 0, "errors": 0}
+    limits = httpx.Limits(max_connections=pool, max_keepalive_connections=pool)
 
-    async def fire(client, delay, idx):
-        nonlocal errors, completed
-        await asyncio.sleep(max(0.0, delay - (time.time() - t_start)))
+    async def fire(client, idx, delay):
+        await asyncio.sleep(max(0.0, (t_start + delay) - time.time()))
         i = router.pick(policy)
         url = "http://" + endpoints[i]
-        prompt = f"Request {idx}: " + "explain distributed systems. " * rng.randint(4, 12)
         # Two clocks. t_sched is when the Poisson schedule said this request
         # should arrive; t_send is when the client actually got it out. Latency
         # and TTFT are reported from t_sched, because that is what a user
@@ -452,24 +504,132 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         # the server-side view, and the gap between them is send_delay.
         t_sched = t_start + delay
         t_send = time.time()
-        send_delays.append(t_send - t_sched)
+        out["send_delays"].append(t_send - t_sched)
         try:
-            ttft, itls, _ntok = await one_request(client, url, prompt)
-            latencies.append(time.time() - t_sched)
+            ttft, itls, _ntok = await one_request(client, url,
+                                                 make_prompt(idx, seed))
+            out["latencies"].append(time.time() - t_sched)
             if ttft is not None:
-                ttfts.append(ttft + (t_send - t_sched))
-                ttfts_from_send.append(ttft)
-            all_itls.extend(itls)
-            completed += 1
+                out["ttfts"].append(ttft + (t_send - t_sched))
+                out["ttfts_from_send"].append(ttft)
+            out["itls"].extend(itls)
+            out["completed"] += 1
         except Exception:
-            errors += 1
+            out["errors"] += 1
         finally:
             router.release(i)
 
     async with httpx.AsyncClient(limits=limits, http2=False) as client:
-        await asyncio.gather(*(fire(client, a, k)
-                               for k, a in enumerate(arrivals)))
+        await asyncio.gather(*(fire(client, idx, arrivals[k])
+                               for k, idx in enumerate(idxs)))
+    return out
+
+
+def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
+                 pool, out_path):
+    """Child-process entry point. Writes its aggregate to a file rather than a
+    Queue: a worker returning tens of thousands of inter-token samples through
+    a pipe can block on the pipe buffer while the parent is still waiting to
+    join it, which deadlocks."""
+    res = asyncio.run(drive_slice(router, policy, endpoints, idxs, arrivals,
+                                  t_start, seed, pool))
+    with open(out_path, "w") as fh:
+        json.dump(res, fh)
+
+
+async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
+                     slo_s, seed, poll_interval=0.25, workers=1,
+                     scratch="/tmp"):
+    router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1))
+    meter = EnergyMeter(gpus, poll_interval=poll_interval)
+
+    # The arrival process is generated once, in the parent, from the seed. It
+    # is then dealt round-robin to the workers, so the union of the slices is
+    # exactly this schedule.
+    rng = random.Random(seed)
+    arrivals = []
+    t = 0.0
+    for _ in range(n_requests):
+        t += rng.expovariate(rate)
+        arrivals.append(t)
+
+    # Connection pool per worker. It must exceed any concurrency that worker's
+    # slice can reach, or it reintroduces the ceiling one layer down - which is
+    # the bug this whole path exists to remove.
+    pool = max(1024, (4 * n_requests) // max(1, workers))
+
+    zones = rapl_zones()
+    rapl_before = rapl_read(zones)
+    engine_before = scrape_engine_metrics(endpoints)
+    # The load generator runs on the SAME node as the servers, so its own CPU
+    # time is inside the RAPL package energy for this cell. GPU-package energy,
+    # the primary metric, is untouched; the CPU/DRAM figure is not, and a
+    # multi-process generator makes that term larger. Recording the
+    # generator's CPU seconds turns an unknown contamination into a measured
+    # and reportable one. Children are counted because the workers are forks.
+    ru_self0 = resource.getrusage(resource.RUSAGE_SELF)
+    ru_kids0 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    meter.begin()
+    poll_task = asyncio.create_task(meter.poll_forever())
+
+    # Lead time so that every worker is forked and sitting in its sleep loop
+    # before the schedule origin passes. Without it the first requests all fire
+    # at once during startup and appear as dispatch delay the generator did not
+    # actually cause.
+    lead = 1.0 if workers > 1 else 0.0
+    t_start = time.time() + lead
+
+    if workers <= 1:
+        agg = [await drive_slice(router, policy, endpoints,
+                                 list(range(n_requests)), arrivals, t_start,
+                                 seed, pool)]
+    else:
+        ctx = mp.get_context("fork")
+        procs, paths = [], []
+        for w in range(workers):
+            idxs = list(range(w, n_requests, workers))
+            slice_arrivals = [arrivals[i] for i in idxs]
+            path = os.path.join(scratch,
+                                "harness-w%d-%d.json" % (w, os.getpid()))
+            paths.append(path)
+            proc = ctx.Process(target=worker_entry,
+                               args=(w, router, policy, endpoints, idxs,
+                                     slice_arrivals, t_start, seed, pool,
+                                     path))
+            proc.start()
+            procs.append(proc)
+        loop = asyncio.get_running_loop()
+
+        def _join():
+            for proc in procs:
+                proc.join()
+            return [proc.exitcode for proc in procs]
+
+        codes = await loop.run_in_executor(None, _join)
+        bad = [c for c in codes if c != 0]
+        if bad:
+            raise SystemExit("load generator worker(s) exited %s - refusing to "
+                             "report a cell with a dead worker" % bad)
+        agg = []
+        for path in paths:
+            with open(path) as fh:
+                agg.append(json.load(fh))
+            os.unlink(path)
+
     t_end = time.time()
+    latencies = [x for a in agg for x in a["latencies"]]
+    ttfts = [x for a in agg for x in a["ttfts"]]
+    ttfts_from_send = [x for a in agg for x in a["ttfts_from_send"]]
+    send_delays = [x for a in agg for x in a["send_delays"]]
+    all_itls = [x for a in agg for x in a["itls"]]
+    completed = sum(a["completed"] for a in agg)
+    errors = sum(a["errors"] for a in agg)
+    ru_self1 = resource.getrusage(resource.RUSAGE_SELF)
+    ru_kids1 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    gen_cpu_s = ((ru_self1.ru_utime - ru_self0.ru_utime)
+                 + (ru_self1.ru_stime - ru_self0.ru_stime)
+                 + (ru_kids1.ru_utime - ru_kids0.ru_utime)
+                 + (ru_kids1.ru_stime - ru_kids0.ru_stime))
     energy = meter.end()
     rapl_after = rapl_read(zones)
     engine_after = scrape_engine_metrics(endpoints)
@@ -544,6 +704,14 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "activations": router.activations,
         "seed": seed,
         "poll_interval_s": poll_interval,
+        "generator_workers": workers,
+        # CPU seconds burned by the generator itself during this cell.
+        # Divide by the window to get mean cores occupied; that fraction
+        # of the RAPL package figure is the client, not the workload.
+        "generator_cpu_s": round(gen_cpu_s, 3),
+        "generator_cpu_cores_mean": (round(gen_cpu_s / (t_end - t_start), 3)
+                                     if t_end > t_start else None),
+        "generator_pool_per_worker": pool,
         "rapl_energy_j": rapl_delta(rapl_before, rapl_after),
         "rapl_available": bool(zones),
         "engine_metrics_before": engine_before,
@@ -564,6 +732,15 @@ def main():
     ap.add_argument("--requests", type=int, default=600)
     ap.add_argument("--slo", type=float, required=True)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--workers", type=int, default=0,
+                    help="load-generator processes; 0 = auto. One asyncio "
+                         "process tops out near 115 req/s on this hardware "
+                         "(measured, job 12303350), because per-token stream "
+                         "parsing is CPU-bound in the event loop. Sharding "
+                         "multiplies that; routing state stays shared so the "
+                         "policies still see global in-flight counts.")
+    ap.add_argument("--scratch", default="/tmp",
+                    help="where worker result files are written")
     ap.add_argument("--poll-interval", type=float, default=0.25,
                     help="power-poll period in seconds; 0 = counter only "
                          "(used by the perturbation control arm)")
@@ -581,12 +758,24 @@ def main():
         path, _, name = spec.rpartition("=")
         curves[name] = load_curve(path)
 
+    # Auto worker count. Half the cores, capped: the generator competes with
+    # eight vLLM servers on the same node, and oversubscribing the node would
+    # perturb the very thing being measured. One worker is kept as an explicit
+    # option because the single-process path is the simpler one to reason about
+    # when debugging.
+    n_workers = args.workers
+    if n_workers <= 0:
+        cores = os.cpu_count() or 4
+        n_workers = max(1, min(8, cores // 4))
+    print("load generator: %d worker process(es)" % n_workers, flush=True)
+
     results = []
     for policy in args.policies.split(","):
         print(f"--- {policy} at {args.rate:.1f} req/s ---", flush=True)
         r = asyncio.run(run_policy(policy, endpoints, gpus, types, curves,
                                    args.rate, args.requests, args.slo, args.seed,
-                                   poll_interval=args.poll_interval))
+                                   poll_interval=args.poll_interval,
+                                   workers=n_workers, scratch=args.scratch))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")
