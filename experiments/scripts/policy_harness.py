@@ -59,7 +59,11 @@ class EnergyMeter:
     """Per-GPU energy via the hardware counter, with a parallel power poll as a
     cross-check (the two agreed to 25.94 vs 25.96 W in our first validation)."""
 
-    def __init__(self, gpu_indices):
+    def __init__(self, gpu_indices, poll_interval=0.25):
+        # poll_interval = 0 disables the power-poll thread entirely, leaving
+        # only two counter reads per window. Used by the perturbation control:
+        # if full telemetry cost anything measurable, the control would differ.
+        self.poll_interval = poll_interval
         pynvml.nvmlInit()
         self.idx = list(gpu_indices)
         self.handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in self.idx]
@@ -83,7 +87,10 @@ class EnergyMeter:
         self.t0 = time.time()
         self._stop = False
 
-    async def poll_forever(self, interval=0.25):
+    async def poll_forever(self, interval=None):
+        interval = self.poll_interval if interval is None else interval
+        if interval <= 0:
+            return          # counter-only mode: no sampling overhead at all
         while not self._stop:
             for i, h in enumerate(self.handles):
                 try:
@@ -244,10 +251,10 @@ async def one_request(session_url, prompt, timeout=300):
 
 
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
-                     slo_s, seed):
+                     slo_s, seed, poll_interval=0.25):
     rng = random.Random(seed)
     router = Router(len(endpoints), types, curves, slo_s)
-    meter = EnergyMeter(gpus)
+    meter = EnergyMeter(gpus, poll_interval=poll_interval)
 
     arrivals = []
     t = 0.0
@@ -305,6 +312,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "latency_p95": lat_sorted[int(0.95 * len(lat_sorted))] if lat_sorted else None,
         "activations": router.activations,
         "seed": seed,
+        "poll_interval_s": poll_interval,
     }
 
 
@@ -321,6 +329,9 @@ def main():
     ap.add_argument("--requests", type=int, default=600)
     ap.add_argument("--slo", type=float, required=True)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--poll-interval", type=float, default=0.25,
+                    help="power-poll period in seconds; 0 = counter only "
+                         "(used by the perturbation control arm)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -339,7 +350,8 @@ def main():
     for policy in args.policies.split(","):
         print(f"--- {policy} at {args.rate:.1f} req/s ---", flush=True)
         r = asyncio.run(run_policy(policy, endpoints, gpus, types, curves,
-                                   args.rate, args.requests, args.slo, args.seed))
+                                   args.rate, args.requests, args.slo, args.seed,
+                                   poll_interval=args.poll_interval))
         print(f"    J/req {r['j_per_request']:.2f}  SLO {r['slo_rate']*100:.1f}%  "
               f"p95 {r['latency_p95']:.3f}s  errors {r['errors']}", flush=True)
         results.append(r)

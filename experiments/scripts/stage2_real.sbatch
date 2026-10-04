@@ -187,9 +187,24 @@ for rate in "${RATE_ARR[@]}"; do
       --out "$RUN/policies-rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
 done
 
+# ------------------------------- Pass A-control: prove telemetry costs nothing
+# Mandatory. Re-runs ONE policy at the busiest load with the power-poll thread
+# disabled (counter reads only). If full telemetry perturbed the measurement,
+# this control would disagree with the corresponding Pass A cell. Any
+# disagreement beyond the CI means the telemetry gets trimmed, not the result
+# accepted.
+CTRL_RATE="${RATE_ARR[${#RATE_ARR[@]}-1]}"
+echo "=========== Pass A-control: counter-only at ${CTRL_RATE} req/s ==========="
+env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$REQUESTS" --slo "$SLO"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
+
+echo "--- perturbation check: full telemetry vs counter-only ---"
+python3 "$ROOT/scripts/perturbation_check.py"   "$RUN/policies-rate${CTRL_RATE}.json" "$RUN/control-counteronly.json"   2>&1 | tee -a "$RUN/harness.log"
+
 # ------------------------------------------------------- Pass B: mechanism
 # Separate pass, mandatory, AFTER all energy measurement is complete. These
 # tools perturb timing and power, so they must never share a run with Pass A.
+echo "letting the GPUs settle for 60 s so Pass B cannot touch Pass A numbers"
+sleep 60
 echo "=========== Pass B: mechanism (all profiling tools) ==========="
 bash "$ROOT/scripts/mechanism_pass.sh" "$RUN/mechanism" 2>&1 | tail -40
 

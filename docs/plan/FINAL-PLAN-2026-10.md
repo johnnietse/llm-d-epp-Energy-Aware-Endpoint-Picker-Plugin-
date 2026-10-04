@@ -355,6 +355,56 @@ What each source is actually for:
 - **IPMI** - node-level energy, the only genuinely *independent* check on the
   GPU counter. Device exists, root-only; pending the CAC request.
 
+#### 6.0.1 The telemetry must not cost performance, and that is verified
+
+Mandatory instrumentation is only acceptable if it is free. Three design rules
+and one measured check enforce that.
+
+**Rule 1 - Pass A carries no profiling tool.** The energy measurement runs with
+NVML counter reads (two per window), a 4 Hz power poll, and a DCGM host engine
+idle in the background. No CUDA interception, no kernel serialisation, no
+tracing. Nothing in that set touches the critical path of a request.
+
+**Rule 2 - Pass B runs strictly after Pass A, with a 60 s settle.** The
+profiling tools that *do* perturb (Nsight Compute serialises kernels; CUPTI
+counter collection adds overhead) cannot overlap the measurement even
+accidentally, because they start only once every policy cell has completed.
+
+**Rule 3 - no tool may be promoted into Pass A to "get better coverage".** If a
+source cannot be read without perturbation, it belongs in Pass B or is recorded
+as denied. Coverage never outranks validity.
+
+**The measured check - a mandatory control arm.** Every Stage 2 job re-runs
+`slo_packing` at the busiest load with the power poll **disabled**
+(`--poll-interval 0`, counter reads only) and compares:
+
+```
+perturbation_check.py  pass-a.json  control-counteronly.json
+  full telemetry : X J/req   poll=0.25s
+  counter only   : Y J/req   poll=0s
+  energy difference / p95 difference / completed difference
+```
+
+**Acceptance rule:** if the energy difference is under 1%, the instrumentation
+is free and Pass A stands unqualified. If it exceeds 1%, **the telemetry is
+trimmed and the job re-run** - the result is not accepted with a caveat. That
+ordering matters: we fix the instrument rather than annotate the number.
+
+**Cost accounting, for the record:**
+
+| Phase | Added cost | On the measurement path? |
+|---|---|---|
+| Pass 0 gate | ~30 s once per job | no, runs before the servers take load |
+| Pass A telemetry | 2 counter reads per window + 4 Hz poll | yes, and verified immaterial by the control |
+| Pass A-control | one extra policy cell | no, it *is* the check |
+| 60 s settle | 60 s once | no |
+| Pass B | minutes, deliberately perturbing | no, strictly after all measurement |
+
+So the mandatory-everything requirement is met without trading away the
+fidelity of the numbers or the speed of the serving path. The only cost is
+wall-clock time on an exclusive node we hold anyway, which is the cheapest
+resource in this project.
+
 ### 6.1 Thesis and paper split
 
 They fail for opposite reasons, so material is routed rather than duplicated.
@@ -514,6 +564,7 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
+| 2026-10-03 | Telemetry overhead **verified, not assumed** | mandatory counter-only control arm per job; >1% difference trims the telemetry rather than caveating the result |
 | 2026-10-03 | All telemetry **mandatory, split into two passes** | every tool used on real hardware every job; profiling perturbs energy, and counters are denied on 13 of 15 nodes, so they cannot share a run with the measurement |
 
 ## 11. Calendar
