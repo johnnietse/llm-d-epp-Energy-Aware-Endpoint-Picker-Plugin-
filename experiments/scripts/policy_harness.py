@@ -360,6 +360,19 @@ class Router:
         self._ung = (mp.get_context("fork").Value("l", 0, lock=False)
                      if shared else None)
         self._ung_local = 0
+        # Picks where the curve answered for every endpoint but NONE was
+        # SLO-feasible, so the policy fell back. This is not a defect: it is
+        # the policy correctly reporting that the fleet is saturated, and it is
+        # the expected behaviour past the knee. It is counted separately
+        # because a cell where most picks land here is a cell in which the
+        # policy was INACTIVE - the data is sound, but no comparison between
+        # policies can rest on it, since they all ran the same fallback.
+        self._sat = (mp.get_context("fork").Value("l", 0, lock=False)
+                     if shared else None)
+        self._sat_local = 0
+        # Per-pick tally of endpoints whose curve lookup had no data. Reset at
+        # the top of every pick.
+        self._nodata = 0
 
     def _note_out_of_range(self):
         if self._oor is not None:
@@ -377,9 +390,35 @@ class Router:
     def out_of_range(self):
         return self._oor.value if self._oor is not None else self._oor_local
 
+    def _note_saturated(self):
+        if self._sat is not None:
+            self._sat.value += 1
+        else:
+            self._sat_local += 1
+
+    def _no_feasible(self):
+        """Record an empty feasible set, attributing it to the right cause.
+
+        Distinguishing these two took three attempts. Counting raw
+        out-of-range lookups refused clean runs, because a consolidating policy
+        probes above the ceiling by design. Counting every empty feasible set
+        as ungrounded then refused runs where the curve had answered perfectly
+        and simply said that nothing fits the SLO - jobs 12304137/8 showed
+        out_of_range=0 with 96.9% of picks flagged, at a measured p50 of 2.20 s
+        against a 2.0 s SLO. The model was right; the counter was wrong.
+        """
+        if self._nodata >= self.n:
+            self._note_ungrounded()
+        else:
+            self._note_saturated()
+
     @property
     def ungrounded_picks(self):
         return self._ung.value if self._ung is not None else self._ung_local
+
+    @property
+    def saturated_picks(self):
+        return self._sat.value if self._sat is not None else self._sat_local
 
     # The policy bodies below index these as plain sequences, so the shared and
     # unshared cases read identically and cannot drift apart.
@@ -410,6 +449,7 @@ class Router:
         thr = interp(cur, c, "tok_s")
         if thr is None:
             self._note_out_of_range()
+            self._nodata += 1
             return math.inf
         per = thr / c if c else 0.0
         return OUTPUT_TOKENS / per if per > 0 else math.inf
@@ -424,6 +464,7 @@ class Router:
         pwr = interp(cur, c, "power")
         if thr is None or pwr is None:
             self._note_out_of_range()
+            self._nodata += 1
             return math.inf
         return pwr / thr if thr > 0 else math.inf
 
@@ -441,6 +482,7 @@ class Router:
             self._release_locked(i)
 
     def _pick_locked(self, policy):
+        self._nodata = 0
         if policy == "round_robin":
             if self._rr is not None:
                 i = self._rr.value % self.n
@@ -458,7 +500,7 @@ class Router:
                 # This fallback was already sound - balance load when the curve
                 # cannot say which endpoint is safe - but it is still a pick
                 # made without grounded information, so it is counted.
-                self._note_ungrounded()
+                self._no_feasible()
                 i = min(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_greedy":
             feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
@@ -472,7 +514,7 @@ class Router:
                 # degraded to "always endpoint 0" while still being reported
                 # as energy-aware. Without energy information the defensible
                 # action is to balance load, which is what least_loaded does.
-                self._note_ungrounded()
+                self._no_feasible()
                 i = min(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_consolidate":
             # prefer an already-busy endpoint of the most efficient type, and
@@ -486,7 +528,7 @@ class Router:
                 # Same defect as energy_greedy: the old `or list(range(self.n))`
                 # made every candidate's key (+inf, ...) so the tuple compare
                 # fell through to index order.
-                self._note_ungrounded()
+                self._no_feasible()
                 i = min(range(self.n), key=lambda k: self._inflight[k])
         else:
             raise SystemExit("unknown policy " + policy)
@@ -826,6 +868,11 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         # Picks where no endpoint had curve data. Unlike the raw lookup
         # count above, this one can invalidate a policy claim.
         "router_ungrounded_picks": router.ungrounded_picks,
+        # Policy ran its fallback because nothing met the SLO. Sound data,
+        # but the policy was inactive, so no comparison rests on it.
+        "router_saturated_picks": router.saturated_picks,
+        "router_saturated_frac": (router.saturated_picks / completed
+                                  if completed else None),
         "router_ungrounded_frac": (router.ungrounded_picks / completed
                                    if completed else None),
         "router_curve_max_concurrency": {
@@ -932,6 +979,12 @@ def main():
                   "not the policy being measured."
                   % (r["router_ungrounded_picks"], r["completed"],
                      (r.get("router_ungrounded_frac") or 0) * 100), flush=True)
+        elif r.get("router_saturated_frac", 0) and r["router_saturated_frac"] > 0.5:
+            print("    (policy INACTIVE on %.0f%% of picks: the curve answered "
+                  "but no endpoint met the SLO, so every policy ran the same "
+                  "load-balancing fallback. Sound overload data; no policy "
+                  "comparison can rest on this cell.)"
+                  % (r["router_saturated_frac"] * 100), flush=True)
         elif r.get("router_out_of_range"):
             print("    (curve probed above its measured range %d time(s); "
                   "those endpoints were excluded as infeasible, which is the "

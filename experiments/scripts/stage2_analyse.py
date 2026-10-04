@@ -52,7 +52,7 @@ def load(run_dir):
     return rows
 
 
-def validity_audit(rows):
+def validity_audit(rows, trials):
     """Refuse to analyse a run containing a cell the harness itself distrusts."""
     bad = [(r["policy"], r["offered_rate_rps"]) for r in rows
            if r.get("client_limited")]
@@ -116,8 +116,39 @@ def validity_audit(rows):
               % (probed, worst["policy"], worst["offered_rate_rps"],
                  worst["router_out_of_range"]))
 
-    print("validity audit: %d cells, none client-limited, no ungrounded "
-          "routing above %.0f%%." % (len(rows), UNGROUNDED_TOLERANCE * 100))
+    # A cell can be perfectly sound and still unable to support a policy
+    # comparison. Past the knee the curve answers correctly that NO endpoint
+    # meets the SLO, so every curve-using policy runs the same load-balancing
+    # fallback. Jobs 12304137/8 showed out_of_range=0 with 96.9% of picks in
+    # that state at a measured p50 of 2.20 s against a 2.0 s SLO - the model
+    # was right, the fleet was saturated. Those cells are excluded from the
+    # comparison and reported, not refused: the energy and latency numbers in
+    # them are real overload data.
+    INACTIVE_TOLERANCE = 0.50
+    inactive = {(r["policy"], r["offered_rate_rps"])
+                for r in rows
+                if (r.get("router_saturated_frac") or 0.0) > INACTIVE_TOLERANCE}
+    if inactive:
+        rates = sorted({rate for _, rate in inactive})
+        print("policy INACTIVE (curve answered, nothing met the SLO, so every "
+              "policy ran the same fallback) in %d cell(s) at %s req/s."
+              % (len(inactive), ", ".join("%.0f" % x for x in rates)))
+        print("  Those cells are sound overload data but cannot distinguish "
+              "policies, so they are excluded from the verdict.")
+        rows = [r for r in rows
+                if (r.get("router_saturated_frac") or 0.0) <= INACTIVE_TOLERANCE]
+        for d in list(trials):
+            trials[d] = [r for r in trials[d]
+                         if (r.get("router_saturated_frac") or 0.0)
+                         <= INACTIVE_TOLERANCE]
+        if not rows:
+            print("Every cell had the policies inactive. The sweep is "
+                  "entirely past the knee: lower the load levels.")
+            return False
+
+    print("validity audit: %d usable cells, none client-limited, no "
+          "ungrounded routing above %.0f%%."
+          % (len(rows), UNGROUNDED_TOLERANCE * 100))
     worst = max(rows, key=lambda r: r.get("send_delay_p99") or 0.0)
     print("  worst dispatch delay p99: %.4f s (%s at %.0f req/s)"
           % (worst.get("send_delay_p99") or 0.0, worst["policy"],
@@ -268,7 +299,7 @@ def main():
         print("  %s  (%d cells, seed(s) %s)"
               % (d, len(trials[d]), ",".join(str(x) for x in seeds)))
     print("=" * 72)
-    if not validity_audit(rows):
+    if not validity_audit(rows, trials):
         return 2
 
     print("\nGenerator: %s worker process(es), pool %s per worker."
