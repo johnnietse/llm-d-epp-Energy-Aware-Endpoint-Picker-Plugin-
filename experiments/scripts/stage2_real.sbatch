@@ -40,7 +40,13 @@
 #   sbatch -w frnt154 --gres=gpu:a100:8    stage2_real.sbatch     # 8x A100
 #   sbatch -w frnt140 --gres=gpu:a30:2     stage2_real.sbatch     # 2x A30 (smoke)
 #
-# Environment knobs: MODEL, RATES, REQUESTS, SLO, POLICIES
+# Environment knobs: MODEL, RATES, REQUESTS, SLO, POLICIES, MAX_GPUS
+#
+# NOTE: do NOT add --disable-log-requests to the vllm serve line. vLLM 0.30.0
+# removed it, and passing it kills every server instantly with
+# "unrecognized arguments" - which is exactly how the first smoke run (job
+# 12303323) failed. Verify any new serve flag against `vllm serve --help`
+# inside the image before adding it.
 
 if ! command -v module >/dev/null 2>&1; then
   source /cvmfs/soft.computecanada.ca/config/profile/bash.sh 2>/dev/null \
@@ -63,6 +69,13 @@ REQUESTS="${REQUESTS:-600}"
 POLICIES="${POLICIES:-round_robin,least_loaded,slo_packing,energy_greedy,energy_consolidate}"
 
 NGPU="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
+# --exclusive gives us every GPU on the node regardless of --gres, so a smoke
+# run needs an explicit cap. MAX_GPUS=2 proves the launcher without pretending
+# to be the real fleet experiment.
+if [ -n "${MAX_GPUS:-}" ] && [ "${MAX_GPUS}" -lt "$NGPU" ]; then
+  echo "capping $NGPU visible GPUs to MAX_GPUS=$MAX_GPUS"
+  NGPU="$MAX_GPUS"
+fi
 GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 | tr ' ' '_')"
 echo "node=$(hostname) gpus=$NGPU type=$GPU_NAME model=$MODEL"
 
@@ -98,7 +111,6 @@ for ((i=0; i<NGPU; i++)); do
     vllm serve "$MODEL" --served-model-name served \
       --host 127.0.0.1 --port "$port" \
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
-      --disable-log-requests \
       > "$RUN/vllm-gpu$i.log" 2>&1 &
   PIDS+=($!)
 done
@@ -164,12 +176,27 @@ echo "load levels: $RATES req/s"
 
 TYPES="$(python3 -c "print(','.join(['$GPU_NAME']*$NGPU))")"
 CURVE_ARGS=""
+# Two bugs lived here and both were caught by the smoke run (job 12303325):
+#   1. the pairs were passed WITHOUT the --curves flag, so argparse rejected
+#      them as positional and Pass A failed at every load level;
+#   2. several h1.csv files share a GPU type name, including the 7B run, so the
+#      last one won and the router would have been handed the 7B curve while
+#      serving 1.5B. Now the curve must match the model actually being served.
 for c in "$ROOT"/results/h1-*/h1.csv; do
   [ -f "$c" ] || continue
-  n="$(grep -m1 -oE 'NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,]*' \
-        "$(dirname "$c")/instruments.txt" 2>/dev/null | tr ' ' '_')"
-  [ -n "$n" ] && CURVE_ARGS="$CURVE_ARGS $c=$n"
+  inst="$(dirname "$c")/instruments.txt"
+  [ -f "$inst" ] || continue
+  # only curves measured with the SAME model we are serving
+  grep -q "model=$MODEL" "$inst" || continue
+  n="$(grep -m1 -oE 'NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,]*|NVIDIA L40S|Quadro RTX 8000|Tesla V100[^,]*'         "$inst" 2>/dev/null | tr ' ' '_')"
+  [ -n "$n" ] || continue
+  # first match per type wins, so a later duplicate cannot silently replace it
+  case " $CURVE_ARGS " in
+    *"=$n "*) echo "  skipping duplicate curve for $n: $c" ;;
+    *) CURVE_ARGS="$CURVE_ARGS $c=$n"; echo "  curve for $n: $c" ;;
+  esac
 done
+[ -n "$CURVE_ARGS" ] && CURVE_ARGS="--curves $CURVE_ARGS"
 echo "curves passed to the router: $CURVE_ARGS"
 
 # ------------------------------------------------------------------- the runs
