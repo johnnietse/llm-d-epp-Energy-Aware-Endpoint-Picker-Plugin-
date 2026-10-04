@@ -230,22 +230,55 @@ POLICIES = ["round_robin", "least_loaded", "slo_packing",
 
 # ------------------------------------------------------------------ the driver
 
-async def one_request(session_url, prompt, timeout=300):
+async def one_request(base_url, prompt, timeout=300):
+    """Stream the completion so TTFT and inter-token latency are measurable.
+
+    This used to send stream=False, which made TTFT and TPOT impossible to
+    collect - only end-to-end latency. For an SLO-based study that is
+    disqualifying: TTFT (prefill-dominated) and TPOT/ITL (decode-dominated) are
+    the two standard SLO dimensions in LLM serving, and the field reports them
+    separately because a policy can trade one for the other. Returns
+    (ttft_s, itls, n_tokens).
+    """
     body = json.dumps({
         "model": "served",
         "prompt": prompt,
         "max_tokens": OUTPUT_TOKENS,
         "temperature": 0.0,
-        "stream": False,
+        "stream": True,
     }).encode()
     req = urllib.request.Request(
-        session_url + "/v1/completions", data=body,
+        base_url + "/v1/completions", data=body,
         headers={"Content-Type": "application/json"})
     loop = asyncio.get_running_loop()
 
     def _do():
+        t0 = time.time()
+        ttft = None
+        stamps = []
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read())
+            for raw in r:
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                text = ""
+                for ch in chunk.get("choices", []):
+                    text += ch.get("text") or ""
+                if not text:
+                    continue
+                now = time.time()
+                if ttft is None:
+                    ttft = now - t0
+                stamps.append(now)
+        itls = [stamps[i] - stamps[i - 1] for i in range(1, len(stamps))]
+        return ttft, itls, len(stamps)
 
     return await loop.run_in_executor(None, _do)
 
@@ -263,6 +296,8 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         arrivals.append(t)
 
     latencies = []
+    ttfts = []
+    all_itls = []
     errors = 0
     completed = 0
 
@@ -278,8 +313,11 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         prompt = f"Request {idx}: " + "explain distributed systems. " * rng.randint(4, 12)
         t0 = time.time()
         try:
-            await one_request(url, prompt)
+            ttft, itls, _ntok = await one_request(url, prompt)
             latencies.append(time.time() - t0)
+            if ttft is not None:
+                ttfts.append(ttft)
+            all_itls.extend(itls)
             completed += 1
         except Exception:
             errors += 1
@@ -294,8 +332,15 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     except asyncio.CancelledError:
         pass
 
+    def pct(xs, q):
+        if not xs:
+            return None
+        xs = sorted(xs)
+        return xs[min(len(xs) - 1, int(q * len(xs)))]
+
     lat_sorted = sorted(latencies)
     met = sum(1 for l in latencies if l <= slo_s)
+    elapsed = max(1e-9, (arrivals[-1] if arrivals else 0.0) + (lat_sorted[-1] if lat_sorted else 0.0))
     return {
         "policy": policy,
         "offered_rate_rps": rate,
@@ -308,8 +353,22 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "energy": energy,
         "j_per_request": energy["total_energy_j"] / completed if completed else None,
         "j_per_slo_request": energy["total_energy_j"] / met if met else None,
-        "latency_p50": lat_sorted[len(lat_sorted) // 2] if lat_sorted else None,
-        "latency_p95": lat_sorted[int(0.95 * len(lat_sorted))] if lat_sorted else None,
+        "latency_p50": pct(latencies, 0.50),
+        "latency_p95": pct(latencies, 0.95),
+        "latency_p99": pct(latencies, 0.99),
+        "ttft_p50": pct(ttfts, 0.50),
+        "ttft_p95": pct(ttfts, 0.95),
+        "ttft_p99": pct(ttfts, 0.99),
+        "ttft_mean": st.mean(ttfts) if ttfts else None,
+        "tpot_mean": st.mean(all_itls) if all_itls else None,
+        "itl_p50": pct(all_itls, 0.50),
+        "itl_p95": pct(all_itls, 0.95),
+        "itl_p99": pct(all_itls, 0.99),
+        "itl_max": max(all_itls) if all_itls else None,
+        "itl_samples": len(all_itls),
+        "goodput_rps": met / elapsed if elapsed else None,
+        "goodput_per_joule": (met / energy["total_energy_j"]
+                              if energy["total_energy_j"] else None),
         "activations": router.activations,
         "seed": seed,
         "poll_interval_s": poll_interval,
@@ -352,8 +411,17 @@ def main():
         r = asyncio.run(run_policy(policy, endpoints, gpus, types, curves,
                                    args.rate, args.requests, args.slo, args.seed,
                                    poll_interval=args.poll_interval))
-        print(f"    J/req {r['j_per_request']:.2f}  SLO {r['slo_rate']*100:.1f}%  "
-              f"p95 {r['latency_p95']:.3f}s  errors {r['errors']}", flush=True)
+        def g(key, nd=3):
+            v = r.get(key)
+            return "n/a" if v is None else format(v, "." + str(nd) + "f")
+        print("    J/req " + g("j_per_request", 2)
+              + "  goodput/J " + g("goodput_per_joule", 4)
+              + "  SLO " + format(r["slo_rate"] * 100, ".1f") + "%", flush=True)
+        print("    TTFT p50/p95 " + g("ttft_p50") + "/" + g("ttft_p95")
+              + "s  TPOT " + g("tpot_mean", 4)
+              + "s  ITL p99/max " + g("itl_p99", 4) + "/" + g("itl_max", 4)
+              + "s  e2e p99 " + g("latency_p99")
+              + "s  errors " + str(r["errors"]), flush=True)
         results.append(r)
         time.sleep(20)   # let the GPUs settle between policies
 

@@ -292,6 +292,77 @@ primary metric is declared now and not chosen after seeing results.
 
 ---
 
+### 5.1 What to measure, grounded in the literature rather than invented
+
+The question "which factors should we even measure?" was open and being
+answered by intuition. Researched 2026-10-03; the field has a settled answer,
+and we were missing part of it.
+
+**The convention.** Three operational metrics define LLM serving: **TTFT**
+(time to first token, prefill-dominated), **TPOT / ITL** (time per output token
+or inter-token latency, decode-dominated), and **goodput** (completed requests
+per second that also meet their SLO). The llm-d sustainability agenda paper
+(2609.05565) - the same work that names our research gap - specifies the
+reporting set for energy-aware serving: **SLO-goodput per joule**, accompanied
+by TTFT, TPOT/ITL, P50/P95/P99 end-to-end latency, request success rate, cache
+hit rate, input/output token throughput, accelerator utilisation and power.
+Following that set makes positioning against them straightforward.
+
+**The defect this exposed.** Our harness sent `stream: false`, so it could only
+time end-to-end latency - **TTFT and TPOT were unmeasurable**. For an SLO-based
+study that is disqualifying, because TTFT and TPOT are precisely the two
+dimensions a routing policy trades against each other, and a single end-to-end
+number hides the trade. Fixed: the harness now streams and records per-token
+timestamps.
+
+**Metric set now collected per policy cell:**
+
+| Class | Metrics |
+|---|---|
+| Energy | J/request, J/generated-token, J/token-processed, **goodput per joule** |
+| Latency, prefill | TTFT p50 / p95 / p99, mean |
+| Latency, decode | TPOT mean, **ITL p50 / p95 / p99 and max** |
+| Latency, end-to-end | p50 / p95 / p99 |
+| Service | SLO attainment, goodput (req/s meeting SLO), errors |
+| Mechanism | activation count per endpoint, per-GPU energy split |
+
+**Why ITL max and p99, not just mean TPOT.** "On Evaluating Performance of LLM
+Inference Serving Systems" (arXiv 2507.09019, Agrawal et al., 2025) catalogues
+evaluation anti-patterns in three classes - baseline fairness, evaluation
+setup, and **metric design**, where normalisations "obscure generation stalls
+and variability in token generation". A mean TPOT can look healthy while a
+policy stalls generation periodically. Recording the ITL distribution and
+maximum is the defence, and it is a direct requirement from that paper.
+
+**The limit we must state, not hide.** MLPerf Power - the field's gold standard
+- measures **at the wall** with a SPEC PTDaemon-certified analyser at under 1%
+AC uncertainty, dividing integrated system power by the number of inferences.
+We measure **GPU-package energy only**, which excludes CPU, DRAM, fans and PSU
+losses, so our joules are a *subset* of system energy and are **not comparable
+to an MLPerf Power figure**. Two consequences:
+
+1. Every energy number we publish must be labelled **GPU-package energy**, not
+   system energy, with the exclusions listed explicitly.
+2. This is the strongest argument yet for the **IPMI** request. Node-level
+   energy is the closest thing to the MLPerf methodology available on this
+   cluster, and the only measurement that would let us state a system-level
+   figure at all. It is promoted from "useful independent check" to "the only
+   route to a comparable number".
+
+**Anti-pattern checklist, adopted as a requirement** (from 2507.09019):
+isolate the algorithmic change from engineering effort; use workloads
+representative of production rather than convenient ones; never normalise in a
+way that hides stalls or variance. Our concrete answers are, respectively, the
+random-routing negative control, the Azure trace in Stage 5, and the ITL
+distribution above.
+
+**Still not measured, and worth deciding on later:** cache hit rate (available
+from vLLM's own metrics endpoint), accelerator utilisation during policy runs,
+and output determinism across endpoints. The first two are cheap scrapes of
+`/metrics`; the third matters only if a reviewer questions whether routing
+changes answers, which it should not, since every endpoint serves the same
+model at temperature 0.
+
 ## 6. Step-by-step path, with gates
 
 | Stage | Work | Exit criterion | Est. |
@@ -608,6 +679,8 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
 | 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
 | 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
+| 2026-10-03 | Metric set **grounded in literature**; harness switched to streaming | TTFT and TPOT were unmeasurable with stream:false; ITL distribution added per arXiv 2507.09019's metric-design anti-pattern |
+| 2026-10-03 | Energy relabelled **GPU-package, not system** | MLPerf Power measures at the wall; ours excludes CPU, DRAM, fans, PSU, so it is a subset and not comparable |
 | 2026-10-03 | **NVML confirmed irreplaceable for energy**; its limits are about kernel counters, not joules | DCGM 156 is the same counter; CUPTI/Nsight have no energy counter; IPMI is the only independent sensor |
 | 2026-10-03 | Counter characterisation added to **close defect S2** | the SC24 ~25% sampling result was cited but never tested on our GPUs; also adds the unused firmware-averaged power field |
 | 2026-10-03 | Telemetry overhead **verified, not assumed** | mandatory counter-only control arm per job; >1% difference trims the telemetry rather than caveating the result |
