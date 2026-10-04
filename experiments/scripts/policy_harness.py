@@ -678,6 +678,21 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "slo_s": slo_s,
         "slo_met": met,
         "slo_rate": met / completed if completed else 0.0,
+        # How close the latency distribution sits to the SLO boundary.
+        # With a fixed output length, service time is roughly
+        # TTFT + OUTPUT_TOKENS * TPOT, so an end-to-end SLO is really a
+        # TPOT threshold and the whole distribution crosses it together:
+        # measured 97.1% attainment at 271 req/s and 7.6% at 350, while
+        # e2e p99 moved only 2.012 -> 2.225 s (job 12303354). Attainment
+        # alone therefore says almost nothing about how much headroom a
+        # policy had. These report the margin instead of hiding it.
+        "slo_margin_p50": (pct(latencies, 0.50) / slo_s
+                           if latencies and slo_s else None),
+        "slo_margin_p95": (pct(latencies, 0.95) / slo_s
+                           if latencies and slo_s else None),
+        "frac_within_10pct_of_slo": (
+            sum(1 for l in latencies if 0.9 * slo_s <= l <= 1.1 * slo_s)
+            / len(latencies) if latencies else None),
         "energy": energy,
         "j_per_request": energy["total_energy_j"] / completed if completed else None,
         "j_per_slo_request": energy["total_energy_j"] / met if met else None,
@@ -787,6 +802,10 @@ def main():
               + "s  ITL p99/max " + g("itl_p99", 4) + "/" + g("itl_max", 4)
               + "s  e2e p99 " + g("latency_p99")
               + "s  errors " + str(r["errors"]), flush=True)
+        print("    SLO margin p50/p95 " + g("slo_margin_p50", 3) + "/"
+              + g("slo_margin_p95", 3) + " x SLO  within 10% of boundary "
+              + (format((r["frac_within_10pct_of_slo"] or 0) * 100, ".1f")
+                 + "%"), flush=True)
         print("    offered " + format(r["offered_rate_rps"], ".1f")
               + " req/s  achieved " + g("achieved_rate_rps", 1)
               + " req/s  fidelity " + format(r["rate_fidelity"] * 100, ".1f")
