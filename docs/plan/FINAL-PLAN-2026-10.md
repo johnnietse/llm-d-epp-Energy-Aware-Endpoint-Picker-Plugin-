@@ -273,6 +273,28 @@ one cluster (`experiments/instruments-2026-10-03/`):
    negative control** in every policy comparison; if the harness cannot
    separate it from the good policy, the measurement is not sensitive enough to
    support any claim.
+7. **The load generator is an instrument and is verified like one.** Every cell
+   records offered rate, **achieved rate**, rate fidelity, and dispatch-delay
+   percentiles. A cell whose dispatch delay p99 exceeds 5% of the SLO is marked
+   `client_limited` and the job aborts: the generator fell behind its own
+   arrival schedule, so the offered rate is fiction. A shortfall in completions
+   with *small* dispatch delay is marked `server_saturated` and is a valid data
+   point, because that is genuine overload. These two are separated
+   deliberately - completion rate alone cannot distinguish them, and only the
+   first invalidates a result.
+8. **Offered load is bounded by measured capacity, never by an estimate.** Load
+   levels come from the Stage 1 curve for the GPU type and model actually being
+   served. If no matching curve exists, the job refuses to run.
+9. **Cells are sized by window length, not request count**, so every load
+   level gets the same measurement window and all of them sit far above the
+   measured counter floor.
+
+Items 7 to 9 exist because job 12303327 violated all three and produced a
+clean, complete, entirely invalid 8-GPU policy comparison. The energy
+instruments were all verified; the thing feeding them was not, so the gate
+passed and the result looked publishable. The generalisation: **a measurement
+pipeline must verify the apparatus that generates the load, not only the
+apparatus that observes it.**
 
 ---
 
@@ -627,7 +649,7 @@ Do **not** run `ars-full` yet. That decision was already made in
 |---|---|---|
 | B1 | Hardware varies between runs | **closed** by `-w` pinning; extended to driver version |
 | B2 | **No baselines** | **OPEN — the single blocking gap.** Stage 2 then 5. |
-| B3 | Underpowered, one model, one output length, closed-loop | partly closed (5 trials, CIs); model size, output length and open-loop remain |
+| B3 | Underpowered, one model, one output length, closed-loop | partly closed (5 trials, CIs); **open-loop discharged 2026-10-04, see N4**; model size and output length remain |
 | B4 | Co-tenancy | **closed** by `--exclusive` with a recorded guard |
 | S1 | Prefix-cache result backwards | **closed** — metric artifact, resolved |
 | S2 | No sensor characterisation | **addressed**: `counter_characterisation.sbatch` measures update period, quantum, counter-vs-integrated agreement, aliasing under square-wave load, and the minimum trustworthy window, per GPU type. Run before Stage 5. |
@@ -635,6 +657,9 @@ Do **not** run `ars-full` yet. That decision was already made in
 | S4 | Per-request attribution under batching | open, stated as an assumption |
 | **N1** | **"No privileged control" is partly an artifact of our account** | open. Mitigation: argue from the measured permission non-uniformity that a tenant genuinely cannot rely on privilege. |
 | **N2** | Effect size may be too small to matter | open. This is what Stage 2 exists to settle. |
+| **N4** | **Load generator was not open-loop** | **closed 2026-10-04.** `one_request()` issued blocking urllib through the default asyncio executor, capping in-flight requests at `min(32, cpu_count+4)` = 32 on a 32-core node, so offered load above ~27 req/s was fiction. Job 12303327's entire 8-GPU, 5-policy, 4-load sweep was client-limited and is discarded. Fixed with httpx async streaming; the generator is now gated as an instrument in Pass 0, and every cell records `achieved_rate_rps` and `rate_fidelity`. This is B3's "open-loop remains" clause, discharged. |
+| **N5** | **TTFT was measured after the client's own queue wait** | **closed 2026-10-04.** TTFT was timed inside the worker thread, so it excluded dispatch delay and read 0.028 s while end-to-end p99 was 23 s. The SLO argument leans on TTFT, so the misleading number was the reassuring one. TTFT and latency are now timed from the scheduled arrival; `ttft_from_send` keeps the server-side view and `send_delay` is the gap. |
+| **N6** | Measurement window shrank as offered load rose | **closed 2026-10-04.** A fixed 600-request cell is a 12 s window at 50 req/s but 4.4 s at 137.5 req/s, so the high-load cells that the research question is about had the shortest energy windows. Cells are now sized by `DURATION` (default 60 s), and the counter-only control uses the same window as the Pass A cell it is compared against. |
 | **N3** | Artifact self-contradiction: `pkg/ebpf` and SPANK require privilege | closed by quarantining both. |
 
 ---
@@ -692,6 +717,13 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Counter characterisation added to **close defect S2** | the SC24 ~25% sampling result was cited but never tested on our GPUs; also adds the unused firmware-averaged power field |
 | 2026-10-03 | Telemetry overhead **verified, not assumed** | mandatory counter-only control arm per job; >1% difference trims the telemetry rather than caveating the result |
 | 2026-10-03 | All telemetry **mandatory, split into two passes** | every tool used on real hardware every job; profiling perturbs energy, and counters are denied on 13 of 15 nodes, so they cannot share a run with the measurement |
+| 2026-10-04 | **Job 12303327 discarded in full** | the 8-GPU, 5-policy, 4-load sweep completed cleanly and read as a result (`energy_consolidate` -25% J/req at matched SLO), but every cell was client-limited: 112.5 req/s offered, 26.7 achieved. Nothing in the pipeline flagged it. No number from this job appears anywhere |
+| 2026-10-04 | Load generator reclassified as a **measurement instrument** | it failed silently and produced a plausible result, which is the same failure mode as a miscalibrated power sensor. It is now checked in the Pass 0 gate and the job aborts if `httpx` is missing from the image |
+| 2026-10-04 | `client_limited` and `server_saturated` **separated** | completion-rate shortfall alone cannot tell a broken generator from genuine overload, and only the first invalidates a cell. Dispatch delay is purely client-side, so it is the discriminator: budget 5% of the SLO, floored at 25 ms |
+| 2026-10-04 | Offered **and achieved** rate reported for every cell | a result that reports only offered load cannot be checked for this class of error at all. This is the durable fix; the thread pool was only the instance |
+| 2026-10-04 | Capacity derived from the **measured Stage 1 curve**, not a tokens/s constant | the old estimate `NGPU * 2000/128` gave 125 req/s for 8x RTX 6000; measured single-GPU peak is 21.1 req/s at p95 1.53 s, so the real figure is ~169 req/s. The guess was 26% low, which would have put the swept range below the SLO knee even with a working generator. Absent a matching curve the job now refuses to run rather than invent a figure |
+| 2026-10-04 | Cells sized by **window length**, not request count | equal windows across load levels, and every cell far above the measured counter floor (1.0 s A30, 0.5 s RTX 6000) |
+| 2026-10-04 | **SLO may not bind at all** in the swept range | Stage 1 p95 never exceeded 1.53 s against a 2.0 s SLO, even at concurrency 32 per GPU. If calibration confirms this, the SLO must be tightened or the load pushed past 1.6x capacity, or there is no trade-off region for routing to exploit and the study has no question to answer. Open; job 12303350 settles it |
 
 ## 11. Calendar
 
@@ -851,7 +883,7 @@ fetching the record. The lesson is cheap to state and was expensive to learn:
 
 ## 13. Progress tracker
 
-Updated 2026-10-03. One line per item so nothing silently drops.
+Updated 2026-10-04. One line per item so nothing silently drops.
 
 | # | Item | State |
 |---|---|---|
@@ -873,23 +905,38 @@ Updated 2026-10-03. One line per item so nothing silently drops.
 | 16 | Verify 2605.23057 and 2603.04445 (framing-only) | **open**, low priority |
 | 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **open** |
 | 18 | Confirm MLPerf PTDaemon / 1% AC figures in the full paper | **open** |
-| 19 | Run: counter characterisation | **queued**, needs cluster login |
-| 20 | Run: Stage 2 smoke, 2 GPU on `frnt140` | **queued**, needs cluster login |
-| 21 | Run: Stage 2 real, 8 GPU on `frnt155` | **queued**, after the smoke run |
+| 19 | Run: counter characterisation | **done** - jobs 12303200 (A30) and 12303324 (RTX 6000); S2 closed on both |
+| 20 | Run: Stage 2 smoke, 2 GPU | **done** job 12303326 on `frnt155`; pipeline proved end to end, but see item 21 |
+| 21 | Run: Stage 2 real, 8 GPU on `frnt155` | **DISCARDED** job 12303327. Completed clean, every cell client-limited (112.5 offered / 26.7 achieved). See threats N4-N6 |
 | 22 | Stage 3 pre-registration | **blocked** on Stage 2 result |
 | 23 | Stage 4 scorer, only for a rule Stage 2 proved | **blocked** on Stage 2 |
 | 24 | CAC request (7 asks incl. IPMI, power limit) | **drafted, unsent** - user's call |
 | 25 | Rotate two exposed CAC passwords | **open** - user action |
 | 26 | A100 / L40S / RTX 8000 / V100 sweeps | **optional**, hardware available |
+| 27 | Open-loop load generator (httpx), two-clock timing, rate-fidelity reporting | **done** `44013f2` |
+| 28 | Load generator gated as an instrument in Pass 0 | **done** `44013f2` |
+| 29 | Capacity derived from the measured Stage 1 curve; cells sized by window length | **done** |
+| 30 | Run: generator calibration, 8 GPU | **running** job 12303350 - finds the generator ceiling and the SLO knee |
+| 31 | Re-run Stage 2 real with verified load levels | **blocked** on 30 |
+| 32 | Decide whether the 2.0 s SLO binds at all in range | **open** - Stage 1 p95 peaked at 1.53 s; if it never binds, tighten the SLO or push past 1.6x capacity, or there is no trade-off region |
 
-Blocking path: 19-21 then 22. Everything else is either done or not on the
-critical path.
+Blocking path: 30, then 31, then 22. Item 21 is discarded, not pending.
+Everything else is either done or not on the critical path.
 
 ## 14. One-line status
 
-Measurement apparatus: **sound and reproducible.** Stage 1: **complete, four
-configurations.** Topic: **still open, window narrowing.** Claim: **narrow but
+Measurement apparatus: **sound for energy; the load generator was not, and is
+now fixed and gated.** Stage 1: **complete, four configurations, unaffected -
+single-stream, no generator involved.** Stage 2: **one full sweep run and
+discarded** (job 12303327, client-limited in every cell); re-run blocked on
+calibration job 12303350. Topic: **still open.** Claim: **narrow but
 defensible.** Code: **rescoped (`legacy/`), builds clean.** Blocking gap:
-**still no baselines - Stage 2 measured is the next action and it is written,
-committed and waiting to submit.** Biggest risk: **the A30 dominates, so there
-may be no useful headroom outside saturation.**
+**still no baselines.** Biggest risks, in order: **(1) the 2.0 s SLO may not
+bind anywhere in reachable load, in which case there is no trade-off region for
+routing to exploit; (2) the A30 dominates, so there may be no useful headroom
+outside saturation.**
+
+The lesson from 12303327 is worth keeping in front: a pipeline that fails
+loudly is cheap, and this one failed silently and handed back a publishable
+-25% energy result. Every number now carries the measurement that would have
+caught it.
