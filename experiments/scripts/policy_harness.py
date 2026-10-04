@@ -269,16 +269,44 @@ def load_curve(path):
 
 
 def interp(curve, c, key):
+    """Interpolate a measured curve. Returns None ABOVE the measured range.
+
+    This used to clamp: any concurrency above the top measured level returned
+    that level's value. That is not a small approximation, it silently turned
+    the router's energy model into a constant and its latency model into a
+    serious underprediction, because the operating range is nowhere near the
+    measured one. The Stage 1 curves stop at concurrency 32; job 12303355 ran
+    at 271 req/s with ~1.95 s service time, so roughly 528 requests were in
+    flight across 8 endpoints, about 66 each - twice the measured domain.
+
+    Two concrete failures followed, and both read as policy results:
+
+      * _jtok returned power(32)/tok_s(32) for EVERY endpoint at c >= 32, so
+        all candidates tied and min() fell through to index order.
+        energy_greedy was bin-packing by endpoint index with no energy signal
+        at all.
+      * _proj_latency predicted 128*c/tok_s(32), i.e. 1.99 s at c=42, and
+        declared that SLO-feasible. The measured p95 at that concurrency was
+        31 s.
+
+    Returning None forces every caller to decide explicitly what to do without
+    data, instead of being handed a confident wrong number. Below the measured
+    range clamping is kept: c < levels[0] means fewer in flight than the
+    lightest measured point, where the curve is flat and the extrapolation is
+    not load-bearing.
+    """
     levels = curve["levels"]
     if c <= levels[0]:
         return curve[key][levels[0]]
-    if c >= levels[-1]:
+    if c > levels[-1]:
+        return None
+    if c == levels[-1]:
         return curve[key][levels[-1]]
     for lo, hi in zip(levels, levels[1:]):
         if lo <= c <= hi:
             f = (c - lo) / (hi - lo)
             return curve[key][lo] + f * (curve[key][hi] - curve[key][lo])
-    return curve[key][levels[-1]]
+    return None
 
 
 # -------------------------------------------------------------------- policies
@@ -317,6 +345,22 @@ class Router:
             self._was_idle = [1] * n
             self._rr = None
             self.rr = 0
+        # How many curve lookups fell outside the measured range. If this is
+        # not ~0, the routing decisions were not grounded in measurement and
+        # the cell cannot support a policy claim.
+        self._oor = (mp.get_context("fork").Value("l", 0, lock=False)
+                     if shared else None)
+        self._oor_local = 0
+
+    def _note_out_of_range(self):
+        if self._oor is not None:
+            self._oor.value += 1
+        else:
+            self._oor_local += 1
+
+    @property
+    def out_of_range(self):
+        return self._oor.value if self._oor is not None else self._oor_local
 
     # The policy bodies below index these as plain sequences, so the shared and
     # unshared cases read identically and cannot drift apart.
@@ -333,21 +377,36 @@ class Router:
         return self._was_idle
 
     def _proj_latency(self, i):
+        """Projected latency, or +inf when the curve cannot answer.
+
+        +inf means "no measurement covers this concurrency", which makes the
+        endpoint SLO-infeasible and pushes the policy onto its documented
+        fallback. The alternative - guessing - is what produced a 31 s p95
+        while the model predicted 1.99 s.
+        """
         c = self.inflight[i] + 1
         cur = self.curves.get(self.types[i])
         if not cur:
             return 0.0
         thr = interp(cur, c, "tok_s")
+        if thr is None:
+            self._note_out_of_range()
+            return math.inf
         per = thr / c if c else 0.0
         return OUTPUT_TOKENS / per if per > 0 else math.inf
 
     def _jtok(self, i):
+        """Energy per token, or +inf when the curve cannot answer."""
         c = self.inflight[i] + 1
         cur = self.curves.get(self.types[i])
         if not cur:
             return 0.0
         thr = interp(cur, c, "tok_s")
-        return interp(cur, c, "power") / thr if thr > 0 else math.inf
+        pwr = interp(cur, c, "power")
+        if thr is None or pwr is None:
+            self._note_out_of_range()
+            return math.inf
+        return pwr / thr if thr > 0 else math.inf
 
     def pick(self, policy):
         if self.lock is not None:
@@ -717,6 +776,14 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "goodput_per_joule": (met / energy["total_energy_j"]
                               if energy["total_energy_j"] else None),
         "activations": router.activations,
+        # Curve lookups that fell outside the measured concurrency range.
+        # Anything materially above zero means the routing decisions in
+        # this cell were not grounded in measurement, so the cell cannot
+        # support a policy claim however clean its energy numbers look.
+        "router_out_of_range": router.out_of_range,
+        "router_curve_max_concurrency": {
+            t: (c["levels"][-1] if c.get("levels") else None)
+            for t, c in curves.items()},
         "seed": seed,
         "poll_interval_s": poll_interval,
         "generator_workers": workers,
@@ -811,6 +878,13 @@ def main():
               + " req/s  fidelity " + format(r["rate_fidelity"] * 100, ".1f")
               + "%  send delay p99 " + g("send_delay_p99")
               + "s  TTFT from send p50 " + g("ttft_from_send_p50"), flush=True)
+        if r.get("router_out_of_range"):
+            print("    *** CURVE OUT OF RANGE on %d routing decisions: the "
+                  "energy/latency model was asked about concurrencies the "
+                  "Stage 1 sweep never measured. Those endpoints were treated "
+                  "as infeasible rather than guessed. Extend the curve before "
+                  "making any claim about this policy."
+                  % r["router_out_of_range"], flush=True)
         if r["client_limited"]:
             print("    *** CLIENT LIMITED: dispatch delay p99 "
                   + g("send_delay_p99") + "s exceeds the "

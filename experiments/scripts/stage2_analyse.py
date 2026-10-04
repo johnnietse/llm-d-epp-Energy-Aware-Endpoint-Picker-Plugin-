@@ -72,7 +72,30 @@ def validity_audit(rows):
         for pol, rate in bad:
             print("  %-20s at %.0f req/s" % (pol, rate))
         return False
-    print("validity audit: %d cells, none client-limited." % len(rows))
+    # Routing decisions must be grounded in measurement. Job 12303355 passed
+    # every other check and still could not support a policy claim: the Stage 1
+    # curves stopped at concurrency 32 while the cells ran at roughly 66 per
+    # endpoint, so the old clamping interp handed the router a constant
+    # J/token and a latency prediction ~10-15x too optimistic.
+    oor = [(r["policy"], r["offered_rate_rps"], r["router_out_of_range"])
+           for r in rows if r.get("router_out_of_range")]
+    if oor:
+        print("REFUSING: %d cell(s) routed on curve lookups outside the "
+              "measured concurrency range." % len(oor))
+        for pol, rate, n in sorted(oor, key=lambda t: -t[2])[:8]:
+            print("  %-20s at %.0f req/s: %d out-of-range lookups"
+                  % (pol, rate, n))
+        print("Extend the Stage 1 sweep to the concurrencies actually reached, "
+              "then re-run. Do not interpret these cells.")
+        return False
+    if "router_out_of_range" not in (rows[0] if rows else {}):
+        print("REFUSING: cells predate out-of-range accounting, so it cannot "
+              "be established that the router had measurements for the "
+              "concurrencies it routed on. Re-run with the current harness.")
+        return False
+
+    print("validity audit: %d cells, none client-limited, no out-of-range "
+          "routing." % len(rows))
     worst = max(rows, key=lambda r: r.get("send_delay_p99") or 0.0)
     print("  worst dispatch delay p99: %.4f s (%s at %.0f req/s)"
           % (worst.get("send_delay_p99") or 0.0, worst["policy"],
@@ -134,6 +157,31 @@ def best_feasible(rows):
     return best
 
 
+def brittle_note(best):
+    """Warn when a winner's margin rests on straddling the SLO boundary.
+
+    Attainment is a near-step function of latency here, so two policies whose
+    latency distributions differ by ~1% can differ by tens of points of
+    attainment purely by sitting either side of the threshold. That is a
+    property of where the SLO was set, not evidence that one policy is better.
+    """
+    boundary = [(n, r) for n, r in best.items()
+                if r.get("slo_margin_p95") is not None
+                and 0.95 <= r["slo_margin_p95"] <= 1.05]
+    if len(boundary) >= 2:
+        print("\nCAUTION: %d feasible point(s) sit within 5%% of the SLO "
+              "boundary:" % len(boundary))
+        for n, r in sorted(boundary, key=lambda t: t[1]["slo_margin_p95"]):
+            print("  %-20s p95 = %.3f x SLO at %.0f req/s, attainment %.1f%%"
+                  % (n, r["slo_margin_p95"], r["offered_rate_rps"],
+                     r["slo_rate"] * 100))
+        print("  Attainment is a near-step function of latency in this "
+              "configuration, so a ranking among these is decided by a "
+              "sub-percent latency difference and is not a robust policy "
+              "result. Repeat trials and report confidence intervals before "
+              "treating any ordering here as a finding.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
@@ -175,6 +223,7 @@ def main():
             r.get("j_per_slo_request") or float("nan"), r["slo_rate"] * 100,
             r.get("slo_margin_p95") or 0.0))
 
+    brittle_note(best)
     pack = best.get("slo_packing")
     if not pack:
         print("\nslo_packing has NO feasible point, so there is no baseline to "
