@@ -198,6 +198,60 @@ protocol requirement rather than a judgement call), and the prefix-cache metric
 artifact (per total token, shared prefix is 2.5x better on A30 against 2.6x on
 the RTX 6000, with 1.25x more requests completed).
 
+### 3.2 Stage 1 complete: four configurations, two further findings
+
+Full table in `experiments/STAGE1-SUMMARY.md`. Run D (7B) shares GPU UUID
+`GPU-7fae90e9-...` with run A (1.5B), so model size was the only variable.
+
+| | RTX 6000 1.5B | A30 1.5B | L4 1.5B | RTX 6000 7B |
+|---|---|---|---|---|
+| idle, model resident | 54.33 W | 27.87 W | 27.46 W | **54.87 W** |
+| activation step | +149.6 W | +116.6 W | +44.4 W | +168.0 W |
+| J/token at c=32 | 0.0735 | **0.0317** | 0.0351 | 0.2992 |
+| tok/s at c=32 | 2704 | **4908** | 2048 | 723 |
+| p95 at c=32 | 1.526 s | **0.840 s** | 2.008 s | 5.704 s |
+| linear-model `R^2` | 0.17 | **0.85** | 0.14 | 0.20 |
+
+**(d) Holding a model costs the same regardless of its size.** Same die:
+54.33 W resident at 1.5B against 54.87 W at 7B - **1% apart for a 4.9x larger
+model** - with the activation step rising only 149.6 to 168.0 W. So the idle
+floor is a property of the GPU, not of what is loaded on it. **You cannot cut
+idle power by keeping a smaller model resident**, which removes a whole class
+of routing ideas before any code was written for them.
+
+**(e) Energy per token scales sub-linearly with parameters.** 4.9x the model
+costs 3.74-4.21x the energy per token, stable across all six load levels, while
+throughput and p95 both move 3.74x. The penalty lands on latency and
+throughput, not on disproportionate energy.
+
+**The power-model question is now settled as a hardware property.** Turing's
+non-monotonic shape appears at *both* model sizes on the same die. Across four
+configurations the linear model is refuted three times - negative slope on
+Turing at 1.5B and 7B, zero slope on the power-capped L4 - and holds only on
+the A30 at `R^2` 0.85.
+
+### 3.3 The project's central difficulty, stated plainly
+
+The A30 Pareto-dominates all three other configurations at c=32: better energy
+**and** throughput **and** latency simultaneously. That is dominance, not a
+trade-off, so **energy-aware routing on this cluster degenerates to "prefer the
+A30s" whenever any are free**, which is almost trivially correct and not worth
+a paper.
+
+Therefore **the research question lives entirely in the saturated regime**,
+where the dominant hardware is full and a policy must choose among the
+remainder under an SLO. Stage 2 measured is built to reach that regime, and the
+honest possibility - which must be stated in the thesis either way - is that
+there is no useful headroom once it does.
+
+**The one hopeful counterexample is the L4.** It reaches nearly A30 efficiency
+(0.0351 against 0.0317 J/token) on a **72 W** budget rather than 165 W, at 2.4x
+the latency. A fleet of many L4s under a loose SLO is the configuration in
+which an energy-aware policy could beat packing outright. Frontenac has exactly
+two L4s, so this is a limitation to name rather than an experiment we can run
+at scale - and it is the strongest argument for the CAC power-limit request,
+which would let us synthesise the same effect on RTX 6000s at 150 W.
+
 ## 4. Measurement protocol, mandatory
 
 Non-negotiable, because three variables were found to be non-uniform *within*
@@ -242,22 +296,19 @@ primary metric is declared now and not chosen after seeing results.
 
 | Stage | Work | Exit criterion | Est. |
 |---|---|---|---|
-| **0. Rescope the code** | Tag `pre-rescope-2026-10-03`; quarantine per section 2; delete `pkg/simulation` and `upstream-port`; stand up the out-of-tree module against llm-d-router | module builds and registers against current llm-d-router | 2-3 d |
-| **1. Characterise** | Sweeps on A30 (`frnt140-147`) and L4 (`frnt201`), plus a 7B model, each pinned by node and driver | per-configuration `P_active` and throughput curves with CIs | 1-2 wk |
-| **2. GATE: offline bound** | Replay Azure arrivals over the measured curves: round-robin vs SLO-aware packing vs post-hoc oracle. **Load must be high enough to saturate the dominant GPU type**, or the result is trivially "prefer A30" (see 3.1b) | **oracle beats packing by >=5% on energy per SLO-satisfied request in the saturated regime, or STOP** and write the measurement/negative-result paper | 1 wk |
+| **0. Rescope the code** | **DONE 2026-10-03** (commit `baef80d`). Tagged `pre-rescope-2026-10-03`; moved nine components to `legacy/` with its own go.mod; root build clean, all tests pass. The out-of-tree llm-d module is deferred to Stage 4, because Stage 2 no longer needs it. | met | done |
+| **1. Characterise** | **DONE 2026-10-03** (commit `f49a179`). Four configurations: RTX 6000 / A30 / L4 at 1.5B, plus 7B on the same RTX 6000 die. All pinned, exclusive, 5 trials, sub-percent CIs. See `experiments/STAGE1-SUMMARY.md`. A100, L40S, RTX 8000, V100 remain available and unmeasured. | met | done |
+| **2. GATE: MEASURED, not modelled** | One vLLM server per GPU on a single exclusive multi-GPU node; real open-loop arrivals; the **policy lives in the load generator**, not in a plugin. Five policies measured with NVML per-device energy. Load swept through saturation of the dominant type. Scripts: `experiments/scripts/{policy_harness.py,stage2_real.sbatch}`. See 6.2. | **some policy beats SLO-aware packing on energy per SLO-satisfied request, measured, at matched SLO attainment, in the saturated regime - or STOP** and write the measurement/negative-result paper | 1 job + analysis |
 | **3. Pre-register** | Commit hypotheses, primary metric, policies, trial count from a power analysis on measured variance, and the analysis script, timestamped in-repo before any comparative run | pre-registration committed and pushed | 2 d |
-| **4. Build the scorer** | `pkg/scorer/activation.go` + tests behind the SLO filter | unit tests pass against recorded fixtures; p99 scorer CPU time recorded | 2 wk |
+| **4. Build the scorer** | Out-of-tree module against llm-d-router, plus `pkg/scorer/` and tests behind the SLO filter. **Implement ONLY a rule Stage 2 measured as a winner** - not `energy_greedy` as originally specified, which the modelled gate already showed is indistinguishable from packing. | module registers against current llm-d-router; unit tests pass against recorded fixtures; p99 scorer CPU time recorded | 2 wk |
 | **5. The real experiment** | One node, exclusive, open-loop Poisson from the trace, >=5 trials, 5 arms: stock llm-d, round-robin, SLO-aware packing, ours, ours-without-activation-term, plus random control | all metrics in section 5 with 95% CIs | 2-3 wk |
 | **6. Secondary results** | Per-die heterogeneity (section 13.5 design); matched-prompt-length cache experiment if time allows | either a measured effect or a clean null with the within-die control | 1 wk |
 | **7. Write and upstream** | Thesis first, paper distilled from the same experiments; submit the artifact PR regardless of outcome | PR open; thesis chapter draft | 3-4 wk |
 
 **Stage 2 is the honest decision point.** With active power near-constant and
-the marginal term at zero, routing-only savings may be small once SLO
-constraints bind. Finding that out offline costs a week; finding it out after
+the marginal term at zero or negative, routing-only savings may be small once
+SLO constraints bind. Finding that out costs one job; finding it out after
 building costs two months.
-
----
-
 
 ### 6.1 Thesis and paper split
 
@@ -275,6 +326,56 @@ They fail for opposite reasons, so material is routed rather than duplicated.
 
 The quarantined packages are an asset for the thesis and a liability for the
 paper. That asymmetry is why they are tagged rather than deleted.
+
+### 6.2 Why Stage 2 is measured rather than modelled
+
+The gate was originally an offline replay over the measured curves, and it ran
+(`experiments/stage2-gate-2026-10-03/`). It is now **retired in favour of a
+measured run**, for a reason worth recording:
+
+**You do not need the llm-d plugin to test a placement rule. Put the rule in
+the load generator.** One vLLM server per GPU on an exclusive node, real
+open-loop arrivals, and the client picks the endpoint by policy. That gives
+real queueing, real continuous batching, real contention and real joules from
+the per-device NVML counter, for about 100 lines of Python instead of a Go
+plugin against an upstream API that churns. It costs roughly one job on an
+8-GPU node, and Frontenac has four: `frnt155` (8x RTX 6000) and
+`frnt154`/`frnt190`/`frnt191` (8x A100).
+
+So the measured version is both cheaper and stronger. Only a rule that wins
+there is worth writing Go for, which is why Stage 4's scope now depends on
+Stage 2's result.
+
+**What still cannot be measured:** the lower bound. A bound is a computation by
+definition - "what is the cheapest this work could possibly be". But it is
+computed *from the measured curves*, not from modelled physics, which is what
+any paper would do. So: **policies measured, bound computed from measurements.
+No simulation enters the result.**
+
+**What the modelled gate earned before retirement**, both of which now shape
+the measured design:
+
+1. It located saturation (~77 req/s for the A30s alone, ~161 req/s for a 2+4
+   fleet), so the measured run knows which load levels matter.
+2. It proved that comparing joules-per-SLO-request across policies at
+   *different* SLO attainment is invalid - its own first version "passed" by
+   36% purely because the winner served 41% of its SLO against packing's 22%.
+   Hence the measured run calibrates the SLO from the node's own
+   single-request latency and compares only at matched attainment.
+
+**Policies measured in Stage 2:** `round_robin`, `least_loaded`,
+`slo_packing` (the baseline to beat), `energy_greedy` (the rule this plan
+originally proposed), and `energy_consolidate` (new - prefer an already-busy
+endpoint of the most efficient type and wake an idle one only when no busy
+endpoint is SLO-feasible). The last exists because the modelled gate showed
+that choosing by instantaneous J/token converges to the same decisions as
+packing; beating packing requires doing something packing cannot.
+
+**Execution order:** a 2-GPU smoke run on `frnt140` first (~20 min, catches
+launcher bugs cheaply), then the real 8-GPU run on `frnt155`.
+
+---
+
 
 ## 7. Venues
 
@@ -363,6 +464,11 @@ Kept so that reversals are visible and so the same ground is not re-litigated.
 | 2026-10-03 | Primary metric fixed before results | two denominators were shown to invert a ranking |
 | 2026-10-03 | Code rescoped away from the drafts' design | plan-code divergence audit, section 0 |
 | 2026-10-03 | Claim restated as **replica** selection | most 2026 energy-routing work is model selection |
+| 2026-10-03 | Stage 0 and Stage 1 **complete** | `legacy/` rescope committed; four measured configurations |
+| 2026-10-03 | Stage 2 changed from **modelled to measured** | the real version costs one job on an 8-GPU node; put the policy in the load generator, not the plugin |
+| 2026-10-03 | Modelled gate **retired, not published** | it located saturation and proved attainment-mismatched comparisons are invalid, then its job was done |
+| 2026-10-03 | Stage 4 scope now **conditional on Stage 2** | build only a rule measured as a winner; `energy_greedy` as specified was indistinguishable from packing |
+| 2026-10-03 | Idle floor is a **GPU property, not a model-size property** | 54.33 W at 1.5B vs 54.87 W at 7B on the same die; kills the smaller-resident-model idea |
 
 ## 11. Calendar
 
@@ -392,6 +498,9 @@ whether llm-d-router's plugin API churns again.
 
 ## 12. One-line status
 
-Measurement apparatus: **sound and reproducible.** Topic: **still open, window
-narrowing.** Claim: **narrow but defensible.** Code: **misaligned with the
-plan, rescope first.** Blocking gap: **no baselines.**
+Measurement apparatus: **sound and reproducible.** Stage 1: **complete, four
+configurations.** Topic: **still open, window narrowing.** Claim: **narrow but
+defensible.** Code: **rescoped (`legacy/`), builds clean.** Blocking gap:
+**still no baselines - Stage 2 measured is the next action and it is written,
+committed and waiting to submit.** Biggest risk: **the A30 dominates, so there
+may be no useful headroom outside saturation.**
