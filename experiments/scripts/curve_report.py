@@ -26,8 +26,18 @@ def summarise(run_dir):
         text = open(inst_path).read()
     except OSError:
         text = ""
-    gpu = re.search(r"NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,\s]*"
-                    r"|NVIDIA L40S|Quadro RTX 8000|Tesla V100[^,\s]*", text)
+    # Longest-first, and "NVIDIA L4" guarded against a following digit.
+    # Alternation is first-match-wins, so with "NVIDIA L4" listed before
+    # "NVIDIA L40S" every L40S matched as an L4: job 12304129 was submitted as
+    # --gres=gpu:L40S:1 and reported itself as "NVIDIA L4" drawing 314.52 W,
+    # which no 72 W L4 can do. In the Stage 2 curve selector the same ordering
+    # would have keyed an L40S node's curve as NVIDIA_L4 while nvidia-smi
+    # reported NVIDIA_L40S, so the lookup would miss and every routing decision
+    # on that node would fall back - or, with a stale L4 curve present, quietly
+    # route on the wrong hardware's energy numbers.
+    gpu = re.search(r"NVIDIA A100[^,\s]*|NVIDIA L40S|Quadro RTX 8000"
+                    r"|Quadro RTX 6000|Tesla V100[^,\s]*|NVIDIA A30"
+                    r"|NVIDIA L4(?![0-9])", text)
     model = re.search(r"model=(\S+)", text)
     rows = {}
     with open(csv_path) as fh:

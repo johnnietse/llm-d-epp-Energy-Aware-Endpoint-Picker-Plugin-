@@ -313,8 +313,7 @@ import re
 import sys
 
 root, model = sys.argv[1], sys.argv[2]
-TYPES = (r"NVIDIA A30|Quadro RTX 6000|NVIDIA L4|NVIDIA A100[^,\s]*|NVIDIA L40S"
-         r"|Quadro RTX 8000|Tesla V100[^,\s]*")
+TYPES = (r"NVIDIA A100[^,\s]*|NVIDIA L40S|Quadro RTX 8000|Quadro RTX 6000|Tesla V100[^,\s]*|NVIDIA A30|NVIDIA L4(?![0-9])")
 
 best = {}
 for csv_path in glob.glob(os.path.join(root, "results", "h1-*", "h1.csv")):
