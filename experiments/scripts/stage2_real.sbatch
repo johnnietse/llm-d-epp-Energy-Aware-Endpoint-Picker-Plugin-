@@ -129,6 +129,14 @@ for ((i=0; i<NGPU; i++)); do
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
       > "$RUN/vllm-gpu$i.log" 2>&1 &
   PIDS+=($!)
+  # Stagger. All eight servers read the SAME 2.88 GiB checkpoint from GPFS;
+  # launching them simultaneously means eight cold concurrent readers of one
+  # file, which is the most likely trigger for the wedge seen in job 12303653.
+  # A short offset lets the first reader warm the page cache for the rest.
+  # Explicit if, not "[ ] && sleep": the latter evaluates false on the last
+  # iteration, which is harmless under "set -uo pipefail" but would abort
+  # the loop the moment anyone adds -e.
+  if [ "$i" -lt "$((NGPU - 1))" ]; then sleep "${LAUNCH_STAGGER_S:-8}"; fi
 done
 
 cleanup() {
@@ -139,19 +147,53 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "waiting for all $NGPU servers to report ready (up to 15 min)"
+# Readiness wait, bounded by WALL CLOCK and by progress, not by an iteration
+# count.
+#
+# This loop used to be `for _ in $(seq 1 180)` with a 5 s sleep, described as
+# "up to 15 min". That only holds if every curl returns instantly; with
+# --max-time 3 against eight endpoints an iteration can take 29 s, so the real
+# bound was 87 minutes. Job 12303653 did worse than either: vLLM wedged at
+# "Loading safetensors checkpoint shards: 0%" and wrote nothing for two hours
+# while the job held an 8-GPU exclusive node, and the script never reached its
+# own FATAL branch.
+#
+# So: a hard deadline from date(1), and a stall check on the server logs. A
+# load that has not written a byte in STALL_S is not slow, it is stuck, and
+# waiting longer costs node time without changing the outcome.
+READY_TIMEOUT_S="${READY_TIMEOUT_S:-900}"
+STALL_S="${STALL_S:-240}"
+echo "waiting for all $NGPU servers to report ready"
+echo "  hard deadline ${READY_TIMEOUT_S}s; abort if no server log grows for ${STALL_S}s"
 ready=0
-for _ in $(seq 1 180); do
+deadline=$(( $(date +%s) + READY_TIMEOUT_S ))
+# Sizes as a concatenated string, not a sum: change detection does not need
+# arithmetic, and this avoids depending on bc or awk being present.
+log_size_sum() { stat -c%s "$RUN"/vllm-gpu*.log 2>/dev/null | tr "
+" " "; }
+last_size="$(log_size_sum)"; last_change=$(date +%s)
+while [ "$(date +%s)" -lt "$deadline" ]; do
   ready=0
   for ep in "${PORTS[@]}"; do
     curl -fsS --max-time 3 "http://$ep/health" >/dev/null 2>&1 && ready=$((ready+1))
   done
   [ "$ready" -eq "$NGPU" ] && break
+  now_size="$(log_size_sum)"
+  if [ "$now_size" != "$last_size" ]; then
+    last_size="$now_size"; last_change=$(date +%s)
+  elif [ $(( $(date +%s) - last_change )) -ge "$STALL_S" ]; then
+    echo "FATAL: no server log has grown in ${STALL_S}s and only $ready/$NGPU are up."
+    echo "The model load is wedged, not slow. Last lines per server:"
+    for f in "$RUN"/vllm-gpu*.log; do
+      printf '  %s: ' "$(basename "$f")"; tail -1 "$f" | cut -c1-120
+    done
+    exit 1
+  fi
   sleep 5
 done
-echo "ready: $ready/$NGPU"
+echo "ready: $ready/$NGPU after $(( $(date +%s) - (deadline - READY_TIMEOUT_S) ))s"
 if [ "$ready" -ne "$NGPU" ]; then
-  echo "FATAL: not all servers came up; see $RUN/vllm-gpu*.log"
+  echo "FATAL: not all servers came up within ${READY_TIMEOUT_S}s; see $RUN/vllm-gpu*.log"
   tail -20 "$RUN"/vllm-gpu0.log
   exit 1
 fi
