@@ -252,6 +252,59 @@ two L4s, so this is a limitation to name rather than an experiment we can run
 at scale - and it is the strongest argument for the CAC power-limit request,
 which would let us synthesise the same effect on RTX 6000s at 150 W.
 
+## 3.4 Working practice, mandatory
+
+Standing instruction from the user, 2026-10-05, after a day in which several
+avoidable round trips to the cluster cost more time than the measurements they
+were waiting for.
+
+1. **Fix a problem before reporting it.** Finding a defect and describing it is
+   half a job. Diagnose it, fix it, verify the fix, and then report what was
+   wrong and what was done. Do not hand back a problem that could have been
+   solved.
+2. **Try to work around it before escalating.** If the obvious fix is blocked,
+   look for the alternative path first. Report only what is genuinely blocked
+   on a decision or a permission that is not mine to give.
+3. **Troubleshoot before acting again.** A failed command gets understood, not
+   retried. Re-running something that failed for an unknown reason wastes the
+   time twice and teaches nothing.
+4. **Check an action for problems BEFORE running it**, especially anything that
+   goes to the cluster. A job that fails after 40 minutes has cost 40 minutes
+   plus the queue wait; the same defect found by reading the script costs
+   seconds. This is the expensive asymmetry in this project and it has bitten
+   repeatedly: an sbatch submitted without `--export=ALL`, a generator sized
+   for a quarter of the offered load, a pre-warm globbing the wrong model, a
+   curve that stopped below the concurrency the policy drives.
+
+What this means concretely, as a pre-flight checklist for anything submitted:
+
+* Syntax-check every script and every embedded language block.
+* Confirm each quantity the job derives (capacity, load levels, SLO, worker
+  count) is inside the range the apparatus can actually deliver, using measured
+  numbers rather than estimates.
+* Confirm the environment reaches the job: `--export=ALL`, and no reliance on
+  anything the submitter has to remember.
+* Test any assumption the job rests on with the cheapest possible probe, and
+  prefer a three-minute probe to a five-hour allocation. Several assumptions
+  this project held turned out false: that one `srun --overlap` step implies
+  eight work, that `nvidia-smi` reports `CUDA_VISIBLE_DEVICES`, that an import
+  check proves a library usable, that a 15-minute loop bounds 15 minutes.
+* Verify the measurement instrument alongside the measurement: a tool that
+  exits 0 has run, which is not the same as having worked.
+
+**Known-bad patterns, do not repeat.** Each cost real time here:
+
+| Pattern | Why it fails |
+|---|---|
+| Multi-line `wsl.exe -- bash -c '...'` | newlines become `""`, assignments merge and read back empty; use a script file |
+| `ssh -S <dead socket>` without `BatchMode=yes` | ssh silently falls back to direct auth and hangs at an invisible prompt |
+| `pkill -f <pattern>` under `srun` | the pattern is in the srun wrapper's own argv, so it kills its own job |
+| `source .../profile/bash.sh` in a batch script | execs a replacement shell; everything after it is discarded, exit 1, empty log |
+| Deriving load from server capacity alone | says nothing about what the client can emit; ask for the impossible and nothing warns |
+| An outer `timeout` shorter than a script's own wait loop | SIGTERM, exit 143, and no result |
+
+---
+
 ## 4. Measurement protocol, mandatory
 
 Non-negotiable, because three variables were found to be non-uniform *within*
