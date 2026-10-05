@@ -188,95 +188,69 @@ echo "$SKEW" > "$RUN/skew_seconds.txt"
 # Bind to 0.0.0.0, not 127.0.0.1: the generator runs on one node and must reach
 # the other node's servers over the cluster network.
 # ------------------------------- stage the model on NODE-LOCAL storage
-# This replaces a page-cache pre-warm, and it is a different kind of fix.
-#
 # What went wrong on frnt155: eight vLLM processes read the same 2.88 GiB
 # checkpoint from GPFS at once, cold. At least one blocked in uninterruptible
 # kernel I/O, which ignores SIGKILL until the I/O returns, so scancel could not
 # reap the job and the node sat in COMPLETING for hours. Staggering launches and
-# warming page cache both reduce contention, but GPFS stays in the read path of
-# every server, so the hazard only becomes less likely.
+# warming page cache reduce contention but leave GPFS in every server's read
+# path, so the hazard only becomes less likely. Copying to local disk removes
+# it: job 12304897 confirmed /tmp and $SLURM_TMPDIR are xfs, node-local, with
+# 463 GiB free, and that eight concurrent readers there sustain 3931 MiB/s.
 #
-# Node-local staging removes it. Job 12304897 confirmed $SLURM_TMPDIR is
-# /lscratch/..., xfs, node-local, 463 GiB free, and that eight concurrent
-# readers there sustain 3931 MiB/s. Copy the checkpoint once per node, point
-# HF_HOME at the copy, and no server touches the shared filesystem again - a
-# GPFS stall cannot block one.
+# The path must be IDENTICAL on every node, which job 12304926 taught the hard
+# way. That run discovered a writable directory per step, which is correct in
+# itself, but the two nodes chose differently - frnt154 had a real
+# $SLURM_TMPDIR at /lscratch/slurm-job-<id> while frnt163's inherited value did
+# not exist so it fell through to /tmp. The script then collapsed both into one
+# HF_HOME, the last one written won, and all four A100 servers died with
+# huggingface_hub LocalEntryNotFoundError while the four RTX 6000 servers - for
+# which the path happened to be right - came up fine. "ready: 4/8".
 #
-# Only the served model is staged. The first version globbed every
-# *.safetensors under hub/, which also matches the 7B model, so it would have
-# read 18 GB to warm 2.88 GB.
+# So: one fixed path under /tmp, suffixed with the job id so concurrent jobs
+# cannot collide, created on every node. /tmp is node-local xfs here and the
+# allocation is --exclusive, so nothing else is competing for it.
 #
 # On whether this perturbs the measurement: it cannot. Staging finishes before
-# any server starts, and every energy window opens after readiness, so no
-# staging I/O falls inside a measured interval. The samplers are started AFTER
-# this block for the same reason - started first, the copy's CPU and disk time
+# any server starts and every energy window opens after readiness, so no
+# staging I/O falls inside a measured interval. The samplers start AFTER this
+# block for the same reason - started before, the copy's CPU and disk time
 # would land in the RAPL figures. Keep that order.
+STAGE_DIR="/tmp/hfstage-$SLURM_JOB_ID"
 MODEL_DIR_NAME="models--$(printf '%s' "$MODEL" | sed 's#/#--#g')"
 echo
-echo "=== staging $MODEL on node-local storage ==="
-STAGED_HF=""
+echo "=== staging $MODEL to $STAGE_DIR on every node ==="
 for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
   out="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
-         env SRC_HF="$HF_HOME" MDN="$MODEL_DIR_NAME" bash -c '
+         env SRC_HF="$HF_HOME" MDN="$MODEL_DIR_NAME" DST_ROOT="$STAGE_DIR" \
+         bash -c '
     set -u
-    # Find a writable local directory IN THIS STEP, do not inherit one.
-    #
-    # $SLURM_TMPDIR in the batch environment names the directory Slurm created
-    # for the FIRST component, e.g. /lscratch/slurm-job-<id> on frnt154. A step
-    # on the second component inherits that value, the path does not exist on
-    # its node, and /lscratch is not user-writable, so mkdir -p fails. That is
-    # what MKDIR_FAILED on frnt153 was in job 12304903. Probing candidates
-    # inside the step gets each node its own real scratch; job 12304897 showed
-    # /tmp is also xfs and node-local with 463 GiB free, so it is a sound
-    # second choice rather than a shared-filesystem trap.
-    local_root=""
-    for cand in "${SLURM_TMPDIR:-}" /tmp /var/tmp; do
-      [ -n "$cand" ] || continue
-      if mkdir -p "$cand/hfstage/hub" 2>/dev/null; then
-        local_root="$cand/hfstage"; break
-      fi
-    done
-    [ -n "$local_root" ] || { echo "MKDIR_FAILED"; exit 1; }
     src="$SRC_HF/hub/$MDN"
-    if [ ! -d "$src" ]; then echo "MISSING:$src"; exit 1; fi
-    # Copy refs/ and snapshots/ only, dereferencing as we go, and skip blobs/.
-    #
-    # The HF layout keeps real weights in blobs/ and exposes snapshots/ as
-    # symlinks into them. "cp -rL" on the whole model directory therefore
-    # writes each weight TWICE - once as the dereferenced snapshot file and
-    # once as the blob - which is why frnt154 reported 5910 MiB for a 2944 MiB
-    # checkpoint. Reading only needs snapshots/ and refs/, so that is all that
-    # is copied.
-    dst="$local_root/hub/$MDN"
-    mkdir -p "$dst" || { echo "MKDIR_FAILED"; exit 1; }
+    [ -d "$src" ] || { echo "MISSING:$src"; exit 1; }
+    mkdir -p "$DST_ROOT/hub/$MDN" || { echo "MKDIR_FAILED:$DST_ROOT"; exit 1; }
+    # refs/ and snapshots/ only, dereferenced. HF keeps real weights in blobs/
+    # and exposes snapshots/ as symlinks into them, so "cp -rL" on the whole
+    # model directory writes every weight TWICE - that is why an earlier run
+    # reported 5910 MiB for a 2944 MiB checkpoint. Reading needs only these.
     for part in refs snapshots; do
       [ -e "$src/$part" ] || continue
-      cp -rL "$src/$part" "$dst/" 2>/dev/null \
+      cp -rL "$src/$part" "$DST_ROOT/hub/$MDN/" 2>/dev/null \
         || { echo "COPY_FAILED:$part"; exit 1; }
     done
-    sz="$(du -sb "$dst" 2>/dev/null | cut -f1)"
-    # A snapshot that still holds dangling links would pass the copy and fail
-    # at model load, so confirm real weight bytes landed.
-    wb="$(find "$dst" -name "*.safetensors" -exec stat -Lc %s {} + 2>/dev/null \
-          | awk "{t+=\$1} END{print t+0}")"
-    if [ "${wb:-0}" -lt 1000000000 ]; then echo "THIN_COPY:$wb"; exit 1; fi
-    echo "OK:$local_root:$sz"
+    # A tree copied with dangling links would pass the copy and fail later at
+    # model load, so confirm real weight bytes actually landed.
+    wb="$(find "$DST_ROOT/hub/$MDN" -name "*.safetensors" -exec stat -Lc %s {} + \
+          2>/dev/null | awk "{t+=\$1} END{print t+0}")"
+    [ "${wb:-0}" -ge 1000000000 ] || { echo "THIN_COPY:$wb"; exit 1; }
+    echo "OK:$(( wb / 1048576 ))"
   ' 2>/dev/null | tail -1)"
   case "$out" in
-    OK:*) root="$(printf '%s' "$out" | cut -d: -f2)"
-          sz="$(printf '%s' "$out" | cut -d: -f3)"
-          echo "  ${HOSTS[$g]}: staged $(( sz / 1048576 )) MiB to $root"
-          STAGED_HF="$root" ;;
+    OK:*) echo "  ${HOSTS[$g]}: $(printf '%s' "$out" | cut -d: -f2) MiB of weights staged" ;;
+    THIN_COPY:*)
+          echo "FATAL: ${HOSTS[$g]} copied the tree but almost no weight bytes ($out)."
+          echo "The snapshot links were probably dangling."
+          exit 1 ;;
     MISSING:*)
           echo "FATAL: ${HOSTS[$g]} has no $MODEL_DIR_NAME under $HF_HOME/hub"
-          echo "Stage the model into the shared cache first; eight servers each"
-          echo "fetching it concurrently is how frnt155 wedged."
-          exit 1 ;;
-    THIN_COPY:*)
-          echo "FATAL: ${HOSTS[$g]} copied the tree but almost no weight bytes"
-          echo "($out). The snapshot links were probably dangling; staging a"
-          echo "structure without weights would fail later at model load."
           exit 1 ;;
     *)    echo "FATAL: staging failed on ${HOSTS[$g]} ($out)"
           echo "Refusing to fall back to GPFS reads: that is the exact path"
@@ -284,9 +258,36 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
           exit 1 ;;
   esac
 done
-export HF_HOME="$STAGED_HF"
+
+export HF_HOME="$STAGE_DIR"
 export HF_HUB_OFFLINE=1
-echo "  HF_HOME now $HF_HOME (node-local); HF_HUB_OFFLINE=1"
+
+# Verify the model is readable at the FINAL HF_HOME on every node, which is the
+# check that would have caught job 12304926 in seconds instead of after a
+# 20-minute readiness timeout. Staging reporting success per node is not the
+# same as one shared HF_HOME resolving on all of them.
+echo "  verifying $HF_HOME resolves on every node"
+for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
+  v="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
+       env HF="$HF_HOME" MDN="$MODEL_DIR_NAME" bash -c '
+    set -u
+    d="$HF/hub/$MDN"
+    [ -d "$d" ] || { echo NO_DIR; exit 0; }
+    find "$d" -name "*.safetensors" -exec stat -Lc %s {} + 2>/dev/null \
+      | awk "{t+=\$1} END{if (t>=1000000000) print \"OK\"; else print \"THIN\"}"
+  ' 2>/dev/null | tail -1)"
+  if [ "$v" = "OK" ]; then
+    echo "    ${HOSTS[$g]}: OK"
+  else
+    echo "FATAL: ${HOSTS[$g]} cannot read the model at $HF_HOME ($v)."
+    echo "Every node must see the checkpoint at the SAME path, because one"
+    echo "HF_HOME is exported to all of them. Job 12304926 failed exactly here:"
+    echo "two nodes staged to different directories and half the servers died"
+    echo "with LocalEntryNotFoundError."
+    exit 1
+  fi
+done
+echo "  HF_HOME=$HF_HOME verified on all ${SLURM_HET_SIZE} nodes; HF_HUB_OFFLINE=1"
 
 PORT_BASE=8100
 PORTS=()
@@ -347,6 +348,13 @@ cleanup() {
   # anything missed dies with the allocation anyway - srun steps do not outlive
   # their job.
   echo "stopping samplers and servers"
+  # Remove the staged copy; /tmp is node-local so each node clears its own.
+  if [ -n "${STAGE_DIR:-}" ]; then
+    for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
+      srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
+        rm -rf "$STAGE_DIR" 2>/dev/null
+    done
+  fi
   for pid in "${SAMPLER_PIDS[@]:-}" "${SERVER_PIDS[@]:-}"; do
     [ -n "$pid" ] && kill "$pid" 2>/dev/null
   done
