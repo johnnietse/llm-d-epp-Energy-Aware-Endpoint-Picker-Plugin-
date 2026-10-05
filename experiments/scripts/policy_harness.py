@@ -86,6 +86,12 @@ OUTPUT_TOKENS = 128
 SEND_DELAY_SLO_FRAC = 0.05
 SEND_DELAY_FLOOR_S = 0.025
 
+# Sampling period of node_energy_sampler.py, used to size how long to wait for
+# the samplers to catch up at a cell boundary and how far a window boundary may
+# be clamped onto the sampled span. Keep in step with SAMPLE_INTERVAL in
+# stage2_het.sbatch.
+SAMPLER_INTERVAL_S = 0.25
+
 
 # ----------------------------------------------------------------- NVML energy
 
@@ -894,8 +900,15 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         if multinode_energy is None:
             raise SystemExit("--energy-mode multinode needs multinode_energy.py "
                              "importable beside this script")
+        # Let the per-node samplers catch up before aggregating. Each writes
+        # on its own period, so immediately after a cell the newest sample is
+        # up to one interval old and the window's end would sit beyond the
+        # data. Waiting two intervals costs under a second per cell and makes
+        # the clamp below a rare correction rather than the normal path.
+        time.sleep(2.0 * SAMPLER_INTERVAL_S)
         agg = multinode_energy.aggregate(sample_dir, t_start, t_energy_end,
-                                         clock_skew)
+                                         clock_skew,
+                                         tolerance_s=3.0 * SAMPLER_INTERVAL_S)
         if not agg["complete"]:
             # A fleet energy figure missing a node is wrong, not merely
             # smaller. Refuse the cell rather than publish a partial sum.

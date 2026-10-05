@@ -7,7 +7,7 @@ R="$HOME/energy-epp/results/stage2het-$J"
 L="$HOME/energy-epp/scripts/stage2-het-$J.out"
 
 echo "=== staging decisions (which directory did each node pick?) ==="
-grep -E "staged |HF_HOME now|MKDIR|COPY|THIN" "$L" 2>/dev/null | sed 's/^/  /'
+grep -E "MiB of weights staged|verifying|HF_HOME=|: OK$|MKDIR|COPY|THIN|FATAL" "$L" 2>/dev/null | sed 's/^/  /'
 
 echo
 echo "=== component inventory and fleet ==="

@@ -38,9 +38,11 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
       echo
     fi
     if [ "$reported_ready" -eq 1 ]; then
-      cells="$(grep -c 'J/req' "$LOG" 2>/dev/null || echo 0)"
-      cl="$(grep -c 'CLIENT LIMITED' "$LOG" 2>/dev/null || echo 0)"
-      ug="$(grep -c 'UNGROUNDED ROUTING' "$LOG" 2>/dev/null || echo 0)"
+      # cat into grep: grep -c on a path that globs prints one count per
+      # file, which is what garbled this line's output on job 12305215.
+      cells="$(grep -a 'J/req' "$LOG" 2>/dev/null | wc -l | tr -d ' ')"
+      cl="$(grep -a 'CLIENT LIMITED' "$LOG" 2>/dev/null | wc -l | tr -d ' ')"
+      ug="$(grep -a 'UNGROUNDED ROUTING' "$LOG" 2>/dev/null | wc -l | tr -d ' ')"
       echo "  cells=$cells client_limited=$cl ungrounded=$ug state=${state:-done}"
     fi
   fi

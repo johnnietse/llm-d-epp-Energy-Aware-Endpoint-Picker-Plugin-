@@ -84,12 +84,29 @@ def interp_cumulative(samples, t, gpu_count):
     return out
 
 
-def window_energy(path, t0, t1, skew_s=0.0):
+def window_energy(path, t0, t1, skew_s=0.0, tolerance_s=0.0):
     header, samples = load(path)
     if header is None or not samples:
         return {"path": os.path.basename(path), "error": "no samples"}
     gpus = header.get("gpus", [])
     n = len(gpus)
+
+    # The window's end is "now" in the harness, while the newest sample can be
+    # up to one sampling interval older - the sampler is always slightly
+    # behind. Requiring t1 to lie strictly inside the sampled span therefore
+    # rejected every cell of job 12305215 for being ~0.3 s ahead of the data,
+    # even though the samplers were working perfectly (1644 and 1627 samples at
+    # a 0.29 s interval). Allow t1 to be pulled back onto the last sample when
+    # the gap is within tolerance, and record that it happened rather than
+    # hiding it. The same for t0 against the first sample.
+    clamped_end = clamped_start = 0.0
+    last_t, first_t = samples[-1]["t"], samples[0]["t"]
+    if t1 > last_t and (t1 - last_t) <= tolerance_s:
+        clamped_end = t1 - last_t
+        t1 = last_t
+    if t0 < first_t and (first_t - t0) <= tolerance_s:
+        clamped_start = first_t - t0
+        t0 = first_t
 
     c0 = interp_cumulative(samples, t0, n)
     c1 = interp_cumulative(samples, t1, n)
@@ -100,6 +117,7 @@ def window_energy(path, t0, t1, skew_s=0.0):
             "error": "window not covered by samples",
             "sample_span": [samples[0]["t"], samples[-1]["t"]],
             "requested": [t0, t1],
+            "tolerance_s": tolerance_s,
         }
 
     per_gpu, total = [], 0.0
@@ -135,13 +153,18 @@ def window_energy(path, t0, t1, skew_s=0.0):
         "skew_energy_uncertainty_j": round(abs(skew_s) * mean_w, 3),
         "skew_energy_uncertainty_pct": (round(abs(skew_s) / window * 100, 4)
                                         if window > 0 else None),
+        # Non-zero means the window was trimmed to the sampled span. Small
+        # values are the sampler lagging by under one interval; anything large
+        # would mean the window and the samples genuinely disagree.
+        "window_clamped_start_s": round(clamped_start, 4),
+        "window_clamped_end_s": round(clamped_end, 4),
     }
 
 
-def aggregate(sample_dir, t0, t1, skew_s=0.0):
+def aggregate(sample_dir, t0, t1, skew_s=0.0, tolerance_s=0.0):
     nodes = []
     for path in sorted(glob.glob(os.path.join(sample_dir, "energy-*.jsonl"))):
-        nodes.append(window_energy(path, t0, t1, skew_s))
+        nodes.append(window_energy(path, t0, t1, skew_s, tolerance_s))
     ok = [n for n in nodes if "error" not in n]
     bad = [n for n in nodes if "error" in n]
     total = sum(n["total_energy_j"] for n in ok)
@@ -165,11 +188,15 @@ def main():
     ap.add_argument("sample_dir")
     ap.add_argument("--t0", type=float, required=True)
     ap.add_argument("--t1", type=float, required=True)
+    ap.add_argument("--tolerance", type=float, default=0.0,
+                    help="how far outside the sampled span a window boundary "
+                         "may be pulled back, in seconds; roughly two "
+                         "sampling intervals")
     ap.add_argument("--skew", type=float, default=0.0,
                     help="measured max clock skew across nodes, seconds")
     args = ap.parse_args()
-    print(json.dumps(aggregate(args.sample_dir, args.t0, args.t1, args.skew),
-                     indent=2))
+    print(json.dumps(aggregate(args.sample_dir, args.t0, args.t1, args.skew,
+                               args.tolerance), indent=2))
 
 
 if __name__ == "__main__":
