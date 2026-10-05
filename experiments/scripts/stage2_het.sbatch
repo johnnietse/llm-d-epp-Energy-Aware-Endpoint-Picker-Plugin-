@@ -44,10 +44,15 @@
 
 set -uo pipefail
 
-if ! command -v module >/dev/null 2>&1; then
-  source /cvmfs/soft.computecanada.ca/config/profile/bash.sh 2>/dev/null \
-    || source "${LMOD_PKG:-/cvmfs/soft.computecanada.ca/custom/software/lmod/lmod}/init/bash" 2>/dev/null
-fi
+# No profile-source fallback here.
+#
+# That profile execs a replacement login shell, so everything after it in a
+# batch script is discarded: the job exits 1 in zero seconds with an empty log.
+# Job 12303347 died that way, and job 12304893 - the first attempt at THIS
+# script - died identically, because it was submitted without --export=ALL so
+# "module" was undefined and the fallback branch ran. The absolute apptainer
+# path needs neither the profile nor an inherited environment, which makes the
+# script correct whether or not the submitter remembers the flag.
 module load apptainer/1.4.5 2>/dev/null || module load apptainer 2>/dev/null || true
 APPTAINER="$(command -v apptainer \
   || echo /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer)"
