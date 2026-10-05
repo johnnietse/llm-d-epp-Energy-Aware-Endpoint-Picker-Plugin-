@@ -20,7 +20,13 @@ On a 60 s window with a few milliseconds of skew the contribution is far below
 the counter's own resolution, but today has produced enough
 reported-but-unverified quantities that it gets computed anyway.
 """
-from __future__ import annotations
+# No "from __future__ import annotations" here. This module is read by
+# the BATCH HOST's python, which on Rocky 8 is the system 3.6, and that
+# import needs 3.7+: the het preflight (job 12304885) passed its first
+# four checks and then died on
+#   SyntaxError: future feature annotations is not defined
+# The module uses no annotations, so the import was decoration. Keep
+# this file 3.6-clean: percent formatting, no f-strings, no walrus.
 
 import argparse
 import glob

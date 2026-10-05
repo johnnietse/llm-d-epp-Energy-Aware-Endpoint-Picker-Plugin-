@@ -218,12 +218,59 @@ def rapl_delta(before, after):
 
 # ------------------------------------------------- engine-side metrics scrape
 
+# vLLM's own latency histograms. These are measured INSIDE the engine, so they
+# contain no client-side scheduling at all, which makes them the independent
+# cross-check on our timestamps.
+#
+# Why that matters. The generator is Python, and its event loop has finite
+# scheduling granularity: measured dispatch delay is 0.66-0.78 ms at p50 and
+# 2.9-6.0 ms at p99 (job 12304137). Against the 2000 ms SLO that is 0.3% and
+# irrelevant. Against an inter-token interval of 13.7-17.4 ms it is 5% to 44%,
+# so for ITL and TPOT specifically the client could distort what it reports.
+# Rather than argue about it, take the same quantities from a source that has
+# no client in the path and compare. If they agree, the Python timestamps are
+# fine and the question is closed with a number. If they do not, the server
+# histograms become the authoritative figures for per-token latency and the
+# client's remain the user-facing view.
+LATENCY_HISTOGRAMS = ("vllm:time_to_first_token_seconds",
+                      "vllm:time_per_output_token_seconds",
+                      "vllm:e2e_request_latency_seconds")
+
+
+def _parse_histogram(lines, name):
+    """Sum and count for a Prometheus histogram, across all label sets.
+
+    Only _sum and _count are needed: their ratio is the mean, which is what a
+    cross-check against our own mean requires. Bucket boundaries would give
+    percentiles but vLLM's defaults are too coarse to compare against a p50 we
+    measured directly.
+    """
+    total, count = 0.0, 0.0
+    for line in lines:
+        if not line.startswith(name):
+            continue
+        head, _, val = line.rpartition(" ")
+        try:
+            v = float(val)
+        except ValueError:
+            continue
+        metric = head.split("{", 1)[0].strip()
+        if metric == name + "_sum":
+            total += v
+        elif metric == name + "_count":
+            count += v
+    if count <= 0:
+        return None
+    return {"sum": total, "count": count, "mean": total / count}
+
+
 def scrape_engine_metrics(endpoints):
-    """Cache hit rate and queue depth from each server's own /metrics.
+    """Cache hit rate, queue depth, and the engine's own latency histograms.
 
     Flagged in plan 5.1 as cheap and unmeasured. These are vLLM's counters, not
     ours, and they answer two reporting-set items (cache hit rate, utilisation)
-    that no GPU tool can provide.
+    that no GPU tool can provide. The histograms additionally let the client's
+    latency numbers be checked against a measurement the client did not make.
     """
     wanted = ("gpu_prefix_cache_hit_rate", "gpu_cache_usage_perc",
               "num_requests_running", "num_requests_waiting",
@@ -233,20 +280,70 @@ def scrape_engine_metrics(endpoints):
         vals = {}
         try:
             with urllib.request.urlopen("http://" + ep + "/metrics", timeout=10) as r:
-                for line in r.read().decode("utf-8", "replace").splitlines():
-                    if line.startswith("#") or not line.strip():
-                        continue
-                    for w in wanted:
-                        if w in line:
-                            try:
-                                vals.setdefault(w, []).append(float(line.rsplit(" ", 1)[1]))
-                            except (ValueError, IndexError):
-                                pass
+                lines = r.read().decode("utf-8", "replace").splitlines()
+            for line in lines:
+                if line.startswith("#") or not line.strip():
+                    continue
+                for w in wanted:
+                    if w in line:
+                        try:
+                            vals.setdefault(w, []).append(float(line.rsplit(" ", 1)[1]))
+                        except (ValueError, IndexError):
+                            pass
+            hist = {}
+            for h in LATENCY_HISTOGRAMS:
+                got = _parse_histogram(lines, h)
+                if got:
+                    hist[h] = got
+            if hist:
+                vals["_histograms"] = hist
         except Exception as exc:
             vals["error"] = str(exc)[:80]
         out[ep] = {k: (sum(v) / len(v) if isinstance(v, list) and v else v)
                    for k, v in vals.items()}
     return out
+
+
+def server_vs_client_latency(before, after, client_ttft_mean, client_itl_mean):
+    """Per-cell comparison of the engine's latency means against ours.
+
+    Deltas are taken across the cell (after minus before) so only this cell's
+    requests contribute, rather than the server's lifetime totals.
+    """
+    def delta(name):
+        tot, cnt = 0.0, 0.0
+        for ep, aft in (after or {}).items():
+            bh = ((before or {}).get(ep) or {}).get("_histograms") or {}
+            ah = (aft or {}).get("_histograms") or {}
+            if name not in ah:
+                continue
+            b = bh.get(name, {"sum": 0.0, "count": 0.0})
+            tot += ah[name]["sum"] - b.get("sum", 0.0)
+            cnt += ah[name]["count"] - b.get("count", 0.0)
+        if cnt <= 0:
+            return None
+        return tot / cnt
+
+    s_ttft = delta("vllm:time_to_first_token_seconds")
+    s_tpot = delta("vllm:time_per_output_token_seconds")
+
+    def rel(client, server):
+        if client is None or server is None or server <= 0:
+            return None
+        return round((client - server) / server * 100, 2)
+
+    return {
+        "server_ttft_mean_s": s_ttft,
+        "server_tpot_mean_s": s_tpot,
+        "client_ttft_mean_s": client_ttft_mean,
+        "client_itl_mean_s": client_itl_mean,
+        # Positive means the client reports MORE latency than the engine saw,
+        # which is the expected direction: the client adds its own scheduling
+        # and the network hop. The size is what decides whether the Python
+        # generator is good enough for per-token metrics.
+        "ttft_client_excess_pct": rel(client_ttft_mean, s_ttft),
+        "tpot_client_excess_pct": rel(client_itl_mean, s_tpot),
+    }
 
 
 # ------------------------------------------------------------- measured curves
@@ -939,6 +1036,12 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "rapl_available": bool(zones),
         "engine_metrics_before": engine_before,
         "engine_metrics_after": engine_after,
+        # Independent check on our own timestamps: same quantities, taken
+        # inside the engine where no client scheduling can reach them.
+        "latency_cross_check": server_vs_client_latency(
+            engine_before, engine_after,
+            st.mean(ttfts_from_send) if ttfts_from_send else None,
+            st.mean(all_itls) if all_itls else None),
     }
 
 
