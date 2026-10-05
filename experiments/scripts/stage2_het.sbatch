@@ -134,6 +134,10 @@ echo "$SKEW" > "$RUN/skew_seconds.txt"
 PORT_BASE=8100
 PORTS=()
 EP_TYPES=()
+# Tracked so cleanup can signal exactly what it started,
+# rather than pattern-matching and risking a self-kill.
+SERVER_PIDS=()
+SAMPLER_PIDS=()
 for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
   ng="${NGPU_PER_HOST[$g]}"
   for ((i=0; i<ng; i++)); do
@@ -146,6 +150,7 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
           --host 0.0.0.0 --port "$port" \
           --gpu-memory-utilization 0.85 --max-model-len 2048 \
           > "$RUN/vllm-${HOSTS[$g]}-gpu$i.log" 2>&1 &
+    SERVER_PIDS+=($!)
     PORTS+=("${HOSTS[$g]}:$port")
     EP_TYPES+=("${TYPES_PER_HOST[$g]}")
     sleep "${LAUNCH_STAGGER_S:-8}"
@@ -164,18 +169,33 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
       python3 "$ROOT/scripts/node_energy_sampler.py" \
         --out "$out" --interval "$SAMPLE_INTERVAL" \
     > "$RUN/sampler-${HOSTS[$g]}.log" 2>&1 &
+  SAMPLER_PIDS+=($!)
   SAMPLER_HOSTS+=("${HOSTS[$g]}")
 done
 
 cleanup() {
+  # No pkill by pattern here.
+  #
+  # The preflight's first run cancelled its own allocation 21 seconds in
+  # because "srun ... pkill -f node_energy_sampler.py" puts the pattern into
+  # the srun process's own command line: pkill matched its own wrapper, killed
+  # it, and Slurm reported
+  #   JOB 12304883 CANCELLED DUE to SIGNAL Terminated
+  # A cleanup routine that can kill the job it is cleaning up after is worse
+  # than no cleanup, and in a trap on EXIT it fires exactly when the run is
+  # finishing normally.
+  #
+  # Instead: signal the PIDs we launched, which is unambiguous. Both the
+  # samplers and the vLLM servers are background children of this script, and
+  # anything missed dies with the allocation anyway - srun steps do not outlive
+  # their job.
   echo "stopping samplers and servers"
-  pkill -f node_energy_sampler.py 2>/dev/null
-  for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
-    srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
-      pkill -f node_energy_sampler.py 2>/dev/null
-    srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
-      pkill -f "vllm serve" 2>/dev/null
+  for pid in "${SAMPLER_PIDS[@]:-}" "${SERVER_PIDS[@]:-}"; do
+    [ -n "$pid" ] && kill "$pid" 2>/dev/null
   done
+  # Give the samplers a moment to take SIGTERM and close their files cleanly;
+  # node_energy_sampler.py handles it so the last JSONL line is not truncated.
+  sleep 2
 }
 trap cleanup EXIT
 

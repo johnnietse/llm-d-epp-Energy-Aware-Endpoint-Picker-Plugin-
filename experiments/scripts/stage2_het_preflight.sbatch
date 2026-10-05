@@ -98,7 +98,8 @@ got2="$(srun --het-group=1 --nodes=1 --ntasks=1 --overlap \
 [ "$got2" = "pong" ] && ok "component 1 reached its own port" \
   || bad "component 1 could not reach its own port (got: ${got2:0:60})"
 kill "$SRV_PID" 2>/dev/null
-srun --het-group=1 --nodes=1 --ntasks=1 --overlap pkill -f "serve_forever" 2>/dev/null
+# No "srun ... pkill -f serve_forever" either: identical self-match hazard,
+# and the probe server dies with the step that launched it.
 
 step "4. per-node energy sampler inside the container"
 mkdir -p "$RUN/samples"
@@ -110,12 +111,18 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
     > "$RUN/sampler-${HOSTS[$g]}.log" 2>&1 &
 done
 sleep 12
-pkill -f node_energy_sampler.py 2>/dev/null
-for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
-  srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
-    pkill -f node_energy_sampler.py 2>/dev/null
-done
-sleep 2
+# Deliberately NOT pkill-ing the samplers.
+#
+# The first version did, and it cancelled its own job 21 seconds in:
+#   srun ... pkill -f node_energy_sampler.py
+# puts the pattern into the SRUN PROCESS'S OWN command line, so pkill matched
+# and killed its own wrapper, which cascaded into
+#   JOB 12304883 CANCELLED DUE to SIGNAL Terminated
+# immediately after the three checks that had already passed.
+#
+# It is also unnecessary: the sampler flushes after every sample, so the file
+# is complete and readable while the process still runs, and the samplers die
+# with the allocation regardless.
 
 for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
   f="$RUN/samples/energy-${HOSTS[$g]}.jsonl"
