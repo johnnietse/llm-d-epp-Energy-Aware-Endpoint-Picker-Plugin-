@@ -32,14 +32,21 @@
 #                    SAMPLE_INTERVAL
 #SBATCH --job-name=stage2-het
 #SBATCH --account=def-hpcg1971_gpu
-# Two hours, not five. The run needs about 40 minutes (5 rates x 5
-# policies x 80 s plus startup). Job 12303653 wedged in uninterruptible
-# GPFS I/O and held an 8-GPU node for 2h07m, and scancel could not reap
-# it - processes blocked in kernel I/O ignore SIGKILL until the I/O
-# returns. Nothing in user space fixes that, so the only real control is
-# to not ask for hours we do not need: the walltime is the ceiling on how
-# long a wedge can hold two nodes.
-#SBATCH --time=02:00:00
+# 1h15m. The run needs about 40 minutes (5 rates x 5 policies x 80 s plus
+# startup), so this leaves headroom without leaving hours of it.
+#
+# Be precise about what the walltime does and does not do. It does NOT
+# prevent a wedge, and it does not shorten one: a process blocked in
+# uninterruptible kernel I/O ignores SIGKILL until the I/O returns, which
+# is why scancel could not reap job 12303653 and frnt155 sat in COMPLETING
+# for hours. The walltime only bounds how long the ALLOCATION is held
+# before Slurm reclaims it, and even that waits on the same stuck I/O.
+#
+# The actual fix is upstream: take the shared filesystem out of every
+# server's read path by staging the checkpoint on node-local storage, so a
+# GPFS stall cannot block a server at all. See STAGE_LOCAL below. The
+# walltime is the last line of defence, not the control.
+#SBATCH --time=01:15:00
 #SBATCH --output=%x-%j.out
 
 set -uo pipefail
@@ -97,24 +104,41 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
   # frnt154, which has 8: without a cap this job would build a lopsided 8+4
   # fleet instead of the balanced 4+4 that makes the comparison legible. The
   # same surprise is why stage2_real.sbatch carries MAX_GPUS.
-  cap="${MAX_GPUS_PER_NODE:-4}"
-  if [ "$ng" -gt "$cap" ]; then
-    echo "  component $g: $ng GPUs present, capping to $cap (MAX_GPUS_PER_NODE)"
-    ng="$cap"
-  fi
   HOSTS[$g]="$h"; TYPES_PER_HOST[$g]="$nm"; NGPU_PER_HOST[$g]="$ng"
-  echo "  component $g: host=$h type=$nm gpus=$ng"
+  echo "  component $g: host=$h type=$nm gpus_present=$ng"
 done
 
-# A heterogeneous comparison with unequal replica counts per type confounds the
-# thing being measured: a policy could look good merely by preferring the type
-# that happens to have more replicas. Refuse rather than silently proceed.
-if [ "${NGPU_PER_HOST[0]}" -ne "${NGPU_PER_HOST[1]}" ]; then
-  echo "FATAL: unequal replica counts (${NGPU_PER_HOST[0]} vs ${NGPU_PER_HOST[1]})."
-  echo "Set MAX_GPUS_PER_NODE to the smaller count so each type contributes"
-  echo "equally, or the routing comparison is confounded by fleet composition."
+# ------------------------------------------------------- balance the fleet
+# Unequal replica counts per type confound the measurement: a policy could
+# score well merely by preferring whichever type happens to have more
+# replicas, and nothing in the result would distinguish that from an energy
+# effect.
+#
+# The first version refused when the components came back unequal, which is
+# brittle for no benefit - the condition is routine, not exceptional.
+# --exclusive hands over every GPU on a node regardless of --gres, so landing
+# on frnt154 (8 A100) beside frnt152 (4 RTX 6000) is the normal case, not a
+# misconfiguration. Self-balance to the smaller component instead, and say so.
+# MAX_GPUS_PER_NODE, when set, is an additional ceiling rather than the
+# mechanism.
+BAL="${NGPU_PER_HOST[0]}"
+for g in $(seq 1 $((SLURM_HET_SIZE - 1))); do
+  [ "${NGPU_PER_HOST[$g]}" -lt "$BAL" ] && BAL="${NGPU_PER_HOST[$g]}"
+done
+if [ -n "${MAX_GPUS_PER_NODE:-}" ] && [ "${MAX_GPUS_PER_NODE}" -lt "$BAL" ]; then
+  BAL="$MAX_GPUS_PER_NODE"
+fi
+if [ "${BAL:-0}" -lt 1 ]; then
+  echo "FATAL: a component reported no GPUs; cannot build a fleet."
   exit 1
 fi
+for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
+  if [ "${NGPU_PER_HOST[$g]}" -ne "$BAL" ]; then
+    echo "  balancing component $g: ${NGPU_PER_HOST[$g]} GPUs present, using $BAL"
+  fi
+  NGPU_PER_HOST[$g]="$BAL"
+done
+echo "fleet: ${SLURM_HET_SIZE} types x $BAL replicas each"
 
 if [ "${TYPES_PER_HOST[0]}" = "${TYPES_PER_HOST[1]}" ]; then
   echo "FATAL: both components are ${TYPES_PER_HOST[0]}."
@@ -163,38 +187,66 @@ echo "$SKEW" > "$RUN/skew_seconds.txt"
 # ------------------------------------------------------------- launch servers
 # Bind to 0.0.0.0, not 127.0.0.1: the generator runs on one node and must reach
 # the other node's servers over the cluster network.
-# ------------------------------------------- warm the checkpoint, per node
-# Job 12303653's vLLM wedged at "Loading safetensors checkpoint shards: 0%"
-# and wrote nothing for two hours. Eight processes were reading the SAME
-# 2.88 GiB checkpoint from GPFS at once, cold. Staggering the launches made
-# every subsequent single-node run start cleanly (ready in 111 s), but this job
-# launches on two nodes and is back to eight concurrent readers.
+# ------------------------------- stage the model on NODE-LOCAL storage
+# This replaces a page-cache pre-warm, and it is a different kind of fix.
 #
-# So read the checkpoint once per node, sequentially, before any server starts.
-# One cold sequential reader is the filesystem's best case; afterwards the
-# servers read from page cache. Also fails fast if the model is not present,
-# rather than letting eight processes each try to download it.
+# What went wrong on frnt155: eight vLLM processes read the same 2.88 GiB
+# checkpoint from GPFS at once, cold. At least one blocked in uninterruptible
+# kernel I/O, which ignores SIGKILL until the I/O returns, so scancel could not
+# reap the job and the node sat in COMPLETING for hours. Staggering launches and
+# warming page cache both reduce contention, but GPFS stays in the read path of
+# every server, so the hazard only becomes less likely.
+#
+# Node-local staging removes it. Job 12304897 confirmed $SLURM_TMPDIR is
+# /lscratch/..., xfs, node-local, 463 GiB free, and that eight concurrent
+# readers there sustain 3931 MiB/s. Copy the checkpoint once per node, point
+# HF_HOME at the copy, and no server touches the shared filesystem again - a
+# GPFS stall cannot block one.
+#
+# Only the served model is staged. The first version globbed every
+# *.safetensors under hub/, which also matches the 7B model, so it would have
+# read 18 GB to warm 2.88 GB.
+#
+# On whether this perturbs the measurement: it cannot. Staging finishes before
+# any server starts, and every energy window opens after readiness, so no
+# staging I/O falls inside a measured interval. The samplers are started AFTER
+# this block for the same reason - started first, the copy's CPU and disk time
+# would land in the RAPL figures. Keep that order.
+MODEL_DIR_NAME="models--$(printf '%s' "$MODEL" | sed 's#/#--#g')"
 echo
-echo "=== warming the checkpoint on each node ==="
+echo "=== staging $MODEL on node-local storage ==="
+STAGED_HF=""
 for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
-  t0=$(date +%s)
-  nbytes="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap bash -c '
+  out="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
+         env SRC_HF="$HF_HOME" MDN="$MODEL_DIR_NAME" bash -c '
     set -u
-    d="$HF_HOME/hub"
-    [ -d "$d" ] || { echo 0; exit 0; }
-    # cat to /dev/null rather than vmtouch, which is not installed.
-    find "$d" -name "*.safetensors" -type f -print0 2>/dev/null \
-      | xargs -0 -r cat 2>/dev/null | wc -c
+    local_root="${SLURM_TMPDIR:-/tmp}/hfstage"
+    src="$SRC_HF/hub/$MDN"
+    if [ ! -d "$src" ]; then echo "MISSING:$src"; exit 1; fi
+    mkdir -p "$local_root/hub" || { echo "MKDIR_FAILED"; exit 1; }
+    cp -rL "$src" "$local_root/hub/" 2>/dev/null || { echo "COPY_FAILED"; exit 1; }
+    sz="$(du -sb "$local_root/hub/$MDN" 2>/dev/null | cut -f1)"
+    echo "OK:$local_root:$sz"
   ' 2>/dev/null | tail -1)"
-  t1=$(date +%s)
-  echo "  ${HOSTS[$g]}: read ${nbytes:-0} bytes of safetensors in $((t1 - t0))s"
-  if [ "${nbytes:-0}" -lt 1000000 ]; then
-    echo "FATAL: no safetensors checkpoint found under \$HF_HOME on ${HOSTS[$g]}."
-    echo "Eight servers would each try to fetch the model concurrently, which"
-    echo "is how job 12303653 wedged. Stage the model first."
-    exit 1
-  fi
+  case "$out" in
+    OK:*) root="$(printf '%s' "$out" | cut -d: -f2)"
+          sz="$(printf '%s' "$out" | cut -d: -f3)"
+          echo "  ${HOSTS[$g]}: staged $(( sz / 1048576 )) MiB to $root"
+          STAGED_HF="$root" ;;
+    MISSING:*)
+          echo "FATAL: ${HOSTS[$g]} has no $MODEL_DIR_NAME under $HF_HOME/hub"
+          echo "Stage the model into the shared cache first; eight servers each"
+          echo "fetching it concurrently is how frnt155 wedged."
+          exit 1 ;;
+    *)    echo "FATAL: staging failed on ${HOSTS[$g]} ($out)"
+          echo "Refusing to fall back to GPFS reads: that is the exact path"
+          echo "that wedged frnt155, and a silent fallback would hide it."
+          exit 1 ;;
+  esac
 done
+export HF_HOME="$STAGED_HF"
+export HF_HUB_OFFLINE=1
+echo "  HF_HOME now $HF_HOME (node-local); HF_HUB_OFFLINE=1"
 
 PORT_BASE=8100
 PORTS=()

@@ -662,6 +662,8 @@ Do **not** run `ars-full` yet. That decision was already made in
 | **N10** | **The router extrapolated its energy and latency model** | **closed 2026-10-04.** `interp` clamped above the top measured concurrency level. Stage 1 stopped at 32; job 12303355 ran at ~66 in flight per endpoint. So `_jtok` returned `power(32)/tok_s(32)` = 0.0784 J/token for every endpoint at c >= 32 - all tied, `min()` fell through to index order, and `energy_greedy` was bin-packing by endpoint index with no energy signal. `_proj_latency` predicted 1.99 s at c=42 where measured p95 was 30.97 s, optimistic by 10-15x. `interp` now returns None above the measured range, the router treats that as infeasible, and every cell reports `router_out_of_range`. |
 | **N11** | **Curve selection picked the worst available curve per GPU type** | **closed 2026-10-04.** First match from a lexically sorted glob means the oldest wins. The A30 curve in use was `h1-12302437` with `levels=1,4` - two points - while `h1-12303200` has six. It did not affect the homogeneous RTX 6000 run but would corrupt the heterogeneous comparison the research question is about, and it would have silently discarded the extended 128-level curve as a duplicate of the one it replaces. Selection is now by widest measured coverage, tie-broken on newest job. |
 | **N12** | **An instrument probe tested the wrong thing** | **closed 2026-10-04.** `h1_sweep.sbatch` chose its Python with `python3 -c "import pynvml"`. pynvml imports from `~/.local` even when `libnvidia-ml.so.1` is unreachable, so job 12303357 passed the probe and then died on `nvmlInit`. The probe now performs import, `nvmlInit` and one counter read, and falls back to the container Python. |
+| **N13** | **Does staging the model perturb the measurement?** | **closed 2026-10-05, by construction and by ordering.** The multi-node job copies the checkpoint to node-local storage before serving. Three reasons it cannot reach a measured quantity: (1) staging completes before any vLLM server starts, and every energy window opens only after all servers report ready, so no staging I/O falls inside a measured interval; (2) the per-node energy samplers are started *after* staging for exactly this reason - started before, the copy's CPU and disk time would appear in the RAPL CPU/DRAM figures, and that ordering is now asserted in the script with a comment saying why; (3) host page cache and local disk do not affect the GPU energy counter, which is the primary metric. One genuine consequence remains and is stated rather than hidden: the heterogeneous run reads weights from local xfs while the homogeneous runs read from GPFS, so **model-load time is not comparable across those runs**. Load time is not in any measured window, so no reported number is affected, but it must not later be compared across the two configurations. |
+| **N14** | **Walltime was described as the control for a wedge; it is not** | **corrected 2026-10-05.** A process blocked in uninterruptible kernel I/O ignores SIGKILL until the I/O returns, so `scancel` cannot reap it and even Slurm's own reclaim waits on the same stuck I/O - that is why `frnt155` sat in COMPLETING for hours. The walltime only bounds how long the allocation is *held*; it neither prevents nor shortens a wedge. The real fix is upstream: node-local staging takes the shared filesystem out of every server's read path, so a GPFS stall cannot block a server at all. Walltime is the last line of defence, now 1h15m against a measured ~40 min run. |
 | **N9** | Deep-overload cells may reflect **CPU contention, not GPU saturation** | open. The generator reached 9.8 of the node's 32 cores at 590 req/s while sharing the node with 8 vLLM servers, so server-side degradation at the top of the range is partly confounded. In the measurement region (240-360 req/s) it is 4.8-6.2 cores. Mitigations if the top cells are ever load-bearing: pin generator and servers to disjoint cores, or move the generator to a second node. |
 | **N7** | **RAPL CPU+DRAM includes the load generator itself** | **open, now quantified.** The generator runs on the same node as the servers, so its CPU time is inside the RAPL package energy. Sharding the generator across processes makes this larger. GPU-package energy, the primary metric, is unaffected. Every cell now records `generator_cpu_s` and `generator_cpu_cores_mean`, so the contamination is measured rather than unknown. Any CPU/DRAM figure must be reported with that caveat, or measured with the generator on a separate node. |
 | **N8** | Prompt mix was not reproducible from the seed | **closed 2026-10-04.** Prompt length came from an rng shared by all coroutines, so the draw order depended on asyncio scheduling and the seed did not reproduce a workload. Now derived from (seed, request index), identical under any worker count or interleaving. |
@@ -1052,6 +1054,53 @@ methodological choice here rather than a convenience.
 
 ---
 
+### 12.7 The frnt155 failure mode, and what actually fixes it
+
+Worth recording in full because it shaped several scripts and because the first
+three answers to it were mitigations mistaken for fixes.
+
+**What happened.** Job 12303653 launched eight vLLM servers on one node. All
+eight read the same 2.88 GiB checkpoint from GPFS simultaneously, cold. At
+least one blocked in uninterruptible kernel I/O (process state D), which
+ignores SIGKILL until the I/O returns. The job wrote nothing further for two
+hours; `scancel` registered but could not reap it; the node stayed in
+COMPLETING. `frnt155` is the cluster's only 8x RTX 6000 node, so that single
+wedge also blocked every subsequent 8-GPU RTX 6000 run.
+
+**Three things that help but do not fix it.**
+
+1. *Staggered launches* (8 s apart). Every single-node run after this change
+   started cleanly - ready in 111 s. But it reduces concurrency at the
+   filesystem, it does not remove the filesystem.
+2. *Page-cache pre-warm*: read the checkpoint once sequentially, then let the
+   servers hit warm cache. Better, still a mitigation - the first read is still
+   a cold GPFS read, and a stall there wedges the job just as well. (The first
+   implementation also globbed every `*.safetensors` under the cache, which
+   matches the 7B model too and would have read 18 GB to warm 2.88 GB.)
+3. *Shorter walltime*. This was described as "the control" and that was wrong,
+   see threat N14. It bounds how long a wedge holds the allocation. It does not
+   prevent one, and it does not shorten one.
+
+**What actually fixes it.** Take GPFS out of the read path. Job 12304897
+established that `$SLURM_TMPDIR` is `/lscratch/...`, xfs, genuinely node-local,
+463 GiB free, and that eight concurrent readers there sustain 3931 MiB/s. The
+multi-node job now copies the served model to local disk once per node and
+points `HF_HOME` at the copy, with `HF_HUB_OFFLINE=1`. After that no server
+touches shared storage, so a GPFS stall cannot block one.
+
+Staging failure is fatal rather than falling back to GPFS: a silent fallback
+would restore the exact hazard while reporting success, which is the pattern
+that cost this project most of a day elsewhere.
+
+**Residual risk, stated honestly.** Node-local staging removes GPFS from the
+*serving* path, not from the *staging* path - the copy itself still reads GPFS
+once per node. That read is sequential and single-threaded, which is the
+filesystem's best case rather than its worst, and it happens before any
+measurement window. It is not zero risk; it is a single cold sequential read
+instead of eight concurrent ones.
+
+---
+
 ## 13. Progress tracker
 
 Updated 2026-10-04. One line per item so nothing silently drops.
@@ -1096,6 +1145,8 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 31a | Extend RTX 6000 curve to concurrency 128 | **running** job 12303358 on `frnt153` (12303357 was lost to N12) |
 | 31b | Re-run Stage 2 with the grounded curve | **DONE 2026-10-04**, jobs 12304137/12304138. Verdict: **GATE FAILED informatively** - every curve-using policy is infeasible, `round_robin` wins. See 12.5 |
 | 31c | Repeat trials | **done** - two seeds x two submissions, four runs, ordering identical in all. Formal CIs still to compute for the paper |
+| 31g | Node-local model staging (removes the frnt155 hazard) | **done 2026-10-05**, verified by job 12304897: `$SLURM_TMPDIR` is node-local xfs, 3931 MiB/s with 8 readers |
+| 31h | Fleet self-balances to the smaller component | **done** - refusing on unequal counts was brittle; `--exclusive` makes unequal the normal case |
 | 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.6); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
 | 31e | Per-GPU-type curves to c=128+ | **done** - A100, A30, L4, L40S, RTX 8000, RTX 6000 (to c=256). V100 excluded, sm_70 absent from the container build |
 | 31f | In-node heterogeneity via clock control | **closed - NOT POSSIBLE.** `-pl` and `--lock-gpu-clocks` denied; `--lock-memory-clocks` and `-ac` accept and do nothing (job 12304132: clamped GPU within 1% of an untouched control, reverted run had the lowest clock of the four) |
