@@ -220,12 +220,47 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
   out="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap \
          env SRC_HF="$HF_HOME" MDN="$MODEL_DIR_NAME" bash -c '
     set -u
-    local_root="${SLURM_TMPDIR:-/tmp}/hfstage"
+    # Find a writable local directory IN THIS STEP, do not inherit one.
+    #
+    # $SLURM_TMPDIR in the batch environment names the directory Slurm created
+    # for the FIRST component, e.g. /lscratch/slurm-job-<id> on frnt154. A step
+    # on the second component inherits that value, the path does not exist on
+    # its node, and /lscratch is not user-writable, so mkdir -p fails. That is
+    # what MKDIR_FAILED on frnt153 was in job 12304903. Probing candidates
+    # inside the step gets each node its own real scratch; job 12304897 showed
+    # /tmp is also xfs and node-local with 463 GiB free, so it is a sound
+    # second choice rather than a shared-filesystem trap.
+    local_root=""
+    for cand in "${SLURM_TMPDIR:-}" /tmp /var/tmp; do
+      [ -n "$cand" ] || continue
+      if mkdir -p "$cand/hfstage/hub" 2>/dev/null; then
+        local_root="$cand/hfstage"; break
+      fi
+    done
+    [ -n "$local_root" ] || { echo "MKDIR_FAILED"; exit 1; }
     src="$SRC_HF/hub/$MDN"
     if [ ! -d "$src" ]; then echo "MISSING:$src"; exit 1; fi
-    mkdir -p "$local_root/hub" || { echo "MKDIR_FAILED"; exit 1; }
-    cp -rL "$src" "$local_root/hub/" 2>/dev/null || { echo "COPY_FAILED"; exit 1; }
-    sz="$(du -sb "$local_root/hub/$MDN" 2>/dev/null | cut -f1)"
+    # Copy refs/ and snapshots/ only, dereferencing as we go, and skip blobs/.
+    #
+    # The HF layout keeps real weights in blobs/ and exposes snapshots/ as
+    # symlinks into them. "cp -rL" on the whole model directory therefore
+    # writes each weight TWICE - once as the dereferenced snapshot file and
+    # once as the blob - which is why frnt154 reported 5910 MiB for a 2944 MiB
+    # checkpoint. Reading only needs snapshots/ and refs/, so that is all that
+    # is copied.
+    dst="$local_root/hub/$MDN"
+    mkdir -p "$dst" || { echo "MKDIR_FAILED"; exit 1; }
+    for part in refs snapshots; do
+      [ -e "$src/$part" ] || continue
+      cp -rL "$src/$part" "$dst/" 2>/dev/null \
+        || { echo "COPY_FAILED:$part"; exit 1; }
+    done
+    sz="$(du -sb "$dst" 2>/dev/null | cut -f1)"
+    # A snapshot that still holds dangling links would pass the copy and fail
+    # at model load, so confirm real weight bytes landed.
+    wb="$(find "$dst" -name "*.safetensors" -exec stat -Lc %s {} + 2>/dev/null \
+          | awk "{t+=\$1} END{print t+0}")"
+    if [ "${wb:-0}" -lt 1000000000 ]; then echo "THIN_COPY:$wb"; exit 1; fi
     echo "OK:$local_root:$sz"
   ' 2>/dev/null | tail -1)"
   case "$out" in
@@ -237,6 +272,11 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
           echo "FATAL: ${HOSTS[$g]} has no $MODEL_DIR_NAME under $HF_HOME/hub"
           echo "Stage the model into the shared cache first; eight servers each"
           echo "fetching it concurrently is how frnt155 wedged."
+          exit 1 ;;
+    THIN_COPY:*)
+          echo "FATAL: ${HOSTS[$g]} copied the tree but almost no weight bytes"
+          echo "($out). The snapshot links were probably dangling; staging a"
+          echo "structure without weights would fail later at model load."
           exit 1 ;;
     *)    echo "FATAL: staging failed on ${HOSTS[$g]} ($out)"
           echo "Refusing to fall back to GPFS reads: that is the exact path"
