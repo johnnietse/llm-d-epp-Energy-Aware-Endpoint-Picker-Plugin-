@@ -54,6 +54,11 @@ import urllib.request
 import urllib.error
 
 try:
+    import multinode_energy
+except ImportError:
+    multinode_energy = None   # only needed for --energy-mode multinode
+
+try:
     import httpx
 except ImportError:
     # The load generator must not fall back to blocking urllib in a thread
@@ -682,7 +687,8 @@ def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
 
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
-                     scratch="/tmp"):
+                     scratch="/tmp", energy_mode="local", sample_dir=None,
+                     clock_skew=0.0):
     router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1))
     meter = EnergyMeter(gpus, poll_interval=poll_interval)
 
@@ -701,6 +707,14 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     # the bug this whole path exists to remove.
     pool = max(1024, (4 * n_requests) // max(1, workers))
 
+    # In multinode mode the local NVML meter is NOT used. It can only see
+    # this node's GPUs, so on a two-node heterogeneous fleet it would silently
+    # report a subset of the fleet's energy as if it were the whole thing -
+    # a smaller number, not a wrong-looking one, which is the dangerous kind.
+    # Energy comes instead from a sampler running on every node, stitched by
+    # window afterwards.
+    use_local_meter = (energy_mode == "local")
+
     zones = rapl_zones()
     rapl_before = rapl_read(zones)
     engine_before = scrape_engine_metrics(endpoints)
@@ -712,8 +726,11 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     # and reportable one. Children are counted because the workers are forks.
     ru_self0 = resource.getrusage(resource.RUSAGE_SELF)
     ru_kids0 = resource.getrusage(resource.RUSAGE_CHILDREN)
-    meter.begin()
-    poll_task = asyncio.create_task(meter.poll_forever())
+    if use_local_meter:
+        meter.begin()
+        poll_task = asyncio.create_task(meter.poll_forever())
+    else:
+        poll_task = None
 
     # Lead time so that every worker is forked and sitting in its sleep loop
     # before the schedule origin passes. Without it the first requests all fire
@@ -767,20 +784,49 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     all_itls = [x for a in agg for x in a["itls"]]
     completed = sum(a["completed"] for a in agg)
     errors = sum(a["errors"] for a in agg)
+    t_energy_end = time.time()
     ru_self1 = resource.getrusage(resource.RUSAGE_SELF)
     ru_kids1 = resource.getrusage(resource.RUSAGE_CHILDREN)
     gen_cpu_s = ((ru_self1.ru_utime - ru_self0.ru_utime)
                  + (ru_self1.ru_stime - ru_self0.ru_stime)
                  + (ru_kids1.ru_utime - ru_kids0.ru_utime)
                  + (ru_kids1.ru_stime - ru_kids0.ru_stime))
-    energy = meter.end()
+    if use_local_meter:
+        energy = meter.end()
+    else:
+        if multinode_energy is None:
+            raise SystemExit("--energy-mode multinode needs multinode_energy.py "
+                             "importable beside this script")
+        agg = multinode_energy.aggregate(sample_dir, t_start, t_energy_end,
+                                         clock_skew)
+        if not agg["complete"]:
+            # A fleet energy figure missing a node is wrong, not merely
+            # smaller. Refuse the cell rather than publish a partial sum.
+            raise SystemExit(
+                "multinode energy incomplete: %d node(s) ok, %d failed. %s"
+                % (agg["nodes_ok"], agg["nodes_failed"],
+                   [n.get("error") for n in agg["nodes"] if "error" in n]))
+        energy = {
+            "window_s": t_energy_end - t_start,
+            "total_energy_j": agg["total_energy_j"],
+            "per_gpu": [g for n in agg["nodes"] for g in n["per_gpu"]],
+            "multinode": {
+                "nodes": [{k: v for k, v in n.items() if k != "per_gpu"}
+                          for n in agg["nodes"]],
+                "clock_skew_s": clock_skew,
+                "skew_energy_uncertainty_j": agg["skew_energy_uncertainty_j"],
+                "skew_energy_uncertainty_pct":
+                    agg["skew_energy_uncertainty_pct"],
+            },
+        }
     rapl_after = rapl_read(zones)
     engine_after = scrape_engine_metrics(endpoints)
-    poll_task.cancel()
-    try:
-        await poll_task
-    except asyncio.CancelledError:
-        pass
+    if poll_task is not None:
+        poll_task.cancel()
+        try:
+            await poll_task
+        except asyncio.CancelledError:
+            pass
 
     def pct(xs, q):
         if not xs:
@@ -880,6 +926,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
             for t, c in curves.items()},
         "seed": seed,
         "poll_interval_s": poll_interval,
+        "energy_mode": energy_mode,
         "generator_workers": workers,
         # CPU seconds burned by the generator itself during this cell.
         # Divide by the window to get mean cores occupied; that fraction
@@ -915,6 +962,18 @@ def main():
                          "parsing is CPU-bound in the event loop. Sharding "
                          "multiplies that; routing state stays shared so the "
                          "policies still see global in-flight counts.")
+    ap.add_argument("--energy-mode", choices=("local", "multinode"),
+                    default="local",
+                    help="local reads this node's GPUs directly; multinode "
+                         "stitches per-node sampler files, which is required "
+                         "once endpoints span more than one machine because "
+                         "NVML cannot see another node's counters")
+    ap.add_argument("--sample-dir",
+                    help="directory of energy-*.jsonl from node_energy_sampler")
+    ap.add_argument("--clock-skew", type=float, default=0.0,
+                    help="measured max wall-clock skew across nodes, seconds; "
+                         "used to report how much energy the skew could "
+                         "account for rather than to correct anything")
     ap.add_argument("--scratch", default="/tmp",
                     help="where worker result files are written")
     ap.add_argument("--poll-interval", type=float, default=0.25,
@@ -922,6 +981,9 @@ def main():
                          "(used by the perturbation control arm)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+
+    if args.energy_mode == "multinode" and not args.sample_dir:
+        raise SystemExit("--energy-mode multinode requires --sample-dir")
 
     endpoints = args.endpoints.split(",")
     gpus = [int(x) for x in args.gpus.split(",")]
@@ -951,7 +1013,10 @@ def main():
         r = asyncio.run(run_policy(policy, endpoints, gpus, types, curves,
                                    args.rate, args.requests, args.slo, args.seed,
                                    poll_interval=args.poll_interval,
-                                   workers=n_workers, scratch=args.scratch))
+                                   workers=n_workers, scratch=args.scratch,
+                                   energy_mode=args.energy_mode,
+                                   sample_dir=args.sample_dir,
+                                   clock_skew=args.clock_skew))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")
