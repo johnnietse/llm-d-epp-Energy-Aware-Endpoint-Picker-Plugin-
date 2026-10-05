@@ -32,7 +32,14 @@
 #                    SAMPLE_INTERVAL
 #SBATCH --job-name=stage2-het
 #SBATCH --account=def-hpcg1971_gpu
-#SBATCH --time=05:00:00
+# Two hours, not five. The run needs about 40 minutes (5 rates x 5
+# policies x 80 s plus startup). Job 12303653 wedged in uninterruptible
+# GPFS I/O and held an 8-GPU node for 2h07m, and scancel could not reap
+# it - processes blocked in kernel I/O ignore SIGKILL until the I/O
+# returns. Nothing in user space fixes that, so the only real control is
+# to not ask for hours we do not need: the walltime is the ceiling on how
+# long a wedge can hold two nodes.
+#SBATCH --time=02:00:00
 #SBATCH --output=%x-%j.out
 
 set -uo pipefail
@@ -80,9 +87,29 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
         nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | tr ' ' '_')"
   ng="$(srun --het-group="$g" --nodes=1 --ntasks=1 \
         nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)"
+  # --exclusive hands over every GPU on the node regardless of what --gres
+  # asked for. The step probe (job 12304889) requested gpu:a100:4 and landed on
+  # frnt154, which has 8: without a cap this job would build a lopsided 8+4
+  # fleet instead of the balanced 4+4 that makes the comparison legible. The
+  # same surprise is why stage2_real.sbatch carries MAX_GPUS.
+  cap="${MAX_GPUS_PER_NODE:-4}"
+  if [ "$ng" -gt "$cap" ]; then
+    echo "  component $g: $ng GPUs present, capping to $cap (MAX_GPUS_PER_NODE)"
+    ng="$cap"
+  fi
   HOSTS[$g]="$h"; TYPES_PER_HOST[$g]="$nm"; NGPU_PER_HOST[$g]="$ng"
   echo "  component $g: host=$h type=$nm gpus=$ng"
 done
+
+# A heterogeneous comparison with unequal replica counts per type confounds the
+# thing being measured: a policy could look good merely by preferring the type
+# that happens to have more replicas. Refuse rather than silently proceed.
+if [ "${NGPU_PER_HOST[0]}" -ne "${NGPU_PER_HOST[1]}" ]; then
+  echo "FATAL: unequal replica counts (${NGPU_PER_HOST[0]} vs ${NGPU_PER_HOST[1]})."
+  echo "Set MAX_GPUS_PER_NODE to the smaller count so each type contributes"
+  echo "equally, or the routing comparison is confounded by fleet composition."
+  exit 1
+fi
 
 if [ "${TYPES_PER_HOST[0]}" = "${TYPES_PER_HOST[1]}" ]; then
   echo "FATAL: both components are ${TYPES_PER_HOST[0]}."
@@ -131,6 +158,39 @@ echo "$SKEW" > "$RUN/skew_seconds.txt"
 # ------------------------------------------------------------- launch servers
 # Bind to 0.0.0.0, not 127.0.0.1: the generator runs on one node and must reach
 # the other node's servers over the cluster network.
+# ------------------------------------------- warm the checkpoint, per node
+# Job 12303653's vLLM wedged at "Loading safetensors checkpoint shards: 0%"
+# and wrote nothing for two hours. Eight processes were reading the SAME
+# 2.88 GiB checkpoint from GPFS at once, cold. Staggering the launches made
+# every subsequent single-node run start cleanly (ready in 111 s), but this job
+# launches on two nodes and is back to eight concurrent readers.
+#
+# So read the checkpoint once per node, sequentially, before any server starts.
+# One cold sequential reader is the filesystem's best case; afterwards the
+# servers read from page cache. Also fails fast if the model is not present,
+# rather than letting eight processes each try to download it.
+echo
+echo "=== warming the checkpoint on each node ==="
+for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
+  t0=$(date +%s)
+  nbytes="$(srun --het-group="$g" --nodes=1 --ntasks=1 --overlap bash -c '
+    set -u
+    d="$HF_HOME/hub"
+    [ -d "$d" ] || { echo 0; exit 0; }
+    # cat to /dev/null rather than vmtouch, which is not installed.
+    find "$d" -name "*.safetensors" -type f -print0 2>/dev/null \
+      | xargs -0 -r cat 2>/dev/null | wc -c
+  ' 2>/dev/null | tail -1)"
+  t1=$(date +%s)
+  echo "  ${HOSTS[$g]}: read ${nbytes:-0} bytes of safetensors in $((t1 - t0))s"
+  if [ "${nbytes:-0}" -lt 1000000 ]; then
+    echo "FATAL: no safetensors checkpoint found under \$HF_HOME on ${HOSTS[$g]}."
+    echo "Eight servers would each try to fetch the model concurrently, which"
+    echo "is how job 12303653 wedged. Stage the model first."
+    exit 1
+  fi
+done
+
 PORT_BASE=8100
 PORTS=()
 EP_TYPES=()
