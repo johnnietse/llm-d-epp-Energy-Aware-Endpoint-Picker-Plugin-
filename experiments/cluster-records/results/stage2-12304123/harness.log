@@ -1,0 +1,162 @@
+load generator: 6 worker process(es)
+--- round_robin at 120.0 req/s ---
+    J/req 6.37  goodput/J 0.1571  SLO 100.0%
+    TTFT p50/p95 0.047/0.057s  TPOT 0.0141s  ITL p99/max 0.0192/0.0703s  e2e p99 1.913s  errors 0
+    SLO margin p50/p95 0.925/0.947 x SLO  within 10% of boundary 90.1%
+    offered 120.0 req/s  achieved 116.9 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.046
+--- least_loaded at 120.0 req/s ---
+    J/req 6.65  goodput/J 0.1504  SLO 100.0%
+    TTFT p50/p95 0.047/0.057s  TPOT 0.0140s  ITL p99/max 0.0191/0.0749s  e2e p99 1.897s  errors 0
+    SLO margin p50/p95 0.914/0.938 x SLO  within 10% of boundary 81.8%
+    offered 120.0 req/s  achieved 116.9 req/s  fidelity 97.4%  send delay p99 0.002s  TTFT from send p50 0.046
+--- slo_packing at 120.0 req/s ---
+    J/req 6.77  goodput/J 0.0989  SLO 67.0%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0149s  ITL p99/max 0.0201/0.0714s  e2e p99 2.025s  errors 0
+    SLO margin p50/p95 0.995/1.008 x SLO  within 10% of boundary 88.5%
+    offered 120.0 req/s  achieved 116.7 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.051
+--- energy_greedy at 120.0 req/s ---
+    J/req 6.92  goodput/J 0.1043  SLO 72.2%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0148s  ITL p99/max 0.0199/0.0734s  e2e p99 2.027s  errors 0
+    SLO margin p50/p95 0.994/1.007 x SLO  within 10% of boundary 88.6%
+    offered 120.0 req/s  achieved 116.6 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.051
+--- energy_consolidate at 120.0 req/s ---
+    J/req 6.94  goodput/J 0.1011  SLO 70.2%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0148s  ITL p99/max 0.0197/0.0721s  e2e p99 2.022s  errors 0
+    SLO margin p50/p95 0.995/1.007 x SLO  within 10% of boundary 88.4%
+    offered 120.0 req/s  achieved 116.6 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/policies-rate120.json
+load generator: 6 worker process(es)
+--- round_robin at 136.0 req/s ---
+    J/req 6.30  goodput/J 0.1498  SLO 94.4%
+    TTFT p50/p95 0.050/0.062s  TPOT 0.0148s  ITL p99/max 0.0203/0.0733s  e2e p99 2.022s  errors 0
+    SLO margin p50/p95 0.973/1.001 x SLO  within 10% of boundary 95.3%
+    offered 136.0 req/s  achieved 132.5 req/s  fidelity 97.4%  send delay p99 0.004s  TTFT from send p50 0.050
+--- least_loaded at 136.0 req/s ---
+    J/req 6.34  goodput/J 0.1461  SLO 92.6%
+    TTFT p50/p95 0.050/0.061s  TPOT 0.0148s  ITL p99/max 0.0196/0.0813s  e2e p99 2.015s  errors 0
+    SLO margin p50/p95 0.971/1.002 x SLO  within 10% of boundary 95.1%
+    offered 136.0 req/s  achieved 132.5 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.050
+--- slo_packing at 136.0 req/s ---
+    J/req 6.36  goodput/J 0.0868  SLO 55.2%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0149s  ITL p99/max 0.0197/0.0806s  e2e p99 2.028s  errors 0
+    SLO margin p50/p95 0.999/1.010 x SLO  within 10% of boundary 86.0%
+    offered 136.0 req/s  achieved 132.3 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.052
+    *** UNGROUNDED ROUTING on 49 of 8160 picks (0.6%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 136.0 req/s ---
+    J/req 6.36  goodput/J 0.0838  SLO 53.3%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0150s  ITL p99/max 0.0199/0.0884s  e2e p99 2.032s  errors 0
+    SLO margin p50/p95 0.999/1.010 x SLO  within 10% of boundary 85.8%
+    offered 136.0 req/s  achieved 132.4 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.051
+    *** UNGROUNDED ROUTING on 50 of 8160 picks (0.6%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 136.0 req/s ---
+    J/req 6.36  goodput/J 0.0891  SLO 56.7%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0149s  ITL p99/max 0.0200/0.0849s  e2e p99 2.036s  errors 0
+    SLO margin p50/p95 0.998/1.012 x SLO  within 10% of boundary 86.1%
+    offered 136.0 req/s  achieved 132.3 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.051
+    *** UNGROUNDED ROUTING on 53 of 8160 picks (0.6%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/policies-rate136.json
+load generator: 6 worker process(es)
+--- round_robin at 150.0 req/s ---
+    J/req 5.92  goodput/J 0.0703  SLO 41.6%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0153s  ITL p99/max 0.0210/0.0903s  e2e p99 2.081s  errors 0
+    SLO margin p50/p95 1.002/1.023 x SLO  within 10% of boundary 96.5%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.004s  TTFT from send p50 0.052
+--- least_loaded at 150.0 req/s ---
+    J/req 5.93  goodput/J 0.0499  SLO 29.6%
+    TTFT p50/p95 0.053/0.064s  TPOT 0.0153s  ITL p99/max 0.0208/0.0786s  e2e p99 2.062s  errors 0
+    SLO margin p50/p95 1.004/1.021 x SLO  within 10% of boundary 96.2%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.052
+--- slo_packing at 150.0 req/s ---
+    J/req 5.90  goodput/J 0.0482  SLO 28.4%
+    TTFT p50/p95 0.054/0.066s  TPOT 0.0153s  ITL p99/max 0.0204/0.0764s  e2e p99 2.069s  errors 0
+    SLO margin p50/p95 1.006/1.026 x SLO  within 10% of boundary 96.8%
+    offered 150.0 req/s  achieved 145.3 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.053
+    *** UNGROUNDED ROUTING on 3230 of 9000 picks (35.9%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 150.0 req/s ---
+    J/req 5.88  goodput/J 0.0541  SLO 31.8%
+    TTFT p50/p95 0.054/0.066s  TPOT 0.0153s  ITL p99/max 0.0203/0.0865s  e2e p99 2.071s  errors 0
+    SLO margin p50/p95 1.005/1.023 x SLO  within 10% of boundary 96.9%
+    offered 150.0 req/s  achieved 145.2 req/s  fidelity 96.8%  send delay p99 0.003s  TTFT from send p50 0.053
+    *** UNGROUNDED ROUTING on 3129 of 9000 picks (34.8%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 150.0 req/s ---
+    J/req 5.87  goodput/J 0.0604  SLO 35.5%
+    TTFT p50/p95 0.054/0.066s  TPOT 0.0153s  ITL p99/max 0.0206/0.0796s  e2e p99 2.066s  errors 0
+    SLO margin p50/p95 1.004/1.023 x SLO  within 10% of boundary 96.8%
+    offered 150.0 req/s  achieved 145.2 req/s  fidelity 96.8%  send delay p99 0.003s  TTFT from send p50 0.053
+    *** UNGROUNDED ROUTING on 3149 of 9000 picks (35.0%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/policies-rate150.json
+load generator: 6 worker process(es)
+--- round_robin at 165.0 req/s ---
+    J/req 5.53  goodput/J 0.0106  SLO 5.9%
+    TTFT p50/p95 0.056/0.069s  TPOT 0.0158s  ITL p99/max 0.0221/0.0923s  e2e p99 2.199s  errors 0
+    SLO margin p50/p95 1.035/1.071 x SLO  within 10% of boundary 96.7%
+    offered 165.0 req/s  achieved 159.0 req/s  fidelity 96.4%  send delay p99 0.005s  TTFT from send p50 0.055
+--- least_loaded at 165.0 req/s ---
+    J/req 5.53  goodput/J 0.0115  SLO 6.4%
+    TTFT p50/p95 0.056/0.067s  TPOT 0.0158s  ITL p99/max 0.0214/0.0966s  e2e p99 2.152s  errors 0
+    SLO margin p50/p95 1.032/1.065 x SLO  within 10% of boundary 97.4%
+    offered 165.0 req/s  achieved 159.0 req/s  fidelity 96.4%  send delay p99 0.004s  TTFT from send p50 0.055
+--- slo_packing at 165.0 req/s ---
+    J/req 5.49  goodput/J 0.0075  SLO 4.1%
+    TTFT p50/p95 0.057/0.070s  TPOT 0.0160s  ITL p99/max 0.0216/0.0860s  e2e p99 2.184s  errors 0
+    SLO margin p50/p95 1.046/1.081 x SLO  within 10% of boundary 98.5%
+    offered 165.0 req/s  achieved 158.7 req/s  fidelity 96.2%  send delay p99 0.004s  TTFT from send p50 0.057
+    *** UNGROUNDED ROUTING on 9027 of 9900 picks (91.2%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 165.0 req/s ---
+    J/req 5.43  goodput/J 0.0078  SLO 4.2%
+    TTFT p50/p95 0.057/0.070s  TPOT 0.0159s  ITL p99/max 0.0216/0.0924s  e2e p99 2.181s  errors 0
+    SLO margin p50/p95 1.041/1.077 x SLO  within 10% of boundary 98.3%
+    offered 165.0 req/s  achieved 158.6 req/s  fidelity 96.1%  send delay p99 0.004s  TTFT from send p50 0.056
+    *** UNGROUNDED ROUTING on 8928 of 9900 picks (90.2%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 165.0 req/s ---
+    J/req 5.42  goodput/J 0.0090  SLO 4.9%
+    TTFT p50/p95 0.057/0.070s  TPOT 0.0159s  ITL p99/max 0.0215/0.0890s  e2e p99 2.160s  errors 0
+    SLO margin p50/p95 1.040/1.071 x SLO  within 10% of boundary 98.2%
+    offered 165.0 req/s  achieved 158.8 req/s  fidelity 96.2%  send delay p99 0.004s  TTFT from send p50 0.056
+    *** UNGROUNDED ROUTING on 8891 of 9900 picks (89.8%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/policies-rate165.json
+load generator: 6 worker process(es)
+--- round_robin at 180.0 req/s ---
+    J/req 5.21  goodput/J 0.0089  SLO 4.7%
+    TTFT p50/p95 0.060/0.073s  TPOT 0.0167s  ITL p99/max 0.0229/0.0935s  e2e p99 2.290s  errors 0
+    SLO margin p50/p95 1.091/1.132 x SLO  within 10% of boundary 61.1%
+    offered 180.0 req/s  achieved 173.4 req/s  fidelity 96.3%  send delay p99 0.006s  TTFT from send p50 0.059
+--- least_loaded at 180.0 req/s ---
+    J/req 5.19  goodput/J 0.0096  SLO 5.0%
+    TTFT p50/p95 0.060/0.071s  TPOT 0.0166s  ITL p99/max 0.0223/0.0845s  e2e p99 2.266s  errors 0
+    SLO margin p50/p95 1.088/1.121 x SLO  within 10% of boundary 70.8%
+    offered 180.0 req/s  achieved 173.4 req/s  fidelity 96.3%  send delay p99 0.005s  TTFT from send p50 0.059
+--- slo_packing at 180.0 req/s ---
+    J/req 5.13  goodput/J 0.0056  SLO 2.9%
+    TTFT p50/p95 0.061/0.074s  TPOT 0.0168s  ITL p99/max 0.0223/0.0918s  e2e p99 2.289s  errors 0
+    SLO margin p50/p95 1.101/1.135 x SLO  within 10% of boundary 46.9%
+    offered 180.0 req/s  achieved 173.1 req/s  fidelity 96.2%  send delay p99 0.005s  TTFT from send p50 0.060
+    *** UNGROUNDED ROUTING on 10452 of 10800 picks (96.8%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 180.0 req/s ---
+    J/req 5.09  goodput/J 0.0060  SLO 3.1%
+    TTFT p50/p95 0.060/0.073s  TPOT 0.0167s  ITL p99/max 0.0222/0.0869s  e2e p99 2.287s  errors 0
+    SLO margin p50/p95 1.094/1.129 x SLO  within 10% of boundary 59.0%
+    offered 180.0 req/s  achieved 173.3 req/s  fidelity 96.3%  send delay p99 0.005s  TTFT from send p50 0.059
+    *** UNGROUNDED ROUTING on 10455 of 10800 picks (96.8%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 180.0 req/s ---
+    J/req 5.08  goodput/J 0.0068  SLO 3.5%
+    TTFT p50/p95 0.060/0.073s  TPOT 0.0166s  ITL p99/max 0.0220/0.0842s  e2e p99 2.264s  errors 0
+    SLO margin p50/p95 1.091/1.123 x SLO  within 10% of boundary 66.3%
+    offered 180.0 req/s  achieved 173.2 req/s  fidelity 96.2%  send delay p99 0.005s  TTFT from send p50 0.059
+    *** UNGROUNDED ROUTING on 10458 of 10800 picks (96.8%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/policies-rate180.json
+load generator: 6 worker process(es)
+--- slo_packing at 180.0 req/s ---
+    J/req 5.09  goodput/J 0.0060  SLO 3.1%
+    TTFT p50/p95 0.060/0.073s  TPOT 0.0166s  ITL p99/max 0.0221/0.0909s  e2e p99 2.264s  errors 0
+    SLO margin p50/p95 1.091/1.120 x SLO  within 10% of boundary 67.1%
+    offered 180.0 req/s  achieved 173.3 req/s  fidelity 96.3%  send delay p99 0.005s  TTFT from send p50 0.059
+    *** UNGROUNDED ROUTING on 10440 of 10800 picks (96.7%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304123/control-counteronly.json
+  full telemetry : 5.133 J/req   poll=0.25s SLO=2.9%  p95=2.271s
+  counter only   : 5.088 J/req   poll=0.0s SLO=3.1%  p95=2.240s
+  energy difference    : +0.89%
+  p95 difference       : +1.37%
+  completed difference : +0.00%
+  VERDICT: telemetry overhead is not measurable (<1%). Pass A
+  numbers stand unqualified.

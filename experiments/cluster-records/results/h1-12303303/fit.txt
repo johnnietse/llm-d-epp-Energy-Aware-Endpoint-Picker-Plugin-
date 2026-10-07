@@ -1,0 +1,58 @@
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 27.46 W
+fitted P_idle = 71.9 W
+fitted k_b    = -0.00 W per concurrent request
+R^2           = 0.1388
+max |residual| = 0.09 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1    71.88     74.9   0.9592   1.711
+    1    71.92     74.9   0.9606   1.711
+    1    71.92     74.9   0.9607   1.711
+    1    71.89     74.8   0.9607   1.711
+    1    71.84     74.9   0.9593    1.71
+    2    71.86    146.9   0.4891   1.745
+    2    71.94    147.1    0.489   1.741
+    2     72.0    147.0   0.4896   1.742
+    2    71.95    147.1   0.4889   1.742
+    2     71.9    147.2   0.4883    1.74
+    4    71.97    293.0   0.2457    1.75
+    4    71.94    293.2   0.2453   1.748
+    4    71.96    293.0   0.2456    1.75
+    4     72.0    293.1   0.2456   1.749
+    4    71.98    293.4   0.2453   1.747
+    8    71.94    577.4   0.1246   1.776
+    8    71.88    577.5   0.1245   1.776
+    8    71.94    577.3   0.1246   1.777
+    8    71.92    577.9   0.1244   1.774
+    8    71.89    578.5   0.1243   1.774
+   16    71.96   1128.6   0.0638   1.824
+   16    71.85   1129.7   0.0636   1.821
+   16    71.93   1130.8   0.0636   1.816
+   16    71.92   1132.1   0.0635   1.815
+   16     71.9   1131.7   0.0635   1.813
+   32    71.85   2039.3   0.0352   2.035
+   32    71.84   2049.5   0.0351   2.005
+   32    71.87   2047.6   0.0351   2.013
+   32    71.95   2052.8   0.0351   2.002
+   32    71.87   2042.2   0.0352   2.014
+
+J/token range: 0.9607 at c=1 -> 0.0351 at c=32  (27.37x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +44.4 W
+marginal cost per extra concurrent request:  -0.00 W
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 27.5 W = 38% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1246 shared J/tok=0.1269  unique tok/s=577.4 shared tok/s=566.5
+c=8: unique J/tok=0.1246 shared J/tok=0.1266  unique tok/s=577.4 shared tok/s=568.8
+c=8: unique J/tok=0.1246 shared J/tok=0.1261  unique tok/s=577.4 shared tok/s=570.2
+c=8: unique J/tok=0.1246 shared J/tok=0.1267  unique tok/s=577.4 shared tok/s=567.9
+c=8: unique J/tok=0.1246 shared J/tok=0.1264  unique tok/s=577.4 shared tok/s=569.3
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.1388 WEAK - revisit model form

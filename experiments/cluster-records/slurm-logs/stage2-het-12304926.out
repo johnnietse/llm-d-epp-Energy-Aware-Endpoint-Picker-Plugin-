@@ -1,0 +1,42 @@
+job=12304926 het_size=2
+  component 0: host=frnt154.frontenac.local type=NVIDIA_A100-PCIE-40GB gpus_present=8
+  component 1: host=frnt163.frontenac.local type=Quadro_RTX_6000 gpus_present=4
+  balancing component 0: 8 GPUs present, using 4
+fleet: 2 types x 4 replicas each
+
+=== clock skew across components ===
+  conservative skew bound: 0.062501s (includes srun round-trip, so it
+  overstates the true clock difference)
+
+=== staging Qwen/Qwen2.5-1.5B-Instruct on node-local storage ===
+  frnt154.frontenac.local: staged 2955 MiB to /lscratch/slurm-job-12304926/hfstage
+  frnt163.frontenac.local: staged 2955 MiB to /tmp/hfstage
+  HF_HOME now /tmp/hfstage (node-local); HF_HUB_OFFLINE=1
+launching vLLM on frnt154.frontenac.local gpu 0 port 8100
+launching vLLM on frnt154.frontenac.local gpu 1 port 8101
+launching vLLM on frnt154.frontenac.local gpu 2 port 8102
+launching vLLM on frnt154.frontenac.local gpu 3 port 8103
+launching vLLM on frnt163.frontenac.local gpu 0 port 8200
+launching vLLM on frnt163.frontenac.local gpu 1 port 8201
+launching vLLM on frnt163.frontenac.local gpu 2 port 8202
+launching vLLM on frnt163.frontenac.local gpu 3 port 8203
+starting energy sampler on frnt154.frontenac.local -> energy-frnt154.frontenac.local.jsonl
+starting energy sampler on frnt163.frontenac.local -> energy-frnt163.frontenac.local.jsonl
+
+waiting for all 8 servers across 2 nodes
+  deadline 1200s; abort if no server log grows for 300s
+ready: 4/8
+FATAL: not all servers reachable within 1200s.
+If the local ones are up and the remote ones are not, suspect
+cross-node HTTP rather than vLLM: check that 0.0.0.0 binding took and
+that the compute network permits the port range.
+  vllm-frnt154.frontenac.local-gpu0.log: srun: Terminating StepId=12304926.14
+  vllm-frnt154.frontenac.local-gpu1.log: srun: Terminating StepId=12304926.15
+  vllm-frnt154.frontenac.local-gpu2.log: srun: Terminating StepId=12304926.16
+  vllm-frnt154.frontenac.local-gpu3.log: srun: Terminating StepId=12304926.17
+  vllm-frnt163.frontenac.local-gpu0.log: (APIServer pid=1497312) INFO:     172.26.6.154:34376 - "GET /health HTTP/1.1" 200 OK
+  vllm-frnt163.frontenac.local-gpu1.log: (APIServer pid=1497420) INFO:     172.26.6.154:34306 - "GET /health HTTP/1.1" 200 OK
+  vllm-frnt163.frontenac.local-gpu2.log: (APIServer pid=1497537) INFO:     172.26.6.154:36606 - "GET /health HTTP/1.1" 200 OK
+  vllm-frnt163.frontenac.local-gpu3.log: (APIServer pid=1497630) INFO:     172.26.6.154:38192 - "GET /health HTTP/1.1" 200 OK
+stopping samplers and servers
+[2026-10-05T04:05:32.560] error: *** JOB 12304926 ON frnt154 CANCELLED AT 2026-10-05T04:05:32 DUE to SIGNAL Terminated ***

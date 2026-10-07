@@ -1,0 +1,33 @@
+=== MANDATORY telemetry check, 2026-10-04T19:04:13-04:00 ===
+node: frnt153.frontenac.local   job: 12304137
+
+--- node capability facts (recorded with every run) ---
+RmProfilingAdminOnly = 1   (1 = profiling counters denied to us)
+perf_event_paranoid  = 2
+kernel               = 4.18.0-553.148.1.el8_10.x86_64
+ipmi device          = crw-------. 1 root root 243, 0 Jul 30 11:57 /dev/ipmi0
+
+--- REQUIRED sources ---
+  [OK]       async load generator (httpx in image) — httpx 0.28.1
+  [OK]       nvidia-smi provenance — 0, GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a, Quadro RTX 6000, 610.43.02, 250.00 
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], persistence_mode
+0, GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+1, GPU-7fdb3b5e-8c8d-8a39-865d-d496071260df, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+2, GPU-53fd734d-1c18-665e-06a5-2f99388e721c, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+3, GPU-0bbd98d6-e275-b81d-8924-b237237ebfa2, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+  [OK]       NVML energy counter + power — energy_mJ=117056845491 power_mW=12958 uuid=GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a
+  [OK]       DCGM energy 156 + power 155 — GPU 0 117056953642 12.861 
+
+--- RECORDED, not required (kernel-gated) ---
+  DCGM DCP 1002/1005: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+--- RAPL (CPU + DRAM energy), recorded not required ---
+  [readable] intel-rapl:0 name=package-0 energy_uj=104982396954
+  [readable] intel-rapl:0:0 name=dram energy_uj=54473565206
+  [readable] intel-rapl:1 name=package-1 energy_uj=71067502148
+  [readable] intel-rapl:1:0 name=dram energy_uj=32352142474
+  nsys: NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+  nsys counter permission: - Linux Kernel Paranoid Level: 2 (some features maybe not available) - CPU Profiling Environment (system-wide)
+  ncu: not installed (kernel counters; expected denied when RmProfilingAdminOnly=1)
+
+=== RESULT: all required telemetry verified; measurement may proceed ===

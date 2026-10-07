@@ -1,0 +1,33 @@
+=== MANDATORY telemetry check, 2026-10-04T18:05:43-04:00 ===
+node: frnt148.frontenac.local   job: 12304135
+
+--- node capability facts (recorded with every run) ---
+RmProfilingAdminOnly = 0   (1 = profiling counters denied to us)
+perf_event_paranoid  = 2
+kernel               = 4.18.0-553.45.1.el8_10.x86_64
+ipmi device          = crw-------. 1 root root 243, 0 Jul 30 10:26 /dev/ipmi0
+
+--- REQUIRED sources ---
+  [OK]       async load generator (httpx in image) — httpx 0.28.1
+  [OK]       nvidia-smi provenance — 0, GPU-9f0e3ebf-fce1-1df8-23b8-92db4316e6df, Quadro RTX 6000, 610.43.02, 250.00 
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], persistence_mode
+0, GPU-9f0e3ebf-fce1-1df8-23b8-92db4316e6df, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+1, GPU-c8869dce-9bc7-1e75-8c4f-69d698875e44, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+2, GPU-b9bb7ab2-e611-cce7-6a8f-ec73fbd59245, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+3, GPU-81f32fb1-bf7f-a1b2-b547-472437fe63a5, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, Enabled
+  [OK]       NVML energy counter + power — energy_mJ=167486673765 power_mW=14792 uuid=GPU-9f0e3ebf-fce1-1df8-23b8-92db4316e6df
+  [OK]       DCGM energy 156 + power 155 — GPU 0 167486791962 13.646 
+
+--- RECORDED, not required (kernel-gated) ---
+  DCGM DCP 1002/1005: GPU 0 0.000 0.000 
+
+--- RAPL (CPU + DRAM energy), recorded not required ---
+  [readable] intel-rapl:0 name=package-0 energy_uj=211398514360
+  [readable] intel-rapl:0:0 name=dram energy_uj=33018575101
+  [readable] intel-rapl:1 name=package-1 energy_uj=23492677834
+  [readable] intel-rapl:1:0 name=dram energy_uj=1022716107
+  nsys: NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+  nsys counter permission: - Linux Kernel Paranoid Level: 2 (some features maybe not available) - CPU Profiling Environment (system-wide)
+  ncu: not installed (kernel counters; expected denied when RmProfilingAdminOnly=1)
+
+=== RESULT: all required telemetry verified; measurement may proceed ===

@@ -1,0 +1,12 @@
+node=frnt110.frontenac.local job=12304130
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128 seconds=75 trials=2
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-e143da6a-ce3c-f5e4-f615-ea8c73347d49, Tesla V100-PCIE-32GB, 580.173.02, 250.00 W, 100.00 W, 250.00 W, 32768 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=0
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=intel,avx512,avx512_gpu
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130

@@ -1,0 +1,52 @@
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 56.85 W
+fitted P_idle = 211.7 W
+fitted k_b    = 0.16 W per concurrent request
+R^2           = 0.8573
+max |residual| = 11.37 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   201.42    130.4   1.5446   0.983
+    1   223.25    130.6   1.7099   0.982
+    2   205.42    224.5   0.9151   1.143
+    2   208.31    224.6   0.9273   1.141
+    4   209.01    436.1   0.4793   1.176
+    4   209.94    436.2   0.4813   1.175
+    8    211.5    839.0   0.2521   1.223
+    8   212.79    839.3   0.2535   1.225
+   16   216.52   1547.7   0.1399   1.328
+   16   215.77   1541.2     0.14   1.336
+   32   217.83   2698.6   0.0807   1.525
+   32   218.18   2691.1   0.0811   1.532
+   48   218.52   3566.0   0.0613    1.72
+   48   218.63   3557.4   0.0615   1.728
+   64   220.69   4407.3   0.0501   1.862
+   64   220.94   4408.4   0.0501   1.859
+   96    230.1   5644.3   0.0408   2.195
+   96   229.71   5644.9   0.0407   2.195
+  128   234.03   6659.8   0.0351   2.494
+  128   232.73   6666.3   0.0349   2.495
+  160   245.49   7133.7   0.0344   2.944
+  160   245.84   7147.6   0.0344   2.929
+  192   243.39   7749.1   0.0314   3.244
+  192    243.9   7763.8   0.0314   3.234
+  256   242.88   8640.4   0.0281   3.886
+  256   242.96   8615.2   0.0282   3.906
+
+J/token range: 1.7099 at c=1 -> 0.0281 at c=256  (60.85x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +144.6 W
+marginal cost per extra concurrent request:  +0.16 W
+ratio: waking an idle GPU costs 925x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 56.9 W = 23% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.2521 shared J/tok=0.2652  unique tok/s=839.0 shared tok/s=780.7
+c=8: unique J/tok=0.2521 shared J/tok=0.2645  unique tok/s=839.0 shared tok/s=777.8
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.8573 WEAK - revisit model form

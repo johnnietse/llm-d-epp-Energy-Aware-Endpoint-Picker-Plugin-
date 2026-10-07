@@ -1,0 +1,156 @@
+capping 8 visible GPUs to MAX_GPUS=2
+node=frnt155.frontenac.local gpus=2 type=Quadro_RTX_6000 model=Qwen/Qwen2.5-1.5B-Instruct
+=== mandatory telemetry check ===
+=== MANDATORY telemetry check, 2026-10-03T23:55:51-04:00 ===
+node: frnt155.frontenac.local   job: 12303325
+
+--- node capability facts (recorded with every run) ---
+RmProfilingAdminOnly = 1   (1 = profiling counters denied to us)
+perf_event_paranoid  = 2
+kernel               = 4.18.0-553.148.1.el8_10.x86_64
+ipmi device          = crw-------. 1 root root 240, 0 Sep 28 09:23 /dev/ipmi0
+
+--- REQUIRED sources ---
+  [OK]       nvidia-smi provenance — 0, GPU-10667107-603c-7603-37de-6d180efa4181, Quadro RTX 6000, 610.43.02, 250.00 
+  [OK]       NVML energy counter + power — energy_mJ=6585578318 power_mW=14349 uuid=GPU-10667107-603c-7603-37de-6d180efa4181
+  [OK]       DCGM energy 156 + power 155 — GPU 0 6585688827 13.308 
+
+--- RECORDED, not required (kernel-gated) ---
+  DCGM DCP 1002/1005: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+--- RAPL (CPU + DRAM energy), recorded not required ---
+  [readable] intel-rapl:0 name=package-0 energy_uj=120728144182
+  [readable] intel-rapl:0:0 name=dram energy_uj=5641063029
+  [readable] intel-rapl:1 name=package-1 energy_uj=209293622715
+  [readable] intel-rapl:1:0 name=dram energy_uj=42911791914
+  nsys: NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+  nsys counter permission: - Linux Kernel Paranoid Level: 2 (some features maybe not available) - CPU Profiling Environment (system-wide)
+  ncu: not installed (kernel counters; expected denied when RmProfilingAdminOnly=1)
+
+=== RESULT: all required telemetry verified; measurement may proceed ===
+node=frnt155.frontenac.local job=12303325
+model=Qwen/Qwen2.5-1.5B-Instruct requests_per_cell=200 policies=slo_packing
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-10667107-603c-7603-37de-6d180efa4181, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-12f6850c-71c3-fcaa-7378-a7ab2c875225, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+2, GPU-9335424c-9961-ff32-c9f8-25a10d68a98d, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+3, GPU-f1b03b26-a3af-4df6-4b16-58049f09bd7a, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+4, GPU-15071930-462c-31d7-6919-1f50e2a3ce69, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+5, GPU-d0ec30f0-2bdf-daba-5ad6-fb2c82d3c480, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+6, GPU-ff2e9d26-5329-c59a-84fd-adc0d9d97173, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+7, GPU-9c739393-c13e-96b4-bd5c-e9d9619f2eff, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm 0.30.0 torch 2.13.0+cu130
+launching vLLM on GPU 0 port 8100
+launching vLLM on GPU 1 port 8101
+waiting for all 2 servers to report ready (up to 15 min)
+ready: 2/2
+calibrating single-request latency on endpoint 0
+median single-request latency: 0.9784s
+SLO = 2.0s (2x measured single-request latency)
+PEAK_RPS not given; rough estimate 31.2 req/s (refine after the first run)
+load levels: 12.5,21.8,28.1,34.3 req/s
+curves passed to the router:  /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+=========== offered load 12.5 req/s ===========
+usage: policy_harness.py [-h] --endpoints ENDPOINTS --gpus GPUS
+                         --endpoint-types ENDPOINT_TYPES
+                         [--curves [CURVES ...]] [--policies POLICIES] --rate
+                         RATE [--requests REQUESTS] --slo SLO [--seed SEED]
+                         [--poll-interval POLL_INTERVAL] --out OUT
+policy_harness.py: error: unrecognized arguments: /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+=========== offered load 21.8 req/s ===========
+usage: policy_harness.py [-h] --endpoints ENDPOINTS --gpus GPUS
+                         --endpoint-types ENDPOINT_TYPES
+                         [--curves [CURVES ...]] [--policies POLICIES] --rate
+                         RATE [--requests REQUESTS] --slo SLO [--seed SEED]
+                         [--poll-interval POLL_INTERVAL] --out OUT
+policy_harness.py: error: unrecognized arguments: /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+=========== offered load 28.1 req/s ===========
+usage: policy_harness.py [-h] --endpoints ENDPOINTS --gpus GPUS
+                         --endpoint-types ENDPOINT_TYPES
+                         [--curves [CURVES ...]] [--policies POLICIES] --rate
+                         RATE [--requests REQUESTS] --slo SLO [--seed SEED]
+                         [--poll-interval POLL_INTERVAL] --out OUT
+policy_harness.py: error: unrecognized arguments: /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+=========== offered load 34.3 req/s ===========
+usage: policy_harness.py [-h] --endpoints ENDPOINTS --gpus GPUS
+                         --endpoint-types ENDPOINT_TYPES
+                         [--curves [CURVES ...]] [--policies POLICIES] --rate
+                         RATE [--requests REQUESTS] --slo SLO [--seed SEED]
+                         [--poll-interval POLL_INTERVAL] --out OUT
+policy_harness.py: error: unrecognized arguments: /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+=========== Pass A-control: counter-only at 34.3 req/s ===========
+usage: policy_harness.py [-h] --endpoints ENDPOINTS --gpus GPUS
+                         --endpoint-types ENDPOINT_TYPES
+                         [--curves [CURVES ...]] [--policies POLICIES] --rate
+                         RATE [--requests REQUESTS] --slo SLO [--seed SEED]
+                         [--poll-interval POLL_INTERVAL] --out OUT
+policy_harness.py: error: unrecognized arguments: /global/home/hpc6081/energy-epp/results/h1-12302437/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12302438/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303088/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12303200/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12303303/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv=Quadro_RTX_6000
+--- perturbation check: full telemetry vs counter-only ---
+Traceback (most recent call last):
+  File "/global/home/hpc6081/energy-epp/scripts/perturbation_check.py", line 68, in <module>
+    main()
+  File "/global/home/hpc6081/energy-epp/scripts/perturbation_check.py", line 31, in main
+    full, ctrl = pick(sys.argv[1]), pick(sys.argv[2])
+  File "/global/home/hpc6081/energy-epp/scripts/perturbation_check.py", line 20, in pick
+    with open(path) as fh:
+FileNotFoundError: [Errno 2] No such file or directory: '/global/home/hpc6081/energy-epp/results/stage2-12303325/policies-rate34.3.json'
+letting the GPUs settle for 60 s so Pass B cannot touch Pass A numbers
+=========== Pass B: mechanism (all profiling tools) ===========
+Generating SQLite file /global/home/hpc6081/energy-epp/results/stage2-12303325/mechanism/nsys-trace.sqlite from /global/home/hpc6081/energy-epp/results/stage2-12303325/mechanism/nsys-trace.nsys-rep
+Processing [/global/home/hpc6081/energy-epp/results/stage2-12303325/mechanism/nsys-trace.sqlite] with [/global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances  Avg (ns)   Med (ns)   Min (ns)  Max (ns)  StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  ---------  ---------  --------  --------  -----------  ----------------------------------------------------------------------------------------------------
+     92.5         89567647         50  1791352.9  1797766.5   1651352   1801815      29094.9  turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_stages_32x1_nn                                          
+      7.1          6878333         50   137566.7   137519.0    136095    139263        724.6  void at::native::vectorized_elementwise_kernel<(int)4, at::native::<unnamed>::launch_clamp_scalar(a…
+      0.3           258206          2   129103.0   129103.0    127519    130687       2240.1  void at::native::<unnamed>::distribution_elementwise_grid_stride_kernel<float, (int)4, void at::nat…
+      0.1            75392          1    75392.0    75392.0     75392     75392          0.0  void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<c10::Half, at::native::func_w…
+
+
+======== 4. Nsight Compute (kernel counters) ========
+ncu NOT INSTALLED.
+RECORDED RESULT: Nsight Compute is unavailable to us. It needs profiling
+permission, which this node denies when RmProfilingAdminOnly=1, and it
+serialises kernels so it could not share a run with the energy pass
+regardless. Its absence is a finding about the deployment, not a gap in
+the method.
+
+======== 5. DCGM DCP fields under load (SM_ACTIVE 1002, DRAM_ACTIVE 1005) ========
+--- energy/power (required fields, should always work) ---
+#Entity         TOTEC                   POWER             
+GPU 0           6599168043              54.667            
+GPU 0           6599168043              54.911            
+GPU 0           6599195490              54.667            
+GPU 0           6599222897              54.911            
+--- DCP fields (kernel-gated) ---
+#Entity         SMACT        DRAMA        
+Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+======== 6. nvidia-smi high-rate sampling under load ========
+ERROR: Option --query-gpu=timestamp,index,power.draw,clocks.sm,clocks.mem,utilization.gpu,utilization.memory,temperature.gpu is not recognized. Please run 'nvidia-smi -h' for help.
+
+
+=== mechanism pass complete: /global/home/hpc6081/energy-epp/results/stage2-12303325/mechanism/mechanism.txt ===
+Tools attempted: CUPTI tracing, CUPTI counter probe, Nsight Systems trace
++ stats, Nsight Compute, DCGM energy/power, DCGM DCP, nvidia-smi sampling.
+Denials above are recorded results about this deployment.
+results in /global/home/hpc6081/energy-epp/results/stage2-12303325
+total 32786
+-rw-------. 1 hpc6081 hpc6081   129 Oct  3 23:55 dcgm-hostengine.log
+-rw-------. 1 hpc6081 hpc6081  4665 Oct  3 23:58 harness.log
+-rw-------. 1 hpc6081 hpc6081  1367 Oct  3 23:56 instruments.txt
+drwx------. 2 hpc6081 hpc6081  4096 Oct  4 00:00 mechanism
+-rw-------. 1 hpc6081 hpc6081  2616 Oct  3 23:56 telemetry.txt
+-rw-------. 1 hpc6081 hpc6081 24301 Oct  3 23:59 vllm-gpu0.log
+-rw-------. 1 hpc6081 hpc6081 23276 Oct  3 23:58 vllm-gpu1.log
+
+Pass A (measured energy): policies-rate*.json
+Pass B (mechanism):       mechanism/mechanism.txt
+Telemetry gate:           telemetry.txt
+stopping servers

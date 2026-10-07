@@ -1,0 +1,21 @@
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 28.3 W
+fitted P_idle = 138.1 W
+fitted k_b    = 0.91 W per concurrent request
+R^2           = 1.0000
+max |residual| = 0.00 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   139.03    186.0   0.7476   0.689
+    4   141.77    722.7   0.1962    0.71
+
+J/token range: 0.7476 at c=1 -> 0.1962 at c=4  (3.81x)
+
+=== marginal energy (what the scorer needs) ===
+adding one concurrent request costs ~0.91 W while it runs
+idle floor is 28.3 W: with 2 levels, dynamic share at highest load = 80% of total power
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=1.0000 PASS

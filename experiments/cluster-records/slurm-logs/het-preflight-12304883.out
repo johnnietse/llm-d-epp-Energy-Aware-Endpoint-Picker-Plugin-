@@ -1,0 +1,16 @@
+
+=== 1. heterogeneous allocation ===
+  SLURM_HET_SIZE=2
+  [OK]   het size 2
+  [OK]   component 0: frnt107.frontenac.local / NVIDIA A100-PCIE-40GB
+  [OK]   component 1: frnt108.frontenac.local / Quadro RTX 6000
+
+=== 2. the two components differ ===
+  [OK]   'NVIDIA A100-PCIE-40GB' vs 'Quadro RTX 6000'
+
+=== 3. cross-node HTTP, which the whole design depends on ===
+  [OK]   component 0 reached component 1 at frnt108.frontenac.local:8399
+  [OK]   component 1 reached its own port
+
+=== 4. per-node energy sampler inside the container ===
+[2026-10-05T02:23:40.397] error: *** JOB 12304883 ON frnt107 CANCELLED AT 2026-10-05T02:23:40 DUE to SIGNAL Terminated ***

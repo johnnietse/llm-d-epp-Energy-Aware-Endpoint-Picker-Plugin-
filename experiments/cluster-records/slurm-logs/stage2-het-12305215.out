@@ -1,0 +1,97 @@
+job=12305215 het_size=2
+  component 0: host=frnt154.frontenac.local type=NVIDIA_A100-PCIE-40GB gpus_present=8
+  component 1: host=frnt153.frontenac.local type=Quadro_RTX_6000 gpus_present=4
+  balancing component 0: 8 GPUs present, using 4
+fleet: 2 types x 4 replicas each
+
+=== clock skew across components ===
+  conservative skew bound: 0.059837s (includes srun round-trip, so it
+  overstates the true clock difference)
+
+=== staging Qwen/Qwen2.5-1.5B-Instruct to /tmp/hfstage-12305215 on every node ===
+  frnt154.frontenac.local: 2944 MiB of weights staged
+  frnt153.frontenac.local: 2944 MiB of weights staged
+  verifying /tmp/hfstage-12305215 resolves on every node
+    frnt154.frontenac.local: OK
+    frnt153.frontenac.local: OK
+  HF_HOME=/tmp/hfstage-12305215 verified on all 2 nodes; HF_HUB_OFFLINE=1
+launching vLLM on frnt154.frontenac.local gpu 0 port 8100
+launching vLLM on frnt154.frontenac.local gpu 1 port 8101
+launching vLLM on frnt154.frontenac.local gpu 2 port 8102
+launching vLLM on frnt154.frontenac.local gpu 3 port 8103
+launching vLLM on frnt153.frontenac.local gpu 0 port 8200
+launching vLLM on frnt153.frontenac.local gpu 1 port 8201
+launching vLLM on frnt153.frontenac.local gpu 2 port 8202
+launching vLLM on frnt153.frontenac.local gpu 3 port 8203
+starting energy sampler on frnt154.frontenac.local -> energy-frnt154.frontenac.local.jsonl
+starting energy sampler on frnt153.frontenac.local -> energy-frnt153.frontenac.local.jsonl
+
+waiting for all 8 servers across 2 nodes
+  deadline 1200s; abort if no server log grows for 300s
+ready: 8/8
+  sampler frnt154.frontenac.local: 455 line(s)
+  sampler frnt153.frontenac.local: 456 line(s)
+
+calibrating single-request latency on each type
+  NVIDIA_A100-PCIE-40GB: median single-request latency 0.5419s
+  Quadro_RTX_6000: median single-request latency 0.9820s
+SLO = 2.0s (2x the slowest type's median single-request latency)
+PEAK_RPS 856.0 req/s, summed from each type's measured curve
+load levels: 200,300,400,500,600 req/s
+  curve for NVIDIA_A100-PCIE-40GB: /global/home/hpc6081/energy-epp/results/h1-12304125/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for NVIDIA_A30: /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for NVIDIA_L4: /global/home/hpc6081/energy-epp/results/h1-12304128/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for NVIDIA_L40S: /global/home/hpc6081/energy-epp/results/h1-12304129/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for Quadro_RTX_6000: /global/home/hpc6081/energy-epp/results/h1-12304133/h1.csv (levels=1,2,4,8,16,32,48,64,96,128,160,192,256, top 256)
+  curve for Quadro_RTX_8000: /global/home/hpc6081/energy-epp/results/h1-12304126/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+curves: --curves /global/home/hpc6081/energy-epp/results/h1-12304125/h1.csv=NVIDIA_A100-PCIE-40GB /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12304128/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12304129/h1.csv=NVIDIA_L40S /global/home/hpc6081/energy-epp/results/h1-12304133/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12304126/h1.csv=Quadro_RTX_8000
+
+endpoints: frnt154.frontenac.local:8100,frnt154.frontenac.local:8101,frnt154.frontenac.local:8102,frnt154.frontenac.local:8103,frnt153.frontenac.local:8200,frnt153.frontenac.local:8201,frnt153.frontenac.local:8202,frnt153.frontenac.local:8203
+types:     NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,Quadro_RTX_6000,Quadro_RTX_6000,Quadro_RTX_6000,Quadro_RTX_6000
+
+=========== offered load 200 req/s, 60s, 12000 requests ===========
+load generator: 16 worker process(es)
+--- round_robin at 200.0 req/s ---
+multinode energy incomplete: 0 node(s) ok, 2 failed. ['window not covered by samples', 'window not covered by samples']
+
+=========== offered load 300 req/s, 60s, 18000 requests ===========
+load generator: 16 worker process(es)
+--- round_robin at 300.0 req/s ---
+multinode energy incomplete: 0 node(s) ok, 2 failed. ['window not covered by samples', 'window not covered by samples']
+
+=========== offered load 400 req/s, 60s, 24000 requests ===========
+load generator: 16 worker process(es)
+--- round_robin at 400.0 req/s ---
+multinode energy incomplete: 0 node(s) ok, 2 failed. ['window not covered by samples', 'window not covered by samples']
+
+=========== offered load 500 req/s, 60s, 30000 requests ===========
+load generator: 16 worker process(es)
+--- round_robin at 500.0 req/s ---
+multinode energy incomplete: 1 node(s) ok, 1 failed. ['window not covered by samples']
+
+=========== offered load 600 req/s, 60s, 36000 requests ===========
+load generator: 16 worker process(es)
+--- round_robin at 600.0 req/s ---
+multinode energy incomplete: 1 node(s) ok, 1 failed. ['window not covered by samples']
+
+results in /global/home/hpc6081/energy-epp/results/stage2het-12305215
+  per-node energy samples: /global/home/hpc6081/energy-epp/results/stage2het-12305215/samples/energy-*.jsonl
+  measured clock skew:     0.059837s
+total 131075
+-rw-------. 1 hpc6081 hpc6081      52 Oct  5 10:51 calibration.txt
+-rw-------. 1 hpc6081 hpc6081     390 Oct  5 10:48 clock_skew.txt
+-rw-------. 1 hpc6081 hpc6081     899 Oct  5 10:57 harness.log
+-rw-------. 1 hpc6081 hpc6081       0 Oct  5 10:49 sampler-frnt153.frontenac.local.log
+-rw-------. 1 hpc6081 hpc6081       0 Oct  5 10:49 sampler-frnt154.frontenac.local.log
+drwx------. 2 hpc6081 hpc6081    4096 Oct  5 10:49 samples
+-rw-------. 1 hpc6081 hpc6081       9 Oct  5 10:48 skew_seconds.txt
+-rw-------. 1 hpc6081 hpc6081 1441691 Oct  5 10:57 vllm-frnt153.frontenac.local-gpu0.log
+-rw-------. 1 hpc6081 hpc6081 1441126 Oct  5 10:57 vllm-frnt153.frontenac.local-gpu1.log
+-rw-------. 1 hpc6081 hpc6081 1441596 Oct  5 10:57 vllm-frnt153.frontenac.local-gpu2.log
+-rw-------. 1 hpc6081 hpc6081 1441654 Oct  5 10:57 vllm-frnt153.frontenac.local-gpu3.log
+-rw-------. 1 hpc6081 hpc6081 1441423 Oct  5 10:57 vllm-frnt154.frontenac.local-gpu0.log
+-rw-------. 1 hpc6081 hpc6081 1440618 Oct  5 10:57 vllm-frnt154.frontenac.local-gpu1.log
+-rw-------. 1 hpc6081 hpc6081 1440858 Oct  5 10:57 vllm-frnt154.frontenac.local-gpu2.log
+-rw-------. 1 hpc6081 hpc6081 1440567 Oct  5 10:57 vllm-frnt154.frontenac.local-gpu3.log
+stopping samplers and servers
+[2026-10-05T10:57:30.671] error: *** JOB 12305215 ON frnt154 CANCELLED AT 2026-10-05T10:57:30 DUE to SIGNAL Terminated ***

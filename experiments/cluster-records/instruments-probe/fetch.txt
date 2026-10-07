@@ -1,0 +1,64 @@
+=== fetch instrumentation into user space, 2026-10-03T07:46:26-04:00 ===
+
+--- disk space before ---
+                            Description                Space         # of files
+30G	/global/home/hpc6081
+
+--- datacenter-gpu-manager-3.3.9-1-x86_64.rpm -> /global/home/hpc6081/energy-epp/opt/dcgm3 ---
+size: 816M
+sha256: d4fbfa2c4cd796b37d6334a0ea78c87f9e68fb03d67e213b49f2beae79574738
+extracted ok
+
+--- datacenter-gpu-manager-4-core-4.7.0-1.x86_64.rpm -> /global/home/hpc6081/energy-epp/opt/dcgm4 ---
+size: 0
+sha256: 1fd1114e606c18a21a63c5064a111874f607b2823e4c0a53df23ed0935a0b965
+extracted ok
+
+--- datacenter-gpu-manager-4-cuda12-4.7.0-1.x86_64.rpm -> /global/home/hpc6081/energy-epp/opt/dcgm4 ---
+size: 0
+sha256: da3569f548691bcc8719c3f88b9874c230361e69ff07d37daed4ea476a475388
+extracted ok
+
+--- datacenter-gpu-manager-exporter-4.8.4.3955-1.x86_64.rpm -> /global/home/hpc6081/energy-epp/opt/dcgm-exporter ---
+size: 16M
+sha256: 8ee8f7b0f95aedd7ee20b08c825f366701e0e19f82a63915ee117644bc25bdc8
+extracted ok
+
+--- nsight-systems-2025.6.3-2025.6.3.541_3773601-0.x86_64.rpm -> /global/home/hpc6081/energy-epp/opt/nsight ---
+size: 384M
+sha256: ec131396273f6833838542057d2e94041da2264a88037fdfdeb245c0a9276d1a
+extracted ok
+
+--- what we got: binaries ---
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/bin/nv-hostengine (ELF 64-bit LSB executable, x86-64, versi)
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/bin/dcgmi (ELF 64-bit LSB executable, x86-64, versi)
+/global/home/hpc6081/energy-epp/opt/dcgm-exporter/usr/bin/dcgm-exporter (ELF 64-bit LSB executable, x86-64, versi)
+/global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/target-linux-x64/nsys (ELF 64-bit LSB executable, x86-64, versi)
+
+--- what we got: libraries ---
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmoduleconfig.so
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulesysmon.so
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulenvswitch.so
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulediag.so.3.3.9
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulepolicy.so
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulenvswitch.so.3.3.9
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulehealth.so.3.3.9
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgm_cublas_proxy12.so
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmoduleconfig.so.3.3.9
+/global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64/libdcgmmodulepolicy.so.3.3.9
+
+--- does dcgmi even start here? (login node has no GPU, so expect a clean refusal, not a crash) ---
+# dcgm3: /global/home/hpc6081/energy-epp/opt/dcgm3/usr/bin/dcgmi (libs: /global/home/hpc6081/energy-epp/opt/dcgm3/usr/lib64)
+
+dcgmi  version: 3.3.9
+
+
+--- does nsys start here? (this is the glibc test) ---
+# /global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/target-linux-x64/nsys
+NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+
+--- disk space after ---
+3.9G	/global/home/hpc6081/energy-epp/opt
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/fetch.txt ===
+Remove everything with: rm -rf /global/home/hpc6081/energy-epp/opt

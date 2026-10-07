@@ -1,0 +1,238 @@
+=== instrumentation probe on a compute node, 2026-10-03T07:56:18-04:00 ===
+node: frnt152.frontenac.local  job: 12302443  gpus: 0,1,2,3
+
+================ 0. NVML baseline, the source we already trust ================
+index, uuid, name, driver_version, power.draw [W], power.limit [W], power.min_limit [W], power.max_limit [W], persistence_mode
+0, GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b, Quadro RTX 6000, 610.43.02, 21.95 W, 250.00 W, 150.00 W, 250.00 W, Enabled
+1, GPU-55fdeae3-9ad2-b418-566c-4224203911e9, Quadro RTX 6000, 610.43.02, 22.29 W, 250.00 W, 150.00 W, 250.00 W, Enabled
+2, GPU-e1ef0a37-6266-e89e-4218-078940ab21f4, Quadro RTX 6000, 610.43.02, 22.68 W, 250.00 W, 150.00 W, 250.00 W, Enabled
+3, GPU-ff881352-3db3-3efe-b489-71f2734bd081, Quadro RTX 6000, 610.43.02, 13.40 W, 250.00 W, 150.00 W, 250.00 W, Enabled
+
+# co-tenancy guard: any process other than ours contaminates the run
+pid, used_gpu_memory [MiB]
+
+================ 1. the decisive permission bit ================
+# RmProfilingAdminOnly=1 denies CUPTI, Nsight and DCGM profiling fields to non-root
+RmProfilingAdminOnly: 1
+# perf_event_paranoid affects nsys CPU sampling
+2
+
+================ 2. IPMI: is there a device node to talk to at all? ================
+ls: cannot access '/dev/ipmi/0': No such file or directory
+ls: cannot access '/dev/ipmidev/0': No such file or directory
+crw-------. 1 root root 243, 0 Jul 30 14:43 /dev/ipmi0
+AcctGatherEnergyType    = (null)
+AcctGatherNodeFreq      = 0 sec
+AvailableFeatures=intel,avx512,avx512_gpu
+ActiveFeatures=intel,avx512,avx512_gpu
+
+================ 3.4.6.1 DCGM 4.6.1 ================
+# version
+
+dcgmi  version: 4.6.1
+
+# starting nv-hostengine unprivileged on 127.0.0.1:5743
+hostengine running (pid 3048243)
+
+# discovery: does it see the GPU with driver 610.43.02?
+=================================
+Environment Variable Information:
+=================================
+WARNING: CUDA_VISIBLE_DEVICES is set to 0,1,2,3 on dcgmi process. This does not affect which GPUs are selected for diagnostics. Unset CUDA_VISIBLE_DEVICES on dcgmi process. Set CUDA_VISIBLE_DEVICES on nv-hostengine to select GPUs.
+
+Variable Name: CUDA_VISIBLE_DEVICES
+Host: localhost
+Hostengine Process Value: (not set)
+Dcgmi Process Value: 0,1,2,3
+Status: Values are consistent
+
+ERROR: Invalid subsystem.
+
+
+
+# ENERGY field 156 and POWER field 155 (the fields we care about)
+=================================
+Environment Variable Information:
+=================================
+WARNING: CUDA_VISIBLE_DEVICES is set to 0,1,2,3 on dcgmi process. This does not affect which GPUs are selected for diagnostics. Unset CUDA_VISIBLE_DEVICES on dcgmi process. Set CUDA_VISIBLE_DEVICES on nv-hostengine to select GPUs.
+
+Variable Name: CUDA_VISIBLE_DEVICES
+Host: localhost
+Hostengine Process Value: (not set)
+Dcgmi Process Value: 0,1,2,3
+Status: Values are consistent
+
+ERROR: Invalid subsystem.
+
+
+
+# PROFILING fields 1002 (SM active) and 1005 (DRAM active)
+# this is the explanatory data we wanted DCGM for; expect denial if profiling is admin-only
+=================================
+Environment Variable Information:
+=================================
+WARNING: CUDA_VISIBLE_DEVICES is set to 0,1,2,3 on dcgmi process. This does not affect which GPUs are selected for diagnostics. Unset CUDA_VISIBLE_DEVICES on dcgmi process. Set CUDA_VISIBLE_DEVICES on nv-hostengine to select GPUs.
+
+Variable Name: CUDA_VISIBLE_DEVICES
+Host: localhost
+Hostengine Process Value: (not set)
+Dcgmi Process Value: 0,1,2,3
+Status: Values are consistent
+
+ERROR: Invalid subsystem.
+
+
+
+================ 3.3.3.9 DCGM 3.3.9 ================
+# version
+
+dcgmi  version: 3.3.9
+
+# starting nv-hostengine unprivileged on 127.0.0.1:5668
+hostengine running (pid 3048315)
+
+# discovery: does it see the GPU with driver 610.43.02?
+ERROR: Invalid subsystem.
+
+
+ 
+
+Usage: dcgmi
+   dcgmi subsystem 
+   dcgmi -v 
+
+Flags:
+  -v    vv          Get DCGMI version information
+        subsystem   The desired subsystem to be accessed.
+ Subsystems Available:
+        topo        GPU Topology [dcgmi topo -h for more info]
+
+# ENERGY field 156 and POWER field 155 (the fields we care about)
+ERROR: Invalid subsystem.
+
+
+ 
+
+Usage: dcgmi
+   dcgmi subsystem 
+   dcgmi -v 
+
+Flags:
+  -v    vv          Get DCGMI version information
+        subsystem   The desired subsystem to be accessed.
+ Subsystems Available:
+        topo        GPU Topology [dcgmi topo -h for more info]
+
+# PROFILING fields 1002 (SM active) and 1005 (DRAM active)
+# this is the explanatory data we wanted DCGM for; expect denial if profiling is admin-only
+ERROR: Invalid subsystem.
+
+
+ 
+
+Usage: dcgmi
+   dcgmi subsystem 
+   dcgmi -v 
+
+Flags:
+  -v    vv          Get DCGMI version information
+        subsystem   The desired subsystem to be accessed.
+ Subsystems Available:
+        topo        GPU Topology [dcgmi topo -h for more info]
+
+================ 4. DCGM exporter, the path upstream llm-d scrapes ================
+binary: /global/home/hpc6081/energy-epp/opt/dcgm-exporter/usr/bin/dcgm-exporter
+DCGM Exporter version 4.8.4
+# what flag names this build use for the counter file?
+   --collectors value, -f value        Path to the file, that contains the DCGM fields to collect (default: "/etc/dcgm-exporter/default-counters.csv") [$DCGM_EXPORTER_COLLECTORS]
+   --config-file value                 Path to a YAML configuration file. Legacy flags and environment variables explicitly set on startup override YAML values. [$DCGM_EXPORTER_CONFIG_FILE]
+   --address value, -a value           Listen address as <HOST>:<PORT>. For IPv6, use "[<IPv6_ADDR>]:<PORT>" (e.g., "[::]:9400") (default: ":9400") [$DCGM_EXPORTER_LISTEN]
+   --watch-max-keep-age value          Maximum age of samples retained by DCGM field watches. Set to 0s to disable the age limit when a sample limit is configured. (default: 10m0s) [$DCGM_EXPORTER_WATCH_MAX_KEEP_AGE]
+   --watch-max-keep-samples value      Sample-count retention requested for DCGM field watches. Set to 0 for no sample-count limit when an age limit is configured. (default: 0) [$DCGM_EXPORTER_WATCH_MAX_KEEP_SAMPLES]
+   --configmap-data value, -m value                                                               ConfigMap <NAMESPACE>:<NAME> for metric data (default: "none") [$DCGM_EXPORTER_CONFIGMAP_DATA]
+   --web-config-file value                                          Web configuration file following webConfig spec: https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md. [$DCGM_EXPORTER_WEB_CONFIG_FILE]
+
+--- exporter with default-counters.csv ---
+exporter exited. log:
+time=2026-10-03T07:56:42.837-04:00 level=INFO msg="Starting dcgm-exporter" Version=4.8.4
+time=2026-10-03T07:56:42.838-04:00 level=INFO msg="Attempting to initialize DCGM."
+time=2026-10-03T07:56:42.923-04:00 level=INFO msg="Initialized DCGM Fields module."
+time=2026-10-03T07:56:42.923-04:00 level=INFO msg="DCGM successfully initialized!"
+time=2026-10-03T07:56:42.923-04:00 level=INFO msg="Attempting to initialize NVML library."
+time=2026-10-03T07:56:42.923-04:00 level=INFO msg="NVML provider successfully initialized"
+time=2026-10-03T07:56:43.281-04:00 level=INFO msg="Successfully queried DCGM profiling metric groups" reload_id=0 count=7 gpu_model="Quadro RTX 6000"
+time=2026-10-03T07:56:43.281-04:00 level=INFO msg="Building registry for current GPU topology"
+time=2026-10-03T07:56:43.281-04:00 level=INFO msg="Using metric file '/global/home/hpc6081/energy-epp/opt/dcgm-exporter/etc/dcgm-exporter/default-counters.csv'"
+time=2026-10-03T07:56:43.292-04:00 level=INFO msg="Initializing system entities of type 'GPU'"
+time=2026-10-03T07:56:43.377-04:00 level=INFO msg="Initializing system entities of type 'NvSwitch'"
+time=2026-10-03T07:56:43.377-04:00 level=INFO msg="Not collecting NvSwitch metrics; no switches to monitor"
+time=2026-10-03T07:56:43.377-04:00 level=INFO msg="Initializing system entities of type 'NvLink'"
+time=2026-10-03T07:56:43.377-04:00 level=WARN msg="Failed to initialize NvSwitch/NvLink info" error="no switches to monitor"
+time=2026-10-03T07:56:43.424-04:00 level=INFO msg="Initializing system entities of type 'CPU'"
+time=2026-10-03T07:56:43.453-04:00 level=INFO msg="Not collecting CPU metrics; error retrieving DCGM CPU hierarchy v2: This request is serviced by a module of DCGM that is not currently loaded"
+time=2026-10-03T07:56:43.453-04:00 level=INFO msg="Initializing system entities of type 'CPU Core'"
+time=2026-10-03T07:56:43.453-04:00 level=INFO msg="Not collecting CPU Core metrics; error retrieving DCGM CPU hierarchy v2: This request is serviced by a module of DCGM that is not currently loaded"
+time=2026-10-03T07:56:43.592-04:00 level=ERROR msg="Failed to watch DCGM fields" entity_type=GPU groupID={handle:20} field_group={handle:22} field_ids="[100 101 140 150 155 156 202 203 204 206 207 230 449 526 393 394 395 1005 1009 1010 1]" field_names="[sm_clock memory_clock memory_temp gpu_temp power_usage total_energy_consumption pcie_replay_counter gpu_utilization mem_copy_utilization enc_utilization dec_utilization xid_errors nvlink_throughput_total vgpu_instance_license_status uncorrectable_remapped_rows correctable_remapped_rows row_remap_failure dram_active pcie_tx_bytes pcie_rx_bytes driver_version]" device_option_mode=f device_options="{Flex:true MajorRange:[] MinorRange:[]}" error="error watching fields: Host engine is running as non-root"
+time=2026-10-03T07:56:43.592-04:00 level=ERROR msg="DCGM collector for entity type 'GPU' cannot be initialized; err: watch fields for logical group \"default\" chunk 1/1 (group_handle=20, field_group_handle=22): error watching fields: Host engine is running as non-root"
+
+--- exporter with dcp-metrics-included.csv ---
+exporter exited. log:
+time=2026-10-03T07:57:00.850-04:00 level=INFO msg="Starting dcgm-exporter" Version=4.8.4
+time=2026-10-03T07:57:00.851-04:00 level=INFO msg="Attempting to initialize DCGM."
+time=2026-10-03T07:57:00.929-04:00 level=INFO msg="Initialized DCGM Fields module."
+time=2026-10-03T07:57:00.929-04:00 level=INFO msg="DCGM successfully initialized!"
+time=2026-10-03T07:57:00.929-04:00 level=INFO msg="Attempting to initialize NVML library."
+time=2026-10-03T07:57:00.929-04:00 level=INFO msg="NVML provider successfully initialized"
+time=2026-10-03T07:57:01.258-04:00 level=INFO msg="Successfully queried DCGM profiling metric groups" reload_id=0 count=7 gpu_model="Quadro RTX 6000"
+time=2026-10-03T07:57:01.258-04:00 level=INFO msg="Building registry for current GPU topology"
+time=2026-10-03T07:57:01.258-04:00 level=INFO msg="Using metric file '/global/home/hpc6081/energy-epp/opt/dcgm-exporter/etc/dcgm-exporter/dcp-metrics-included.csv'"
+time=2026-10-03T07:57:01.259-04:00 level=INFO msg="Initializing system entities of type 'GPU'"
+time=2026-10-03T07:57:01.355-04:00 level=INFO msg="Initializing system entities of type 'NvSwitch'"
+time=2026-10-03T07:57:01.355-04:00 level=INFO msg="Not collecting NvSwitch metrics; no switches to monitor"
+time=2026-10-03T07:57:01.355-04:00 level=INFO msg="Initializing system entities of type 'NvLink'"
+time=2026-10-03T07:57:01.355-04:00 level=WARN msg="Failed to initialize NvSwitch/NvLink info" error="no switches to monitor"
+time=2026-10-03T07:57:01.427-04:00 level=INFO msg="Initializing system entities of type 'CPU'"
+time=2026-10-03T07:57:01.453-04:00 level=INFO msg="Not collecting CPU metrics; error retrieving DCGM CPU hierarchy v2: This request is serviced by a module of DCGM that is not currently loaded"
+time=2026-10-03T07:57:01.453-04:00 level=INFO msg="Initializing system entities of type 'CPU Core'"
+time=2026-10-03T07:57:01.453-04:00 level=INFO msg="Not collecting CPU Core metrics; error retrieving DCGM CPU hierarchy v2: This request is serviced by a module of DCGM that is not currently loaded"
+time=2026-10-03T07:57:01.592-04:00 level=ERROR msg="Failed to watch DCGM fields" entity_type=GPU groupID={handle:20} field_group={handle:22} field_ids="[100 101 140 150 155 156 202 203 204 206 207 230 449 526 393 394 395 1005 1009 1010 1]" field_names="[sm_clock memory_clock memory_temp gpu_temp power_usage total_energy_consumption pcie_replay_counter gpu_utilization mem_copy_utilization enc_utilization dec_utilization xid_errors nvlink_throughput_total vgpu_instance_license_status uncorrectable_remapped_rows correctable_remapped_rows row_remap_failure dram_active pcie_tx_bytes pcie_rx_bytes driver_version]" device_option_mode=f device_options="{Flex:true MajorRange:[] MinorRange:[]}" error="error watching fields: Host engine is running as non-root"
+time=2026-10-03T07:57:01.593-04:00 level=ERROR msg="DCGM collector for entity type 'GPU' cannot be initialized; err: watch fields for logical group \"default\" chunk 1/1 (group_handle=20, field_group_handle=22): error watching fields: Host engine is running as non-root"
+
+
+================ 5. Nsight Systems: does it run, and may it profile? ================
+binary: /global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/target-linux-x64/nsys
+NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+
+# 'nsys status -e' states directly whether counter collection is permitted here
+General Check
+- Timestamp counter supported: Yes
+
+CPU Profiling Environment Check
+- Root privilege: disabled
+- Linux Kernel Paranoid Level: 2 (some features maybe not available)
+- Linux Distribution: rocky
+- Linux Kernel Version (4.18.0-553.148.1.el8_10.x86_64): OK
+- Linux perf_event_open syscall available: OK
+- Sampling trigger event available: OK
+- Intel(c) Last Branch Record support: Available
+- CPU Profiling Environment (process-tree): OK
+- CPU Profiling Environment (system-wide): Fail
+
+See the product documentation at https://docs.nvidia.com/nsight-systems for more information,
+including information on how to set the Linux Kernel Paranoid Level.
+
+================ 6. CUPTI, via the torch profiler inside our vLLM image ================
+FATAL:   "python": executable file not found in $PATH
+
+================ 7. NVML energy counter, the control we know works ================
+FATAL:   "python": executable file not found in $PATH
+
+================ 8. per-die spread, the experiment from plan section 13.5 ================
+# every GPU on this node at the same instant: do nominally identical dies differ?
+index, uuid, name, power.draw [W], temperature.gpu, clocks.current.sm [MHz]
+0, GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b, Quadro RTX 6000, 21.95 W, 25, 300 MHz
+1, GPU-55fdeae3-9ad2-b418-566c-4224203911e9, Quadro RTX 6000, 22.29 W, 24, 300 MHz
+2, GPU-e1ef0a37-6266-e89e-4218-078940ab21f4, Quadro RTX 6000, 22.68 W, 23, 300 MHz
+3, GPU-ff881352-3db3-3efe-b489-71f2734bd081, Quadro RTX 6000, 13.04 W, 20, 300 MHz
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/gpu-12302443.txt ===

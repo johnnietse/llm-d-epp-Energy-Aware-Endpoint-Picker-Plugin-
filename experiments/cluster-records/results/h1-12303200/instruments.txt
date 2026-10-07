@@ -1,0 +1,13 @@
+node=frnt140.frontenac.local job=12303200
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32 seconds=75 trials=5
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-3e5c4e83-d997-d16a-16be-7176ad1a653a, NVIDIA A30, 610.43.02, 165.00 W, 100.00 W, 165.00 W, 24576 MiB, Enabled
+1, GPU-fca29d65-63f5-7c0c-223d-b754f40b3a8c, NVIDIA A30, 610.43.02, 165.00 W, 100.00 W, 165.00 W, 24576 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=power_ipmi,amd
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130

@@ -1,0 +1,288 @@
+node=frnt153.frontenac.local gpus=4 type=Quadro_RTX_6000 model=Qwen/Qwen2.5-1.5B-Instruct
+=== mandatory telemetry check ===
+=== MANDATORY telemetry check, 2026-10-04T18:05:43-04:00 ===
+node: frnt153.frontenac.local   job: 12304134
+
+--- node capability facts (recorded with every run) ---
+RmProfilingAdminOnly = 1   (1 = profiling counters denied to us)
+perf_event_paranoid  = 2
+kernel               = 4.18.0-553.148.1.el8_10.x86_64
+ipmi device          = crw-------. 1 root root 243, 0 Jul 30 11:57 /dev/ipmi0
+
+--- REQUIRED sources ---
+  [OK]       async load generator (httpx in image) — httpx 0.28.1
+  [OK]       nvidia-smi provenance — 0, GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a, Quadro RTX 6000, 610.43.02, 250.00 
+  [OK]       NVML energy counter + power — energy_mJ=116631721454 power_mW=13463 uuid=GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a
+  [OK]       DCGM energy 156 + power 155 — GPU 0 116631836084 13.123 
+
+--- RECORDED, not required (kernel-gated) ---
+  DCGM DCP 1002/1005: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+--- RAPL (CPU + DRAM energy), recorded not required ---
+  [readable] intel-rapl:0 name=package-0 energy_uj=224521121696
+  [readable] intel-rapl:0:0 name=dram energy_uj=24872664034
+  [readable] intel-rapl:1 name=package-1 energy_uj=225493490056
+  [readable] intel-rapl:1:0 name=dram energy_uj=7849897575
+  nsys: NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+  nsys counter permission: - Linux Kernel Paranoid Level: 2 (some features maybe not available) - CPU Profiling Environment (system-wide)
+  ncu: not installed (kernel counters; expected denied when RmProfilingAdminOnly=1)
+
+=== RESULT: all required telemetry verified; measurement may proceed ===
+node=frnt153.frontenac.local job=12304134
+model=Qwen/Qwen2.5-1.5B-Instruct cell_window_s=60 policies=round_robin,least_loaded,slo_packing,energy_greedy,energy_consolidate generator_workers=6 seed=7
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-7fdb3b5e-8c8d-8a39-865d-d496071260df, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+2, GPU-53fd734d-1c18-665e-06a5-2f99388e721c, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+3, GPU-0bbd98d6-e275-b81d-8924-b237237ebfa2, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm 0.30.0 torch 2.13.0+cu130
+launching vLLM on GPU 0 port 8100
+launching vLLM on GPU 1 port 8101
+launching vLLM on GPU 2 port 8102
+launching vLLM on GPU 3 port 8103
+waiting for all 4 servers to report ready
+  hard deadline 900s; abort if no server log grows for 240s
+ready: 4/4 after 110s
+calibrating single-request latency on endpoint 0
+median single-request latency: 0.9811s
+SLO = 2.0s (2x measured single-request latency)
+PEAK_RPS 209.4 req/s from the measured Stage 1 curve for Quadro_RTX_6000 / Qwen/Qwen2.5-1.5B-Instruct
+load levels: 110,120,130,140,150 req/s
+  curve for NVIDIA_A100-PCIE-40GB: /global/home/hpc6081/energy-epp/results/h1-12304125/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top concurrency 128)
+  curve for NVIDIA_A30: /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top concurrency 128)
+  curve for NVIDIA_L4: /global/home/hpc6081/energy-epp/results/h1-12304128/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top concurrency 128)
+  curve for Quadro_RTX_6000: /global/home/hpc6081/energy-epp/results/h1-12303358/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top concurrency 128)
+  curve for Quadro_RTX_8000: /global/home/hpc6081/energy-epp/results/h1-12304126/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top concurrency 128)
+curves passed to the router: --curves /global/home/hpc6081/energy-epp/results/h1-12304125/h1.csv=NVIDIA_A100-PCIE-40GB /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv=NVIDIA_A30 /global/home/hpc6081/energy-epp/results/h1-12304128/h1.csv=NVIDIA_L4 /global/home/hpc6081/energy-epp/results/h1-12303358/h1.csv=Quadro_RTX_6000 /global/home/hpc6081/energy-epp/results/h1-12304126/h1.csv=Quadro_RTX_8000
+=========== offered load 110 req/s, 60s window, 6600 requests ===========
+load generator: 6 worker process(es)
+--- round_robin at 110.0 req/s ---
+    J/req 6.91  goodput/J 0.1447  SLO 100.0%
+    TTFT p50/p95 0.045/0.056s  TPOT 0.0138s  ITL p99/max 0.0193/0.0663s  e2e p99 1.876s  errors 0
+    SLO margin p50/p95 0.900/0.924 x SLO  within 10% of boundary 49.8%
+    offered 110.0 req/s  achieved 107.6 req/s  fidelity 97.8%  send delay p99 0.003s  TTFT from send p50 0.045
+--- least_loaded at 110.0 req/s ---
+    J/req 7.20  goodput/J 0.1390  SLO 100.0%
+    TTFT p50/p95 0.045/0.056s  TPOT 0.0136s  ITL p99/max 0.0188/0.0660s  e2e p99 1.841s  errors 0
+    SLO margin p50/p95 0.891/0.914 x SLO  within 10% of boundary 29.8%
+    offered 110.0 req/s  achieved 107.6 req/s  fidelity 97.8%  send delay p99 0.002s  TTFT from send p50 0.045
+--- slo_packing at 110.0 req/s ---
+    J/req 6.91  goodput/J 0.1103  SLO 76.2%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0149s  ITL p99/max 0.0200/0.0824s  e2e p99 2.027s  errors 0
+    SLO margin p50/p95 0.993/1.007 x SLO  within 10% of boundary 91.1%
+    offered 110.0 req/s  achieved 107.3 req/s  fidelity 97.5%  send delay p99 0.002s  TTFT from send p50 0.050
+--- energy_greedy at 110.0 req/s ---
+    J/req 7.02  goodput/J 0.0954  SLO 67.0%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0149s  ITL p99/max 0.0201/0.0793s  e2e p99 2.028s  errors 0
+    SLO margin p50/p95 0.995/1.009 x SLO  within 10% of boundary 91.2%
+    offered 110.0 req/s  achieved 107.3 req/s  fidelity 97.6%  send delay p99 0.002s  TTFT from send p50 0.051
+--- energy_consolidate at 110.0 req/s ---
+    J/req 7.08  goodput/J 0.1016  SLO 71.9%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0149s  ITL p99/max 0.0200/0.0768s  e2e p99 2.025s  errors 0
+    SLO margin p50/p95 0.994/1.007 x SLO  within 10% of boundary 91.0%
+    offered 110.0 req/s  achieved 107.3 req/s  fidelity 97.5%  send delay p99 0.002s  TTFT from send p50 0.050
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/policies-rate110.json
+=========== offered load 120 req/s, 60s window, 7200 requests ===========
+load generator: 6 worker process(es)
+--- round_robin at 120.0 req/s ---
+    J/req 6.92  goodput/J 0.1445  SLO 100.0%
+    TTFT p50/p95 0.047/0.059s  TPOT 0.0141s  ITL p99/max 0.0198/0.0685s  e2e p99 1.915s  errors 0
+    SLO margin p50/p95 0.920/0.943 x SLO  within 10% of boundary 87.4%
+    offered 120.0 req/s  achieved 116.9 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.047
+--- least_loaded at 120.0 req/s ---
+    J/req 7.02  goodput/J 0.1424  SLO 100.0%
+    TTFT p50/p95 0.047/0.058s  TPOT 0.0140s  ITL p99/max 0.0191/0.0818s  e2e p99 1.900s  errors 0
+    SLO margin p50/p95 0.913/0.938 x SLO  within 10% of boundary 79.6%
+    offered 120.0 req/s  achieved 116.9 req/s  fidelity 97.4%  send delay p99 0.002s  TTFT from send p50 0.047
+--- slo_packing at 120.0 req/s ---
+    J/req 6.95  goodput/J 0.0873  SLO 60.7%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0149s  ITL p99/max 0.0197/0.0764s  e2e p99 2.030s  errors 0
+    SLO margin p50/p95 0.997/1.009 x SLO  within 10% of boundary 88.9%
+    offered 120.0 req/s  achieved 116.6 req/s  fidelity 97.1%  send delay p99 0.002s  TTFT from send p50 0.051
+--- energy_greedy at 120.0 req/s ---
+    J/req 6.90  goodput/J 0.1017  SLO 70.2%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0148s  ITL p99/max 0.0200/0.0753s  e2e p99 2.041s  errors 0
+    SLO margin p50/p95 0.995/1.008 x SLO  within 10% of boundary 89.1%
+    offered 120.0 req/s  achieved 116.5 req/s  fidelity 97.1%  send delay p99 0.002s  TTFT from send p50 0.051
+--- energy_consolidate at 120.0 req/s ---
+    J/req 6.90  goodput/J 0.0940  SLO 64.9%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0149s  ITL p99/max 0.0201/0.0778s  e2e p99 2.030s  errors 0
+    SLO margin p50/p95 0.996/1.010 x SLO  within 10% of boundary 88.7%
+    offered 120.0 req/s  achieved 116.6 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/policies-rate120.json
+=========== offered load 130 req/s, 60s window, 7800 requests ===========
+load generator: 6 worker process(es)
+--- round_robin at 130.0 req/s ---
+    J/req 6.50  goodput/J 0.1535  SLO 99.8%
+    TTFT p50/p95 0.049/0.061s  TPOT 0.0145s  ITL p99/max 0.0201/0.0805s  e2e p99 1.991s  errors 0
+    SLO margin p50/p95 0.944/0.988 x SLO  within 10% of boundary 94.3%
+    offered 130.0 req/s  achieved 126.6 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.048
+--- least_loaded at 130.0 req/s ---
+    J/req 6.56  goodput/J 0.1513  SLO 99.2%
+    TTFT p50/p95 0.049/0.060s  TPOT 0.0145s  ITL p99/max 0.0197/0.0806s  e2e p99 1.998s  errors 0
+    SLO margin p50/p95 0.939/0.991 x SLO  within 10% of boundary 94.1%
+    offered 130.0 req/s  achieved 126.6 req/s  fidelity 97.4%  send delay p99 0.003s  TTFT from send p50 0.048
+--- slo_packing at 130.0 req/s ---
+    J/req 6.65  goodput/J 0.0809  SLO 53.8%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0149s  ITL p99/max 0.0198/0.0789s  e2e p99 2.030s  errors 0
+    SLO margin p50/p95 0.999/1.010 x SLO  within 10% of boundary 84.4%
+    offered 130.0 req/s  achieved 126.5 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.051
+    *** UNGROUNDED ROUTING on 1 of 7800 picks (0.0%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 130.0 req/s ---
+    J/req 6.61  goodput/J 0.0943  SLO 62.4%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0148s  ITL p99/max 0.0199/0.0744s  e2e p99 2.029s  errors 0
+    SLO margin p50/p95 0.997/1.010 x SLO  within 10% of boundary 84.0%
+    offered 130.0 req/s  achieved 126.4 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.051
+--- energy_consolidate at 130.0 req/s ---
+    J/req 6.63  goodput/J 0.0979  SLO 64.8%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0148s  ITL p99/max 0.0201/0.0752s  e2e p99 2.032s  errors 0
+    SLO margin p50/p95 0.997/1.008 x SLO  within 10% of boundary 84.1%
+    offered 130.0 req/s  achieved 126.4 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/policies-rate130.json
+=========== offered load 140 req/s, 60s window, 8400 requests ===========
+load generator: 6 worker process(es)
+--- round_robin at 140.0 req/s ---
+    J/req 6.22  goodput/J 0.1328  SLO 82.6%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0151s  ITL p99/max 0.0206/0.0811s  e2e p99 2.025s  errors 0
+    SLO margin p50/p95 0.992/1.006 x SLO  within 10% of boundary 95.7%
+    offered 140.0 req/s  achieved 136.3 req/s  fidelity 97.3%  send delay p99 0.004s  TTFT from send p50 0.051
+--- least_loaded at 140.0 req/s ---
+    J/req 6.22  goodput/J 0.1189  SLO 74.0%
+    TTFT p50/p95 0.051/0.063s  TPOT 0.0151s  ITL p99/max 0.0204/0.0854s  e2e p99 2.024s  errors 0
+    SLO margin p50/p95 0.993/1.007 x SLO  within 10% of boundary 95.8%
+    offered 140.0 req/s  achieved 136.2 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.051
+--- slo_packing at 140.0 req/s ---
+    J/req 6.23  goodput/J 0.0796  SLO 49.6%
+    TTFT p50/p95 0.053/0.064s  TPOT 0.0151s  ITL p99/max 0.0200/0.0901s  e2e p99 2.035s  errors 0
+    SLO margin p50/p95 1.000/1.011 x SLO  within 10% of boundary 90.6%
+    offered 140.0 req/s  achieved 136.2 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.052
+    *** UNGROUNDED ROUTING on 272 of 8400 picks (3.2%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 140.0 req/s ---
+    J/req 6.22  goodput/J 0.0859  SLO 53.4%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0150s  ITL p99/max 0.0202/0.0858s  e2e p99 2.034s  errors 0
+    SLO margin p50/p95 0.999/1.012 x SLO  within 10% of boundary 90.1%
+    offered 140.0 req/s  achieved 136.2 req/s  fidelity 97.3%  send delay p99 0.003s  TTFT from send p50 0.052
+    *** UNGROUNDED ROUTING on 260 of 8400 picks (3.1%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 140.0 req/s ---
+    J/req 6.21  goodput/J 0.0761  SLO 47.3%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0150s  ITL p99/max 0.0201/0.0765s  e2e p99 2.033s  errors 0
+    SLO margin p50/p95 1.001/1.011 x SLO  within 10% of boundary 91.1%
+    offered 140.0 req/s  achieved 136.1 req/s  fidelity 97.2%  send delay p99 0.003s  TTFT from send p50 0.052
+    *** UNGROUNDED ROUTING on 282 of 8400 picks (3.4%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/policies-rate140.json
+=========== offered load 150 req/s, 60s window, 9000 requests ===========
+load generator: 6 worker process(es)
+--- round_robin at 150.0 req/s ---
+    J/req 5.91  goodput/J 0.0584  SLO 34.5%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0153s  ITL p99/max 0.0211/0.0924s  e2e p99 2.060s  errors 0
+    SLO margin p50/p95 1.003/1.023 x SLO  within 10% of boundary 96.5%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.004s  TTFT from send p50 0.052
+--- least_loaded at 150.0 req/s ---
+    J/req 5.94  goodput/J 0.0483  SLO 28.7%
+    TTFT p50/p95 0.053/0.064s  TPOT 0.0153s  ITL p99/max 0.0207/0.1021s  e2e p99 2.061s  errors 0
+    SLO margin p50/p95 1.004/1.023 x SLO  within 10% of boundary 96.4%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.052
+--- slo_packing at 150.0 req/s ---
+    J/req 5.91  goodput/J 0.0440  SLO 26.0%
+    TTFT p50/p95 0.054/0.066s  TPOT 0.0154s  ITL p99/max 0.0205/0.0765s  e2e p99 2.075s  errors 0
+    SLO margin p50/p95 1.007/1.030 x SLO  within 10% of boundary 96.7%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.054
+    *** UNGROUNDED ROUTING on 3375 of 9000 picks (37.5%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_greedy at 150.0 req/s ---
+    J/req 5.85  goodput/J 0.0500  SLO 29.3%
+    TTFT p50/p95 0.054/0.067s  TPOT 0.0154s  ITL p99/max 0.0213/0.0837s  e2e p99 2.088s  errors 0
+    SLO margin p50/p95 1.006/1.032 x SLO  within 10% of boundary 96.9%
+    offered 150.0 req/s  achieved 145.3 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.054
+    *** UNGROUNDED ROUTING on 3268 of 9000 picks (36.3%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+--- energy_consolidate at 150.0 req/s ---
+    J/req 5.87  goodput/J 0.0439  SLO 25.8%
+    TTFT p50/p95 0.055/0.068s  TPOT 0.0154s  ITL p99/max 0.0210/0.0884s  e2e p99 2.074s  errors 0
+    SLO margin p50/p95 1.008/1.028 x SLO  within 10% of boundary 96.9%
+    offered 150.0 req/s  achieved 145.3 req/s  fidelity 96.8%  send delay p99 0.003s  TTFT from send p50 0.054
+    *** UNGROUNDED ROUTING on 3305 of 9000 picks (36.7%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/policies-rate150.json
+=========== Pass A-control: counter-only at 150 req/s ===========
+load generator: 6 worker process(es)
+--- slo_packing at 150.0 req/s ---
+    J/req 5.85  goodput/J 0.0491  SLO 28.7%
+    TTFT p50/p95 0.054/0.067s  TPOT 0.0153s  ITL p99/max 0.0210/0.0813s  e2e p99 2.089s  errors 0
+    SLO margin p50/p95 1.006/1.030 x SLO  within 10% of boundary 97.1%
+    offered 150.0 req/s  achieved 145.4 req/s  fidelity 96.9%  send delay p99 0.003s  TTFT from send p50 0.053
+    *** UNGROUNDED ROUTING on 3329 of 9000 picks (37.0%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/stage2-12304134/control-counteronly.json
+--- perturbation check: full telemetry vs counter-only ---
+  full telemetry : 5.905 J/req   poll=0.25s SLO=26.0%  p95=2.059s
+  counter only   : 5.853 J/req   poll=0.0s SLO=28.7%  p95=2.060s
+  energy difference    : +0.89%
+  p95 difference       : -0.04%
+  completed difference : +0.00%
+  VERDICT: telemetry overhead is not measurable (<1%). Pass A
+  numbers stand unqualified.
+letting the GPUs settle for 60 s so Pass B cannot touch Pass A numbers
+=========== Pass B: mechanism (all profiling tools) ===========
+Generating SQLite file /global/home/hpc6081/energy-epp/results/stage2-12304134/mechanism/nsys-trace.sqlite from /global/home/hpc6081/energy-epp/results/stage2-12304134/mechanism/nsys-trace.nsys-rep
+Processing [/global/home/hpc6081/energy-epp/results/stage2-12304134/mechanism/nsys-trace.sqlite] with [/global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances  Avg (ns)   Med (ns)   Min (ns)  Max (ns)  StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  ---------  ---------  --------  --------  -----------  ----------------------------------------------------------------------------------------------------
+     92.6         89825771         50  1796515.4  1797469.5   1782046   1803261       4321.0  turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_stages_32x1_nn                                          
+      7.1          6878656         50   137573.1   137456.0    136160    139392        672.2  void at::native::vectorized_elementwise_kernel<(int)4, at::native::<unnamed>::launch_clamp_scalar(a…
+      0.3           263232          2   131616.0   131616.0    131424    131808        271.5  void at::native::<unnamed>::distribution_elementwise_grid_stride_kernel<float, (int)4, void at::nat…
+      0.1            76480          1    76480.0    76480.0     76480     76480          0.0  void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<c10::Half, at::native::func_w…
+
+
+======== 4. Nsight Compute (kernel counters) ========
+ncu NOT INSTALLED.
+RECORDED RESULT: Nsight Compute is unavailable to us. It needs profiling
+permission, which this node denies when RmProfilingAdminOnly=1, and it
+serialises kernels so it could not share a run with the energy pass
+regardless. Its absence is a finding about the deployment, not a gap in
+the method.
+
+======== 5. DCGM DCP fields under load (SM_ACTIVE 1002, DRAM_ACTIVE 1005) ========
+--- energy/power (required fields, should always work) ---
+#Entity         TOTEC                   POWER             
+GPU 0           117041858400            61.075            
+GPU 0           117041858400            61.075            
+GPU 0           117041888820            60.979            
+GPU 0           117041919229            61.075            
+--- DCP fields (kernel-gated) ---
+#Entity         SMACT        DRAMA        
+Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+======== 6. nvidia-smi high-rate sampling under load ========
+ERROR: Option --query-gpu=timestamp,index,power.draw,clocks.sm,clocks.mem,utilization.gpu,utilization.memory,temperature.gpu is not recognized. Please run 'nvidia-smi -h' for help.
+
+
+=== mechanism pass complete: /global/home/hpc6081/energy-epp/results/stage2-12304134/mechanism/mechanism.txt ===
+Tools attempted: CUPTI tracing, CUPTI counter probe, Nsight Systems trace
++ stats, Nsight Compute, DCGM energy/power, DCGM DCP, nvidia-smi sampling.
+Denials above are recorded results about this deployment.
+results in /global/home/hpc6081/energy-epp/results/stage2-12304134
+total 65730
+-rw-r-----. 1 hpc6081 hpc6081    5805 Oct  4 18:45 control-counteronly.json
+-rw-r-----. 1 hpc6081 hpc6081     129 Oct  4 18:05 dcgm-hostengine.log
+-rw-r-----. 1 hpc6081 hpc6081   12089 Oct  4 18:45 harness.log
+-rw-r-----. 1 hpc6081 hpc6081     959 Oct  4 18:06 instruments.txt
+drwxr-x---. 2 hpc6081 hpc6081    4096 Oct  4 18:47 mechanism
+-rw-r-----. 1 hpc6081 hpc6081   28114 Oct  4 18:15 policies-rate110.json
+-rw-r-----. 1 hpc6081 hpc6081   28159 Oct  4 18:22 policies-rate120.json
+-rw-r-----. 1 hpc6081 hpc6081   28212 Oct  4 18:29 policies-rate130.json
+-rw-r-----. 1 hpc6081 hpc6081   28334 Oct  4 18:36 policies-rate140.json
+-rw-r-----. 1 hpc6081 hpc6081   28292 Oct  4 18:43 policies-rate150.json
+-rw-r-----. 1 hpc6081 hpc6081    2244 Oct  4 18:05 telemetry.txt
+-rw-r-----. 1 hpc6081 hpc6081 4914951 Oct  4 18:45 vllm-gpu0.log
+-rw-r-----. 1 hpc6081 hpc6081 5032289 Oct  4 18:45 vllm-gpu1.log
+-rw-r-----. 1 hpc6081 hpc6081 4980703 Oct  4 18:45 vllm-gpu2.log
+-rw-r-----. 1 hpc6081 hpc6081 3954883 Oct  4 18:45 vllm-gpu3.log
+
+Pass A (measured energy): policies-rate*.json
+Pass B (mechanism):       mechanism/mechanism.txt
+Telemetry gate:           telemetry.txt
+stopping servers

@@ -1,0 +1,495 @@
+=== instrumentation discovery, login node, 2026-10-03T07:44:57-04:00 ===
+host: login1.frontenac.local
+os: "Rocky Linux 8.10 (Green Obsidian)"
+glibc: ldd (Gentoo 2.37-r3 (patchset 5)) 2.37
+module: function
+
+--- 1. does the module system already carry any of these? ---
+# module spider dcgm
+Lmod has detected the following error: Unable to find: "dcgm".
+
+# module spider nsight
+----------------------------------------------------------------------------
+  nsight-vscode-edition: nsight-vscode-edition/2024.1.34572442 (E)
+----------------------------------------------------------------------------
+    This extension is provided by the following modules. To access the extension you must load one of the following modules. Note that any module names in parentheses show the module location in the software hierarchy.
+       code-server/4.101.2 (StdEnv/2023)
+Names marked by a trailing (E) are extensions provided by another module.
+
+# module spider cuda
+----------------------------------------------------------------------------
+  cuda:
+----------------------------------------------------------------------------
+    Description:
+      CUDA (formerly Compute Unified Device Architecture) is a parallel
+      computing platform and programming model created by NVIDIA and
+      implemented by the graphics processing units (GPUs) that they
+      produce. CUDA gives developers access to the virtual instruction set
+      and memory of the parallel computational elements in CUDA GPUs.
+     Versions:
+        cuda/10.1
+        cuda/10.2
+     Other possible modules matches:
+        barracuda  chapel-ucx-cuda  cuda-compat  cudacompat  cudacore  ...
+----------------------------------------------------------------------------
+
+# module spider ipmi
+Lmod has detected the following error: Unable to find: "ipmi".
+
+# module spider papi
+----------------------------------------------------------------------------
+  papi: papi/6.0.0
+----------------------------------------------------------------------------
+    Description:
+      PAPI provides the tool designer and application engineer with a
+      consistent interface and methodology for use of the performance
+      counter hardware found in most major microprocessors. PAPI enables
+      software engineers to see, in near real time, the relation between
+      software performance and processor events. In addition Component PAPI
+      provides access to a collection of components that expose performance
+      measurement opportunites across the hardware and software stack. 
+    Properties:
+      Tools for development / Outils de développement
+    You will need to load all module(s) on any one of the lines below before the "papi/6.0.0" module is available to load.
+      StdEnv/2020
+
+# module spider likwid
+Lmod has detected the following error: Unable to find: "likwid".
+
+--- 2. binaries in a module-enabled shell ---
+dcgmi: MISSING
+nv-hostengine: MISSING
+nsys: MISSING
+ncu: MISSING
+ipmitool: MISSING
+nvidia-smi: MISSING
+apptainer: MISSING
+rpm2cpio: /cvmfs/soft.computecanada.ca/custom/bin/rpm2cpio
+cpio: /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/cpio
+curl: /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/curl
+
+--- 3. driver version we must stay compatible with ---
+# from the instruments.txt recorded by an earlier GPU job
+index, name, driver_version, power.limit [W], memory.total [MiB], persistence_mode
+index, name, driver_version, power.limit [W], memory.total [MiB], persistence_mode
+
+--- 4. DCGM packages published for RHEL8 ---
+datacenter-gpu-manager-2.0.13-1-x86_64.rpm
+datacenter-gpu-manager-2.0.15-1-x86_64.rpm
+datacenter-gpu-manager-2.1.4-1-x86_64.rpm
+datacenter-gpu-manager-2.1.7-1-x86_64.rpm
+datacenter-gpu-manager-2.1.8-1-x86_64.rpm
+datacenter-gpu-manager-2.2.3-1-x86_64.rpm
+datacenter-gpu-manager-2.2.8-1-x86_64.rpm
+datacenter-gpu-manager-2.2.9-1-x86_64.rpm
+datacenter-gpu-manager-2.3.1-1-x86_64.rpm
+datacenter-gpu-manager-2.3.2-1-x86_64.rpm
+datacenter-gpu-manager-2.3.4-1-x86_64.rpm
+datacenter-gpu-manager-2.3.5-1-x86_64.rpm
+datacenter-gpu-manager-2.3.6-1-x86_64.rpm
+datacenter-gpu-manager-2.4.5-1-x86_64.rpm
+datacenter-gpu-manager-2.4.6-1-x86_64.rpm
+datacenter-gpu-manager-2.4.7-1-x86_64.rpm
+datacenter-gpu-manager-3.0.4-1-x86_64.rpm
+datacenter-gpu-manager-3.1.3-1-x86_64.rpm
+datacenter-gpu-manager-3.1.6-1-x86_64.rpm
+datacenter-gpu-manager-3.1.7-1-x86_64.rpm
+datacenter-gpu-manager-3.1.8-1-x86_64.rpm
+datacenter-gpu-manager-3.2.3-1-x86_64.rpm
+datacenter-gpu-manager-3.2.5-1-x86_64.rpm
+datacenter-gpu-manager-3.2.6-1-x86_64.rpm
+datacenter-gpu-manager-3.3.0-1-x86_64.rpm
+datacenter-gpu-manager-3.3.1-1-x86_64.rpm
+datacenter-gpu-manager-3.3.3-1-x86_64.rpm
+datacenter-gpu-manager-3.3.5-1-x86_64.rpm
+datacenter-gpu-manager-3.3.6-1-x86_64.rpm
+datacenter-gpu-manager-3.3.7-1-x86_64.rpm
+datacenter-gpu-manager-3.3.8-1-x86_64.rpm
+datacenter-gpu-manager-3.3.9-1-x86_64.rpm
+datacenter-gpu-manager-4-core-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-core-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-core-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-cublas-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda11-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-cublas-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-curand-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-cusparselt-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-nccl-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda12-ubergemm2-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-cublas-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-curand-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-cusparselt-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-nccl-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda13-ubergemm2-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-cuda-all-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-dcgmproftesterkernels-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-devel-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-config-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-config-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-diag-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-diag-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-health-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-health-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-introspect-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-introspect-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-nvswitch-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-nvswitch-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-policy-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-policy-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-sysmon-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-module-sysmon-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda12-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-cuda13-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-multinode-debuginfo-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda11-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.2.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.2.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.2.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.2.3-2.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.3.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.3.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda12-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.4.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.4.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.4.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.5.3-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.6.1-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-cuda13-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-4-proprietary-debuginfo-4.0.0-1.x86_64.rpm
+datacenter-gpu-manager-4-python3-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.0.1-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.1.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.1.1-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.1.3-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.5.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.5.1-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.5.2-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.6.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.7.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.7.1-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.8.0-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.8.1-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.8.2-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.8.3.002-1.x86_64.rpm
+datacenter-gpu-manager-exporter-4.8.4.3955-1.x86_64.rpm
+
+--- 5. Nsight Systems packages for RHEL8 (glibc 2.28 may refuse the new ones) ---
+nsight-systems-2024.5.1-2024.5.1.113_3461954-0.x86_64.rpm
+nsight-systems-2024.6.2-2024.6.2.225_3524440-0.x86_64.rpm
+nsight-systems-2025.1.3-2025.1.3.140_3562067-0.x86_64.rpm
+nsight-systems-2025.3.2-2025.3.2.367_3622437-0.x86_64.rpm
+nsight-systems-2025.3.2-2025.3.2.474_3638932-0.x86_64.rpm
+nsight-systems-2025.5.2-2025.5.2.266_3669300-0.x86_64.rpm
+nsight-systems-2025.6.3-2025.6.3.343_3716556-0.x86_64.rpm
+nsight-systems-2025.6.3-2025.6.3.541_3773601-0.x86_64.rpm
+nsight-systems-2026.1.3-2026.1.3.243_3779207-0.x86_64.rpm
+nsight-systems-2026.1.3-2026.1.3.425_3834229-0.x86_64.rpm
+nsight-systems-2026.3.2-2026.3.2.313_3852192-0.x86_64.rpm
+nsight-systems-2026.3.2-2026.3.2.476_3883403-0.x86_64.rpm
+
+--- 6. CUPTI packages for RHEL8 (the container already has one via torch) ---
+cuda-cupti-13-1-13.1.115-1.x86_64.rpm
+cuda-cupti-13-2-13.2.23-1.x86_64.rpm
+cuda-cupti-13-2-13.2.75-1.x86_64.rpm
+cuda-cupti-13-2-13.2.86-1.x86_64.rpm
+cuda-cupti-13-3-13.3.35-1.x86_64.rpm
+cuda-cupti-13-3-13.3.75-1.x86_64.rpm
+cuda-cupti-13-4-13.4.58-1.x86_64.rpm
+cuda-cupti-13-4-13.4.92-1.x86_64.rpm
+
+--- 7. PyPI, queried over HTTP since this pip has no 'index' subcommand ---
+# nvidia-dcgm
+  not on PyPI or query failed: Expecting value: line 1 column 1 (char 0)
+# nvidia-ml-py
+  latest: 13.615.71
+  summary: Python Bindings for the NVIDIA Management Library
+# nvidia-cuda-cupti-cu12
+  latest: 12.9.79
+  summary: CUDA profiling tools runtime libs.
+
+--- 8. IPMI device node on this host ---
+ls: cannot access '/dev/ipmi0': No such file or directory
+ls: cannot access '/dev/ipmi/0': No such file or directory
+ls: cannot access '/dev/ipmidev/0': No such file or directory
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/login.txt ===

@@ -1,0 +1,14 @@
+job=12304895 het_size=2
+  component 0: 8 GPUs present, capping to 4 (MAX_GPUS_PER_NODE)
+  component 0: host=frnt154.frontenac.local type=NVIDIA_A100-PCIE-40GB gpus=4
+  component 1: host=frnt152.frontenac.local type=Quadro_RTX_6000 gpus=4
+
+=== clock skew across components ===
+  conservative skew bound: 0.061178s (includes srun round-trip, so it
+  overstates the true clock difference)
+
+=== warming the checkpoint on each node ===
+  frnt154.frontenac.local: read 0 bytes of safetensors in 1s
+FATAL: no safetensors checkpoint found under $HF_HOME on frnt154.frontenac.local.
+Eight servers would each try to fetch the model concurrently, which
+is how job 12303653 wedged. Stage the model first.

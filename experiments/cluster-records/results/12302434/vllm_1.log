@@ -1,0 +1,112 @@
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347] 
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347]        █     █     █▄   ▄█
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.30.0
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347]   █▄█▀ █     █     █     █  model   Qwen/Qwen2.5-1.5B-Instruct
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:347] 
+(APIServer pid=3964215) INFO 10-03 03:16:52 [api_utils.py:286] non-default args: {'model_tag': 'Qwen/Qwen2.5-1.5B-Instruct', 'host': '127.0.0.1', 'port': 8101, 'model': 'Qwen/Qwen2.5-1.5B-Instruct', 'max_model_len': 4096, 'gpu_memory_utilization': 0.85}
+(APIServer pid=3964215) Traceback (most recent call last):
+(APIServer pid=3964215)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=3964215)     sys.exit(main())
+(APIServer pid=3964215)              ^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/cli/main.py", line 106, in main
+(APIServer pid=3964215)     args.dispatch_function(args)
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/cli/serve.py", line 154, in cmd
+(APIServer pid=3964215)     uvloop.run(run_server(args))
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=3964215)     return __asyncio.run(
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+(APIServer pid=3964215)     return runner.run(main)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=3964215)     return self._loop.run_until_complete(task)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=3964215)     return await main
+(APIServer pid=3964215)            ^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/launchers/api_server/entry.py", line 176, in run_server
+(APIServer pid=3964215)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/launchers/api_server/entry.py", line 190, in run_server_worker
+(APIServer pid=3964215)     async with build_async_engine_client(
+(APIServer pid=3964215)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=3964215)     return await anext(self.gen)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/launchers/api_server/entry.py", line 58, in build_async_engine_client
+(APIServer pid=3964215)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=3964215)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=3964215)     return await anext(self.gen)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/launchers/api_server/entry.py", line 82, in build_async_engine_client_from_engine_args
+(APIServer pid=3964215)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=3964215)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/engine/arg_utils.py", line 2063, in create_engine_config
+(APIServer pid=3964215)     maybe_override_with_speculators(
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/vllm/transformers_utils/config.py", line 722, in maybe_override_with_speculators
+(APIServer pid=3964215)     config_dict, _ = PretrainedConfig.get_config_dict(
+(APIServer pid=3964215)                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/transformers/configuration_utils.py", line 747, in get_config_dict
+(APIServer pid=3964215)     config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
+(APIServer pid=3964215)                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/transformers/configuration_utils.py", line 802, in _get_config_dict
+(APIServer pid=3964215)     resolved_config_file = cached_file(
+(APIServer pid=3964215)                            ^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py", line 294, in cached_file
+(APIServer pid=3964215)     file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py", line 535, in cached_files
+(APIServer pid=3964215)     raise e
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py", line 438, in cached_files
+(APIServer pid=3964215)     hf_hub_download(
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_validators.py", line 91, in _inner_fn
+(APIServer pid=3964215)     return fn(*args, **kwargs)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 266, in _inner
+(APIServer pid=3964215)     return fn(*args, **kwargs)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/file_download.py", line 1043, in hf_hub_download
+(APIServer pid=3964215)     return _hf_hub_download_to_cache_dir(
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/file_download.py", line 1113, in _hf_hub_download_to_cache_dir
+(APIServer pid=3964215)     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
+(APIServer pid=3964215)                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/file_download.py", line 1758, in _get_metadata_or_catch_error
+(APIServer pid=3964215)     metadata = get_hf_file_metadata(
+(APIServer pid=3964215)                ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_validators.py", line 91, in _inner_fn
+(APIServer pid=3964215)     return fn(*args, **kwargs)
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/file_download.py", line 1665, in get_hf_file_metadata
+(APIServer pid=3964215)     response = _httpx_follow_hub_redirects_with_backoff(
+(APIServer pid=3964215)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 754, in _httpx_follow_hub_redirects_with_backoff
+(APIServer pid=3964215)     response = http_backoff(
+(APIServer pid=3964215)                ^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 627, in http_backoff
+(APIServer pid=3964215)     return next(
+(APIServer pid=3964215)            ^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 494, in _http_backoff_base
+(APIServer pid=3964215)     client = get_session()
+(APIServer pid=3964215)              ^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 407, in get_session
+(APIServer pid=3964215)     _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+(APIServer pid=3964215)                      ^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/huggingface_hub/utils/_http.py", line 335, in default_client_factory
+(APIServer pid=3964215)     return httpx.Client(
+(APIServer pid=3964215)            ^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/httpx/_client.py", line 688, in __init__
+(APIServer pid=3964215)     self._transport = self._init_transport(
+(APIServer pid=3964215)                       ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/httpx/_client.py", line 731, in _init_transport
+(APIServer pid=3964215)     return HTTPTransport(
+(APIServer pid=3964215)            ^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/httpx/_transports/default.py", line 153, in __init__
+(APIServer pid=3964215)     ssl_context = create_ssl_context(verify=verify, cert=cert, trust_env=trust_env)
+(APIServer pid=3964215)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/local/lib/python3.12/dist-packages/httpx/_config.py", line 35, in create_ssl_context
+(APIServer pid=3964215)     ctx = ssl.create_default_context(cafile=os.environ["SSL_CERT_FILE"])
+(APIServer pid=3964215)           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3964215)   File "/usr/lib/python3.12/ssl.py", line 708, in create_default_context
+(APIServer pid=3964215)     context.load_verify_locations(cafile, capath, cadata)
+(APIServer pid=3964215) FileNotFoundError: [Errno 2] No such file or directory

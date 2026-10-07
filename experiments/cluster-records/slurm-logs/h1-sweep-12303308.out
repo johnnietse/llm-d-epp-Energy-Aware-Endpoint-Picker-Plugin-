@@ -1,0 +1,114 @@
+node=frnt109.frontenac.local job=12303308
+model=Qwen/Qwen2.5-7B-Instruct levels=1,2,4,8,16,32 seconds=75 trials=5
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-7fae90e9-b02e-5a6d-98e3-538071d1c589, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-732d069e-e02b-3d0f-d6d9-7e7d0882cb4d, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=intel,avx512,avx512_gpu
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=13.28
+vllm up after 170s
+idle(model loaded): 54.87 W
+trial1 c=1   prefix=0 208.63 W     34.5 tok/s  J/tok=6.0533  p95=3.716s err=0
+trial1 c=2   prefix=0 189.56 W     61.7 tok/s  J/tok=3.0707  p95=4.15s err=0
+trial1 c=4   prefix=0 196.24 W    120.9 tok/s  J/tok=1.6231  p95=4.239s err=0
+trial1 c=8   prefix=0 202.04 W    237.9 tok/s  J/tok=0.8494  p95=4.311s err=0
+trial1 c=8   prefix=1 199.89 W    231.1 tok/s  J/tok=0.8649  p95=4.435s err=0
+trial1 c=16  prefix=0 209.28 W    443.5 tok/s  J/tok=0.4718  p95=4.652s err=0
+trial1 c=32  prefix=0 216.51 W    723.0 tok/s  J/tok=0.2995  p95=5.701s err=0
+trial2 c=1   prefix=0  223.0 W     34.5 tok/s  J/tok=6.4662  p95=3.716s err=0
+trial2 c=2   prefix=0 191.57 W     61.8 tok/s  J/tok=3.1019  p95=4.15s err=0
+trial2 c=4   prefix=0 195.07 W    120.9 tok/s  J/tok=1.6129  p95=4.239s err=0
+trial2 c=8   prefix=0 200.83 W    236.7 tok/s  J/tok=0.8486  p95=4.337s err=0
+trial2 c=8   prefix=1  198.7 W    231.1 tok/s  J/tok=0.8599  p95=4.435s err=0
+trial2 c=16  prefix=0 209.24 W    443.6 tok/s  J/tok=0.4717  p95=4.642s err=0
+trial2 c=32  prefix=0 216.35 W    723.1 tok/s  J/tok=0.2992  p95=5.703s err=0
+trial3 c=1   prefix=0 222.85 W     34.5 tok/s  J/tok=6.4618  p95=3.716s err=0
+trial3 c=2   prefix=0 191.87 W     61.4 tok/s  J/tok=3.1251  p95=4.175s err=0
+trial3 c=4   prefix=0 194.89 W    120.9 tok/s  J/tok=1.6113  p95=4.24s err=0
+trial3 c=8   prefix=0  200.3 W    237.9 tok/s  J/tok=0.8421  p95=4.311s err=0
+trial3 c=8   prefix=1  198.4 W    231.1 tok/s  J/tok=0.8584  p95=4.44s err=0
+trial3 c=16  prefix=0 209.06 W    443.6 tok/s  J/tok=0.4713  p95=4.649s err=0
+trial3 c=32  prefix=0 216.54 W    722.9 tok/s  J/tok=0.2995  p95=5.707s err=0
+trial4 c=1   prefix=0 223.04 W     34.5 tok/s  J/tok=6.4675  p95=3.716s err=0
+trial4 c=2   prefix=0  191.4 W     61.8 tok/s  J/tok=3.0988  p95=4.149s err=0
+trial4 c=4   prefix=0 195.02 W    121.0 tok/s  J/tok=1.6123  p95=4.238s err=0
+trial4 c=8   prefix=0 200.68 W    237.7 tok/s  J/tok=0.8441  p95=4.324s err=0
+trial4 c=8   prefix=1 198.41 W    231.1 tok/s  J/tok=0.8586  p95=4.435s err=0
+trial4 c=16  prefix=0 209.13 W    443.6 tok/s  J/tok=0.4715  p95=4.642s err=0
+trial4 c=32  prefix=0 216.18 W    723.6 tok/s  J/tok=0.2988  p95=5.701s err=0
+trial5 c=1   prefix=0 222.68 W     34.5 tok/s  J/tok=6.4561  p95=3.718s err=0
+trial5 c=2   prefix=0 191.65 W     61.5 tok/s  J/tok=3.1177  p95=4.175s err=0
+trial5 c=4   prefix=0 194.91 W    121.0 tok/s  J/tok=1.6115  p95=4.24s err=0
+trial5 c=8   prefix=0 200.34 W    236.8 tok/s  J/tok=0.8462  p95=4.336s err=0
+trial5 c=8   prefix=1 198.22 W    231.1 tok/s  J/tok=0.8576  p95=4.441s err=0
+trial5 c=16  prefix=0 209.07 W    443.6 tok/s  J/tok=0.4713  p95=4.642s err=0
+trial5 c=32  prefix=0 216.25 W    722.7 tok/s  J/tok=0.2992  p95=5.706s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12303308/h1.csv (36 rows) gpu=Quadro RTX 6000
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 54.87 W
+fitted P_idle = 200.8 W
+fitted k_b    = 0.45 W per concurrent request
+R^2           = 0.1998
+max |residual| = 21.83 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   208.63     34.5   6.0533   3.716
+    1    223.0     34.5   6.4662   3.716
+    1   222.85     34.5   6.4618   3.716
+    1   223.04     34.5   6.4675   3.716
+    1   222.68     34.5   6.4561   3.718
+    2   189.56     61.7   3.0707    4.15
+    2   191.57     61.8   3.1019    4.15
+    2   191.87     61.4   3.1251   4.175
+    2    191.4     61.8   3.0988   4.149
+    2   191.65     61.5   3.1177   4.175
+    4   196.24    120.9   1.6231   4.239
+    4   195.07    120.9   1.6129   4.239
+    4   194.89    120.9   1.6113    4.24
+    4   195.02    121.0   1.6123   4.238
+    4   194.91    121.0   1.6115    4.24
+    8   202.04    237.9   0.8494   4.311
+    8   200.83    236.7   0.8486   4.337
+    8    200.3    237.9   0.8421   4.311
+    8   200.68    237.7   0.8441   4.324
+    8   200.34    236.8   0.8462   4.336
+   16   209.28    443.5   0.4718   4.652
+   16   209.24    443.6   0.4717   4.642
+   16   209.06    443.6   0.4713   4.649
+   16   209.13    443.6   0.4715   4.642
+   16   209.07    443.6   0.4713   4.642
+   32   216.51    723.0   0.2995   5.701
+   32   216.35    723.1   0.2992   5.703
+   32   216.54    722.9   0.2995   5.707
+   32   216.18    723.6   0.2988   5.701
+   32   216.25    722.7   0.2992   5.706
+
+J/token range: 6.4675 at c=1 -> 0.2988 at c=32  (21.64x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +153.8 W
+marginal cost per extra concurrent request:  +0.45 W
+ratio: waking an idle GPU costs 343x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 54.9 W = 25% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.8494 shared J/tok=0.8649  unique tok/s=237.9 shared tok/s=231.1
+c=8: unique J/tok=0.8494 shared J/tok=0.8599  unique tok/s=237.9 shared tok/s=231.1
+c=8: unique J/tok=0.8494 shared J/tok=0.8584  unique tok/s=237.9 shared tok/s=231.1
+c=8: unique J/tok=0.8494 shared J/tok=0.8586  unique tok/s=237.9 shared tok/s=231.1
+c=8: unique J/tok=0.8494 shared J/tok=0.8576  unique tok/s=237.9 shared tok/s=231.1
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.1998 WEAK - revisit model form
+/var/spool/slurm/d/job12303308/slurm_script: line 99: 152489 Terminated              "$PY" $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12303308

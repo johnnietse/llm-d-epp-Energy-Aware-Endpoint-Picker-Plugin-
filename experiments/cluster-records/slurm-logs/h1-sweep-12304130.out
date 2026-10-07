@@ -1,0 +1,36 @@
+no host python can read the NVML energy counter; trying the container
+energy-counter python: env -u SSL_CERT_FILE /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer exec --nv /global/home/hpc6081/energy-epp/images/vllm-v0.30.0.sif python3
+node=frnt110.frontenac.local job=12304130
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128 seconds=75 trials=2
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-e143da6a-ce3c-f5e4-f615-ea8c73347d49, Tesla V100-PCIE-32GB, 580.173.02, 250.00 W, 100.00 W, 250.00 W, 32768 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=0
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=intel,avx512,avx512_gpu
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=36.26
+FATAL: vllm never came up
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=3080666)     return func(*args, **kwargs)
+(APIServer pid=3080666)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 163, in make_async_mp_client
+(APIServer pid=3080666)     return AsyncMPClient(
+(APIServer pid=3080666)            ^^^^^^^^^^^^^^
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=3080666)     return func(*args, **kwargs)
+(APIServer pid=3080666)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 1060, in __init__
+(APIServer pid=3080666)     super().__init__(
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 656, in __init__
+(APIServer pid=3080666)     with launch_core_engines(
+(APIServer pid=3080666)   File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=3080666)     next(self.gen)
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1240, in launch_core_engines
+(APIServer pid=3080666)     wait_for_engine_startup(
+(APIServer pid=3080666)   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1320, in wait_for_engine_startup
+(APIServer pid=3080666)     raise RuntimeError(
+(APIServer pid=3080666) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}

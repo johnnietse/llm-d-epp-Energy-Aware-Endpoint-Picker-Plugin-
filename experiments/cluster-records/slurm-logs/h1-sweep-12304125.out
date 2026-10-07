@@ -1,0 +1,96 @@
+no host python can read the NVML energy counter; trying the container
+energy-counter python: env -u SSL_CERT_FILE /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer exec --nv /global/home/hpc6081/energy-epp/images/vllm-v0.30.0.sif python3
+node=frnt154.frontenac.local job=12304125
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128 seconds=75 trials=2
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+1, GPU-9a1505a8-a594-38ae-65fd-036b04e65060, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+2, GPU-8bf6d5b6-8bab-5473-8cf7-5ee6c46d50ca, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+3, GPU-b5f15c18-13d5-8be6-f7ec-59eabda961b7, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+4, GPU-7c50a536-e5f1-c6c7-bc51-1d7e24dc02e6, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+5, GPU-c153ee3d-b52c-a9ab-3ac8-4777e19c4f46, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+6, GPU-fab56f52-a825-4834-2282-5dda6b19c23a, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+7, GPU-4cf47ff6-6119-8546-3537-16f4289b2e6e, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=ingenuity,amd
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=37.78
+vllm up after 120s
+idle(model loaded): 40.03 W
+trial1 c=1   prefix=0 220.15 W    229.5 tok/s  J/tok=0.9593  p95=0.559s err=0
+trial1 c=2   prefix=0 223.26 W    471.4 tok/s  J/tok=0.4736  p95=0.544s err=0
+trial1 c=4   prefix=0 229.54 W    956.3 tok/s  J/tok=0.24  p95=0.537s err=0
+trial1 c=8   prefix=0 239.62 W   1892.9 tok/s  J/tok=0.1266  p95=0.543s err=0
+trial1 c=8   prefix=1 239.64 W   1853.3 tok/s  J/tok=0.1293  p95=0.553s err=0
+trial1 c=16  prefix=0 248.11 W   3622.5 tok/s  J/tok=0.0685  p95=0.567s err=0
+trial1 c=32  prefix=0 247.77 W   6633.8 tok/s  J/tok=0.0373  p95=0.625s err=0
+trial1 c=48  prefix=0 246.66 W   9586.5 tok/s  J/tok=0.0257  p95=0.653s err=0
+trial1 c=64  prefix=0 247.13 W  11841.7 tok/s  J/tok=0.0209  p95=0.705s err=0
+trial1 c=96  prefix=0 247.77 W  15653.2 tok/s  J/tok=0.0158  p95=0.806s err=0
+trial1 c=128 prefix=0 247.67 W  18751.3 tok/s  J/tok=0.0132  p95=0.898s err=0
+trial2 c=1   prefix=0 232.03 W    229.5 tok/s  J/tok=1.0111  p95=0.559s err=0
+trial2 c=2   prefix=0 219.24 W    472.4 tok/s  J/tok=0.4641  p95=0.545s err=0
+trial2 c=4   prefix=0 223.87 W    955.4 tok/s  J/tok=0.2343  p95=0.537s err=0
+trial2 c=8   prefix=0 234.41 W   1888.8 tok/s  J/tok=0.1241  p95=0.544s err=0
+trial2 c=8   prefix=1 235.53 W   1851.7 tok/s  J/tok=0.1272  p95=0.554s err=0
+trial2 c=16  prefix=0 243.99 W   3620.3 tok/s  J/tok=0.0674  p95=0.569s err=0
+trial2 c=32  prefix=0 247.24 W   6594.1 tok/s  J/tok=0.0375  p95=0.626s err=0
+trial2 c=48  prefix=0 246.68 W   9594.7 tok/s  J/tok=0.0257  p95=0.652s err=0
+trial2 c=64  prefix=0 247.22 W  11854.8 tok/s  J/tok=0.0209  p95=0.703s err=0
+trial2 c=96  prefix=0 247.76 W  15538.0 tok/s  J/tok=0.0159  p95=0.814s err=0
+trial2 c=128 prefix=0 247.46 W  18650.6 tok/s  J/tok=0.0133  p95=0.91s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12304125/h1.csv (23 rows) gpu=NVIDIA A100-PCIE-40GB
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 40.03 W
+fitted P_idle = 232.6 W
+fitted k_b    = 0.17 W per concurrent request
+R^2           = 0.4567
+max |residual| = 13.73 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   220.15    229.5   0.9593   0.559
+    1   232.03    229.5   1.0111   0.559
+    2   223.26    471.4   0.4736   0.544
+    2   219.24    472.4   0.4641   0.545
+    4   229.54    956.3     0.24   0.537
+    4   223.87    955.4   0.2343   0.537
+    8   239.62   1892.9   0.1266   0.543
+    8   234.41   1888.8   0.1241   0.544
+   16   248.11   3622.5   0.0685   0.567
+   16   243.99   3620.3   0.0674   0.569
+   32   247.77   6633.8   0.0373   0.625
+   32   247.24   6594.1   0.0375   0.626
+   48   246.66   9586.5   0.0257   0.653
+   48   246.68   9594.7   0.0257   0.652
+   64   247.13  11841.7   0.0209   0.705
+   64   247.22  11854.8   0.0209   0.703
+   96   247.77  15653.2   0.0158   0.806
+   96   247.76  15538.0   0.0159   0.814
+  128   247.67  18751.3   0.0132   0.898
+  128   247.46  18650.6   0.0133    0.91
+
+J/token range: 1.0111 at c=1 -> 0.0132 at c=128  (76.60x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +180.1 W
+marginal cost per extra concurrent request:  +0.17 W
+ratio: waking an idle GPU costs 1065x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 40.0 W = 16% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1266 shared J/tok=0.1293  unique tok/s=1892.9 shared tok/s=1853.3
+c=8: unique J/tok=0.1266 shared J/tok=0.1272  unique tok/s=1892.9 shared tok/s=1851.7
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.4567 WEAK - revisit model form
+/var/spool/slurm/d/job12304125/slurm_script: line 132: 1305709 Terminated              $PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12304125

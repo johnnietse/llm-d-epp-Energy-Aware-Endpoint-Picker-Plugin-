@@ -1,0 +1,37 @@
+=== embedded versus standalone DCGM host engine, 2026-10-03T13:34:25-04:00 ===
+node: frnt148.frontenac.local  job: 12302788
+
+--- C1: clean embedded exporter, only dcgm4 libs on the path ---
+  RESULT: exporter UP. total series 80, profiling series 20
+
+--- C2: after a standalone non-root host engine has been started and killed ---
+  host engine pid 902947 alive: yes
+  and for the record, what dcgmi sees through it for a profiling field:
+    #Entity         DRAMA        
+    GPU 0           0.000        
+    GPU 0           0.000        
+  RESULT: exporter UP. total series 80, profiling series 20
+
+--- C3: while a standalone non-root host engine is still running ---
+  RESULT: exporter UP. total series 80, profiling series 20
+
+--- C4: dcgm3 libraries ahead of dcgm4 on the path, as in job 12302443 ---
+  RESULT: exporter UP. total series 80, profiling series 20
+
+--- C5: the same profiling field through the embedded path, via dcgmi against
+        a host engine we did NOT start (there is none), to confirm dcgmi always
+        needs a standalone engine and therefore always hits the root check ---
+    =================================
+    Environment Variable Information:
+    =================================
+    WARNING: CUDA_VISIBLE_DEVICES is set to 0,1,2,3 on dcgmi process. This does not affect which GPUs are selected for diagnostics. Unset CUDA_VISIBLE_DEVICES on dcgmi process. Set CUDA_VISIBLE_DEVICES on nv-hostengine to select GPUs.
+    
+    Variable Name: CUDA_VISIBLE_DEVICES
+
+=== how to read this ===
+If C1 and C4 both pass and only C2/C3 fail, the earlier failure was caused by
+a standalone host engine in the same job, not by privilege. If every exporter
+case passes, then the embedded host engine is simply privileged enough and the
+root check applies only to the standalone daemon that dcgmi requires.
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/dcgm-isolate-12302788.txt ===

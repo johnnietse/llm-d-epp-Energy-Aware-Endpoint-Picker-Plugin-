@@ -1,0 +1,27 @@
+node=frnt149.frontenac.local job=12304132
+0, Quadro RTX 6000, 610.43.02
+1, Quadro RTX 6000, 610.43.02
+
+=== baseline: both GPUs unclamped ===
+  gpu0-baseline    sm_clock_med= 1350 MHz  power= 244.3 W  TFLOP/s=  84.1  J/TFLOP=  2.90
+  gpu1-baseline    sm_clock_med= 1365 MHz  power= 244.2 W  TFLOP/s=  86.1  J/TFLOP=  2.84
+
+=== apply the permitted levers to GPU 0 ONLY ===
+All done.
+All done.
+  GPU 0 reports: [Requested functionality has been deprecated], [Requested functionality has been deprecated]
+  GPU 1 reports: [Requested functionality has been deprecated], [Requested functionality has been deprecated]
+
+=== under load, clamped GPU 0 vs control GPU 1 ===
+  gpu0-clamped     sm_clock_med= 1335 MHz  power= 243.0 W  TFLOP/s=  83.3  J/TFLOP=  2.92
+  gpu1-control     sm_clock_med= 1350 MHz  power= 240.8 W  TFLOP/s=  84.3  J/TFLOP=  2.86
+
+=== revert ===
+All done.
+All done.
+  gpu0-reverted    sm_clock_med= 1320 MHz  power= 244.6 W  TFLOP/s=  83.1  J/TFLOP=  2.94
+
+Read it this way: if gpu0-clamped shows a materially lower SM clock,
+lower power, or lower throughput than gpu1-control AND than its own
+baseline, the lever is real. If all four rows match, the lever is
+cosmetic and the multi-node path is the only route to heterogeneity.

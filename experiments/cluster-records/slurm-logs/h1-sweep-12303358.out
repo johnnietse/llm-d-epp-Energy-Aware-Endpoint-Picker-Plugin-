@@ -1,0 +1,92 @@
+no host python can read the NVML energy counter; trying the container
+energy-counter python: env -u SSL_CERT_FILE /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer exec --nv /global/home/hpc6081/energy-epp/images/vllm-v0.30.0.sif python3
+node=frnt153.frontenac.local job=12303358
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128 seconds=75 trials=2
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-c62089ae-e312-2ae2-146a-2cb2815fbc7a, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-7fdb3b5e-8c8d-8a39-865d-d496071260df, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+2, GPU-53fd734d-1c18-665e-06a5-2f99388e721c, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+3, GPU-0bbd98d6-e275-b81d-8924-b237237ebfa2, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=intel,avx512,avx512_gpu
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=12.93
+vllm up after 140s
+idle(model loaded): 54.7 W
+trial1 c=1   prefix=0 195.43 W    130.4 tok/s  J/tok=1.4985  p95=0.983s err=0
+trial1 c=2   prefix=0 196.73 W    224.6 tok/s  J/tok=0.8761  p95=1.142s err=0
+trial1 c=4   prefix=0 209.43 W    436.3 tok/s  J/tok=0.48  p95=1.175s err=0
+trial1 c=8   prefix=0 213.85 W    839.3 tok/s  J/tok=0.2548  p95=1.222s err=0
+trial1 c=8   prefix=1 211.52 W    781.1 tok/s  J/tok=0.2708  p95=1.301s err=0
+trial1 c=16  prefix=0 219.39 W   1543.9 tok/s  J/tok=0.1421  p95=1.335s err=0
+trial1 c=32  prefix=0 220.77 W   2709.2 tok/s  J/tok=0.0815  p95=1.52s err=0
+trial1 c=48  prefix=0 221.85 W   3552.8 tok/s  J/tok=0.0624  p95=1.724s err=0
+trial1 c=64  prefix=0 224.27 W   4412.5 tok/s  J/tok=0.0508  p95=1.856s err=0
+trial1 c=96  prefix=0  233.1 W   5641.1 tok/s  J/tok=0.0413  p95=2.202s err=0
+trial1 c=128 prefix=0 235.67 W   6700.6 tok/s  J/tok=0.0352  p95=2.536s err=0
+trial2 c=1   prefix=0  227.8 W    130.5 tok/s  J/tok=1.7454  p95=0.982s err=0
+trial2 c=2   prefix=0 208.86 W    224.8 tok/s  J/tok=0.9292  p95=1.141s err=0
+trial2 c=4   prefix=0 211.68 W    436.6 tok/s  J/tok=0.4848  p95=1.174s err=0
+trial2 c=8   prefix=0  214.0 W    840.1 tok/s  J/tok=0.2547  p95=1.221s err=0
+trial2 c=8   prefix=1 210.51 W    781.2 tok/s  J/tok=0.2695  p95=1.301s err=0
+trial2 c=16  prefix=0 217.69 W   1549.6 tok/s  J/tok=0.1405  p95=1.324s err=0
+trial2 c=32  prefix=0 220.24 W   2710.6 tok/s  J/tok=0.0813  p95=1.52s err=0
+trial2 c=48  prefix=0 220.75 W   3554.4 tok/s  J/tok=0.0621  p95=1.722s err=0
+trial2 c=64  prefix=0 222.68 W   4427.7 tok/s  J/tok=0.0503  p95=1.848s err=0
+trial2 c=96  prefix=0  232.1 W   5641.7 tok/s  J/tok=0.0411  p95=2.201s err=0
+trial2 c=128 prefix=0 234.83 W   6659.2 tok/s  J/tok=0.0353  p95=2.487s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12303358/h1.csv (23 rows) gpu=Quadro RTX 6000
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 54.7 W
+fitted P_idle = 210.6 W
+fitted k_b    = 0.21 W per concurrent request
+R^2           = 0.6530
+max |residual| = 16.96 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   195.43    130.4   1.4985   0.983
+    1    227.8    130.5   1.7454   0.982
+    2   196.73    224.6   0.8761   1.142
+    2   208.86    224.8   0.9292   1.141
+    4   209.43    436.3     0.48   1.175
+    4   211.68    436.6   0.4848   1.174
+    8   213.85    839.3   0.2548   1.222
+    8    214.0    840.1   0.2547   1.221
+   16   219.39   1543.9   0.1421   1.335
+   16   217.69   1549.6   0.1405   1.324
+   32   220.77   2709.2   0.0815    1.52
+   32   220.24   2710.6   0.0813    1.52
+   48   221.85   3552.8   0.0624   1.724
+   48   220.75   3554.4   0.0621   1.722
+   64   224.27   4412.5   0.0508   1.856
+   64   222.68   4427.7   0.0503   1.848
+   96    233.1   5641.1   0.0413   2.202
+   96    232.1   5641.7   0.0411   2.201
+  128   235.67   6700.6   0.0352   2.536
+  128   234.83   6659.2   0.0353   2.487
+
+J/token range: 1.7454 at c=1 -> 0.0352 at c=128  (49.59x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +140.7 W
+marginal cost per extra concurrent request:  +0.21 W
+ratio: waking an idle GPU costs 666x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 54.7 W = 23% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.2548 shared J/tok=0.2708  unique tok/s=839.3 shared tok/s=781.1
+c=8: unique J/tok=0.2548 shared J/tok=0.2695  unique tok/s=839.3 shared tok/s=781.2
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.6530 WEAK - revisit model form
+/var/spool/slurm/d/job12303358/slurm_script: line 132: 3541925 Terminated              $PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12303358

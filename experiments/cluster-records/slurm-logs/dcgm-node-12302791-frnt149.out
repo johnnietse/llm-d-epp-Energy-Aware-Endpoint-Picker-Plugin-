@@ -1,0 +1,28 @@
+=== DCGM permission profile on frnt149, 2026-10-03T13:47:23-04:00 ===
+job 12302791
+
+--- node identity ---
+0, Quadro RTX 6000, 610.43.02
+RmProfilingAdminOnly: RmProfilingAdminOnly: 1
+kernel: 4.18.0-553.148.1.el8_10.x86_64
+features: ActiveFeatures=intel,avx512,avx512_gpu
+
+--- H-field: each profiling field asked for ALONE, through a standalone engine ---
+  field 1002: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 1003: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 1004: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 1005: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 1009: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 1010: Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+  field 155: GPU 0 13.525 
+  field 156: GPU 0 114330231613 
+
+--- the combination that failed originally: 1002 and 1005 together ---
+  #Entity         SMACT        DRAMA        
+  Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+--- H-node: the embedded exporter with the shipped counter file ---
+  exporter DIED. decisive line:
+    error="error watching fields: Host engine is running as non-root"
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/dcgm-pernode-frnt149-12302791.txt ===

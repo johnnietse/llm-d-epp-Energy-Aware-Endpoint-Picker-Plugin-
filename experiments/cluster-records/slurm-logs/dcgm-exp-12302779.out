@@ -1,0 +1,17 @@
+=== dcgm-exporter under an unprivileged host engine, 2026-10-03T13:27:42-04:00 ===
+node: frnt148.frontenac.local  job: 12302779
+
+--- unprivileged-only (8 fields) ---
+exporter EXITED. decisive lines from its log:
+time=2026-10-03T13:27:44.865-04:00 level=ERROR msg="failed to get counters: could not find DCGM field; err: unknown ExporterCounter field 'DCGM_FI_DEV_MEMORY_CLOCK'"
+
+--- plus-dram-active (9 fields) ---
+exporter EXITED. decisive lines from its log:
+time=2026-10-03T13:28:02.846-04:00 level=ERROR msg="failed to get counters: could not find DCGM field; err: unknown ExporterCounter field 'DCGM_FI_DEV_MEMORY_CLOCK'"
+
+=== interpretation ===
+If 'unprivileged-only' served metrics and 'plus-dram-active' did not, then
+DCGM's field-group watch is atomic and the exporter is usable without root
+as long as the counter file excludes profiling fields.
+
+=== done: /global/home/hpc6081/energy-epp/instruments-probe/dcgm-exporter-12302779.txt ===

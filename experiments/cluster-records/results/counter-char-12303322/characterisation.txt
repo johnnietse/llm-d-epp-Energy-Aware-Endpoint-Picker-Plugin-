@@ -1,0 +1,41 @@
+GPU: NVIDIA A30  uuid=GPU-3e5c4e83-d997-d16a-16be-7176ad1a653a
+driver: 610.43.02
+
+=== 0. which power sources does this driver expose? ===
+  instantaneous (nvmlDeviceGetPowerUsage): 25.80 W
+  NVML_FI_DEV_POWER_AVERAGE: NOT AVAILABLE
+  NVML_FI_DEV_POWER_INSTANT: 25.80 W
+
+=== 1. counter update period and quantum (1 ms polling, 8 s) ===
+  updates seen: 80 in 8 s
+  median update period: 100.5 ms
+  median step: 4668.5 mJ   min 2598  max 4778
+  => a window shorter than ~2011 ms carries
+     fewer than 20 counter updates and should not be trusted
+
+=== 2. steady load, 30 s: three estimates of the same energy ===
+  window 30.65 s
+  counter delta          :    4925.6 J   ( 160.72 W)
+  integral of instant    :    4943.1 J   ( 161.29 W)   +0.35% vs counter
+  integral of averaged   : field unavailable on this driver
+
+=== 3. square-wave load, 30 s, 50% duty at 2 Hz (aliasing stress) ===
+  window 30.10 s
+  counter delta          :    4337.1 J   ( 144.10 W)
+  integral of instant    :    4256.4 J   ( 141.42 W)   -1.86% vs counter
+  Reading: a large gap here means instantaneous sampling aliases under
+  bursty load and the counter is the correct instrument - which is what
+  our protocol already assumes. A small gap means either works.
+
+=== 4. shortest trustworthy window (counter vs 60 s reference) ===
+  reference: 164.270 W over 60.7 s
+    0.5 s window: 166.254 W  ( +1.21% vs reference)  TOO SHORT
+    1.0 s window: 163.862 W  ( -0.25% vs reference)  OK
+    2.0 s window: 164.160 W  ( -0.07% vs reference)  OK
+    5.0 s window: 164.129 W  ( -0.09% vs reference)  OK
+   10.0 s window: 164.273 W  ( +0.00% vs reference)  OK
+   20.0 s window: 164.468 W  ( +0.12% vs reference)  OK
+
+The shortest window marked OK is the floor the protocol should enforce.
+Our sweeps use 75 s, so any result here validates that choice with
+measurement instead of assumption. This closes validity defect S2.

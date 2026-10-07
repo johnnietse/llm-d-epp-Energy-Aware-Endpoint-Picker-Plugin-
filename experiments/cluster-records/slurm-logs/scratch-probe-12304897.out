@@ -1,0 +1,32 @@
+node=frnt152.frontenac.local
+SLURM_TMPDIR=/lscratch/slurm-job-12304897
+
+--- /lscratch/slurm-job-12304897
+    fstype=xfs  avail=463694 MiB
+    looks node-local
+--- /tmp
+    fstype=xfs  avail=463694 MiB
+    looks node-local
+--- /localscratch/hpc6081
+    does not exist
+--- /scratch/local
+    does not exist
+--- /var/tmp
+    fstype=xfs  avail=435587 MiB
+    looks node-local
+
+=== where does the model actually live, and how big is it? ===
+model dir: /global/home/hpc6081/energy-epp/.hf/hub/models--Qwen--Qwen2.5-1.5B-Instruct
+  12M	/global/home/hpc6081/energy-epp/.hf/hub/models--Qwen--Qwen2.5-1.5B-Instruct
+  filesystem: gpfs
+
+=== copy the checkpoint to the best local candidate and time it ===
+staging into /lscratch/slurm-job-12304897/hfstage-12304897
+  copied 0.01 GiB in 0.5 s = 24 MiB/s
+
+=== read it back, 8 concurrent readers, as the real job would ===
+  8 readers read 0.09 GiB total in 0.0 s = 3931 MiB/s aggregate
+
+RESULT: node-local staging is possible at /lscratch/slurm-job-12304897.
+Pointing HF_HOME there removes GPFS from every server's read path, which
+eliminates the frnt155 hazard rather than reducing its probability.

@@ -1,0 +1,46 @@
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 40.03 W
+fitted P_idle = 232.6 W
+fitted k_b    = 0.17 W per concurrent request
+R^2           = 0.4567
+max |residual| = 13.73 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   220.15    229.5   0.9593   0.559
+    1   232.03    229.5   1.0111   0.559
+    2   223.26    471.4   0.4736   0.544
+    2   219.24    472.4   0.4641   0.545
+    4   229.54    956.3     0.24   0.537
+    4   223.87    955.4   0.2343   0.537
+    8   239.62   1892.9   0.1266   0.543
+    8   234.41   1888.8   0.1241   0.544
+   16   248.11   3622.5   0.0685   0.567
+   16   243.99   3620.3   0.0674   0.569
+   32   247.77   6633.8   0.0373   0.625
+   32   247.24   6594.1   0.0375   0.626
+   48   246.66   9586.5   0.0257   0.653
+   48   246.68   9594.7   0.0257   0.652
+   64   247.13  11841.7   0.0209   0.705
+   64   247.22  11854.8   0.0209   0.703
+   96   247.77  15653.2   0.0158   0.806
+   96   247.76  15538.0   0.0159   0.814
+  128   247.67  18751.3   0.0132   0.898
+  128   247.46  18650.6   0.0133    0.91
+
+J/token range: 1.0111 at c=1 -> 0.0132 at c=128  (76.60x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +180.1 W
+marginal cost per extra concurrent request:  +0.17 W
+ratio: waking an idle GPU costs 1065x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 40.0 W = 16% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1266 shared J/tok=0.1293  unique tok/s=1892.9 shared tok/s=1853.3
+c=8: unique J/tok=0.1266 shared J/tok=0.1272  unique tok/s=1892.9 shared tok/s=1851.7
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.4567 WEAK - revisit model form

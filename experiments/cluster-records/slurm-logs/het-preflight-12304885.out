@@ -1,0 +1,34 @@
+
+=== 1. heterogeneous allocation ===
+  SLURM_HET_SIZE=2
+  [OK]   het size 2
+  [OK]   component 0: frnt107.frontenac.local / NVIDIA A100-PCIE-40GB
+  [OK]   component 1: frnt108.frontenac.local / Quadro RTX 6000
+
+=== 2. the two components differ ===
+  [OK]   'NVIDIA A100-PCIE-40GB' vs 'Quadro RTX 6000'
+
+=== 3. cross-node HTTP, which the whole design depends on ===
+  [OK]   component 0 reached component 1 at frnt108.frontenac.local:8399
+  [OK]   component 1 reached its own port
+
+=== 4. per-node energy sampler inside the container ===
+  [OK]   sampler on frnt107.frontenac.local: 47 lines
+  [OK]   sampler on frnt108.frontenac.local: 43 lines
+
+=== 5. stitch a window across both nodes ===
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "<frozen importlib._bootstrap_external>", line 674, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 781, in get_code
+  File "<frozen importlib._bootstrap_external>", line 741, in source_to_code
+  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+  File "/global/home/hpc6081/energy-epp/scripts/multinode_energy.py", line 23
+    from __future__ import annotations
+    ^
+SyntaxError: future feature annotations is not defined
+  [FAIL] cross-node energy stitching failed
+
+==================================================
+PREFLIGHT FAILED - fix the [FAIL] items before submitting the real
+job. It would hold two nodes for hours to rediscover the same thing.

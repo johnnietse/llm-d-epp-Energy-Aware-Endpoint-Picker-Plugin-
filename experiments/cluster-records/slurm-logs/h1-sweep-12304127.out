@@ -1,0 +1,89 @@
+energy-counter python: /cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/python3
+node=frnt141.frontenac.local job=12304127
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128 seconds=75 trials=2
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-8ef0bd0a-dc50-95f1-a9b2-c587a7e5640e, NVIDIA A30, 610.43.02, 165.00 W, 100.00 W, 165.00 W, 24576 MiB, Enabled
+1, GPU-d12553c8-2674-6f01-493d-6a3e5f34ffe5, NVIDIA A30, 610.43.02, 165.00 W, 100.00 W, 165.00 W, 24576 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=power_ipmi,amd
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=28.83
+vllm up after 90s
+idle(model loaded): 31.39 W
+trial1 c=1   prefix=0 148.87 W    185.6 tok/s  J/tok=0.8021  p95=0.69s err=0
+trial1 c=2   prefix=0 154.69 W    365.8 tok/s  J/tok=0.4229  p95=0.701s err=0
+trial1 c=4   prefix=0 159.02 W    719.4 tok/s  J/tok=0.2211  p95=0.713s err=0
+trial1 c=8   prefix=0 161.66 W   1431.9 tok/s  J/tok=0.1129  p95=0.716s err=0
+trial1 c=8   prefix=1 162.03 W   1406.8 tok/s  J/tok=0.1152  p95=0.723s err=0
+trial1 c=16  prefix=0 164.13 W   2735.5 tok/s  J/tok=0.06  p95=0.751s err=0
+trial1 c=32  prefix=0 163.77 W   4872.7 tok/s  J/tok=0.0336  p95=0.844s err=0
+trial1 c=48  prefix=0 163.81 W   7104.8 tok/s  J/tok=0.0231  p95=0.877s err=0
+trial1 c=64  prefix=0 163.92 W   8639.9 tok/s  J/tok=0.019  p95=0.963s err=0
+trial1 c=96  prefix=0 163.64 W  10285.6 tok/s  J/tok=0.0159  p95=1.228s err=0
+trial1 c=128 prefix=0 163.95 W  12114.0 tok/s  J/tok=0.0135  p95=1.402s err=0
+trial2 c=1   prefix=0 157.57 W    185.6 tok/s  J/tok=0.8489  p95=0.69s err=0
+trial2 c=2   prefix=0 156.96 W    364.8 tok/s  J/tok=0.4302  p95=0.702s err=0
+trial2 c=4   prefix=0 158.95 W    719.5 tok/s  J/tok=0.2209  p95=0.713s err=0
+trial2 c=8   prefix=0 160.82 W   1430.3 tok/s  J/tok=0.1124  p95=0.717s err=0
+trial2 c=8   prefix=1 161.24 W   1403.9 tok/s  J/tok=0.1149  p95=0.725s err=0
+trial2 c=16  prefix=0 164.15 W   2733.7 tok/s  J/tok=0.06  p95=0.752s err=0
+trial2 c=32  prefix=0 164.06 W   4889.4 tok/s  J/tok=0.0336  p95=0.847s err=0
+trial2 c=48  prefix=0 163.76 W   7055.2 tok/s  J/tok=0.0232  p95=0.884s err=0
+trial2 c=64  prefix=0 163.58 W   8654.9 tok/s  J/tok=0.0189  p95=0.966s err=0
+trial2 c=96  prefix=0 163.74 W  10315.6 tok/s  J/tok=0.0159  p95=1.23s err=0
+trial2 c=128 prefix=0 163.67 W  12157.5 tok/s  J/tok=0.0135  p95=1.401s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv (23 rows) gpu=NVIDIA A30
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 31.39 W
+fitted P_idle = 159.1 W
+fitted k_b    = 0.05 W per concurrent request
+R^2           = 0.3249
+max |residual| = 10.24 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   148.87    185.6   0.8021    0.69
+    1   157.57    185.6   0.8489    0.69
+    2   154.69    365.8   0.4229   0.701
+    2   156.96    364.8   0.4302   0.702
+    4   159.02    719.4   0.2211   0.713
+    4   158.95    719.5   0.2209   0.713
+    8   161.66   1431.9   0.1129   0.716
+    8   160.82   1430.3   0.1124   0.717
+   16   164.13   2735.5     0.06   0.751
+   16   164.15   2733.7     0.06   0.752
+   32   163.77   4872.7   0.0336   0.844
+   32   164.06   4889.4   0.0336   0.847
+   48   163.81   7104.8   0.0231   0.877
+   48   163.76   7055.2   0.0232   0.884
+   64   163.92   8639.9    0.019   0.963
+   64   163.58   8654.9   0.0189   0.966
+   96   163.64  10285.6   0.0159   1.228
+   96   163.74  10315.6   0.0159    1.23
+  128   163.95  12114.0   0.0135   1.402
+  128   163.67  12157.5   0.0135   1.401
+
+J/token range: 0.8489 at c=1 -> 0.0135 at c=128  (62.88x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +117.5 W
+marginal cost per extra concurrent request:  +0.05 W
+ratio: waking an idle GPU costs 2151x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 31.4 W = 19% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1129 shared J/tok=0.1152  unique tok/s=1431.9 shared tok/s=1406.8
+c=8: unique J/tok=0.1129 shared J/tok=0.1149  unique tok/s=1431.9 shared tok/s=1403.9
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.3249 WEAK - revisit model form
+/var/spool/slurm/d/job12304127/slurm_script: line 132: 1864168 Terminated              $PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12304127

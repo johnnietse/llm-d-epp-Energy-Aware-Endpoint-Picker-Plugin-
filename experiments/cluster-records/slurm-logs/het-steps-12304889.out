@@ -1,0 +1,29 @@
+job=12304889 het_size=2
+  component 0: frnt154.frontenac.local with 8 gpu(s)
+  component 1: frnt152.frontenac.local with 4 gpu(s)
+
+launched 12 concurrent steps; waiting
+concurrent job steps visible to squeue: 10
+all steps finished in 20s (rc=0)
+
+=== what each step reported ===
+  frnt154 step g=0 i=0 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=1 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=2 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=3 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=4 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=5 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=6 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt154 step g=0 i=7 sees gpu uuid=GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96
+  frnt152 step g=1 i=0 sees gpu uuid=GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b
+  frnt152 step g=1 i=1 sees gpu uuid=GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b
+  frnt152 step g=1 i=2 sees gpu uuid=GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b
+  frnt152 step g=1 i=3 sees gpu uuid=GPU-ce3f5de7-b495-fac1-0c82-825ee50a6e4b
+
+=== distinct GPU uuids seen (should equal 12 if pinning worked) ===
+  distinct uuids: 2
+
+==================================================
+WARN: 2 distinct uuids for 12 steps - GPU pinning may not be
+      isolating devices the way the real job assumes.
+PASSED: 12 concurrent --overlap steps across 2 components.

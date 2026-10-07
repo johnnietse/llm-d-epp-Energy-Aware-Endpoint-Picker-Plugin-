@@ -1,0 +1,15 @@
+job=12304903 het_size=2
+  component 0: host=frnt154.frontenac.local type=NVIDIA_A100-PCIE-40GB gpus_present=8
+  component 1: host=frnt153.frontenac.local type=Quadro_RTX_6000 gpus_present=4
+  balancing component 0: 8 GPUs present, using 4
+fleet: 2 types x 4 replicas each
+
+=== clock skew across components ===
+  conservative skew bound: 0.060486s (includes srun round-trip, so it
+  overstates the true clock difference)
+
+=== staging Qwen/Qwen2.5-1.5B-Instruct on node-local storage ===
+  frnt154.frontenac.local: staged 5910 MiB to /lscratch/slurm-job-12304903/hfstage
+FATAL: staging failed on frnt153.frontenac.local (MKDIR_FAILED)
+Refusing to fall back to GPFS reads: that is the exact path
+that wedged frnt155, and a silent fallback would hide it.

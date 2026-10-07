@@ -1,0 +1,22 @@
+load generator: 16 worker process(es)
+--- round_robin at 200.0 req/s ---
+    J/req 7.26  goodput/J 0.1377  SLO 100.0%
+    TTFT p50/p95 0.043/0.052s  TPOT 0.0134s  ITL p99/max 0.0183/0.0589s  e2e p99 1.792s  errors 0
+    SLO margin p50/p95 0.875/0.891 x SLO  within 10% of boundary 0.1%
+    offered 200.0 req/s  achieved 194.1 req/s  fidelity 97.0%  send delay p99 0.002s  TTFT from send p50 0.043
+--- least_loaded at 200.0 req/s ---
+    J/req 7.30  goodput/J 0.1371  SLO 100.0%
+    TTFT p50/p95 0.043/0.053s  TPOT 0.0133s  ITL p99/max 0.0181/0.0626s  e2e p99 1.777s  errors 0
+    SLO margin p50/p95 0.868/0.883 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 194.0 req/s  fidelity 97.0%  send delay p99 0.001s  TTFT from send p50 0.043
+--- slo_packing at 200.0 req/s ---
+    J/req 6.25  goodput/J 0.0707  SLO 44.2%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0150s  ITL p99/max 0.0193/0.0659s  e2e p99 2.037s  errors 0
+    SLO margin p50/p95 1.002/1.013 x SLO  within 10% of boundary 89.6%
+    offered 200.0 req/s  achieved 193.6 req/s  fidelity 96.8%  send delay p99 0.001s  TTFT from send p50 0.050
+--- energy_greedy at 200.0 req/s ---
+    J/req 6.23  goodput/J 0.0705  SLO 43.9%
+    TTFT p50/p95 0.051/0.061s  TPOT 0.0150s  ITL p99/max 0.0195/0.0647s  e2e p99 2.033s  errors 0
+    SLO margin p50/p95 1.002/1.012 x SLO  within 10% of boundary 90.5%
+    offered 200.0 req/s  achieved 193.4 req/s  fidelity 96.7%  send delay p99 0.001s  TTFT from send p50 0.050
+--- energy_consolidate at 200.0 req/s ---

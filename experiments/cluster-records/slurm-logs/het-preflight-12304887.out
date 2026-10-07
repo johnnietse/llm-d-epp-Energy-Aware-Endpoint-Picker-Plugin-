@@ -1,0 +1,27 @@
+
+=== 1. heterogeneous allocation ===
+  SLURM_HET_SIZE=2
+  [OK]   het size 2
+  [OK]   component 0: frnt107.frontenac.local / NVIDIA A100-PCIE-40GB
+  [OK]   component 1: frnt108.frontenac.local / Quadro RTX 6000
+
+=== 2. the two components differ ===
+  [OK]   'NVIDIA A100-PCIE-40GB' vs 'Quadro RTX 6000'
+
+=== 3. cross-node HTTP, which the whole design depends on ===
+  [OK]   component 0 reached component 1 at frnt108.frontenac.local:8399
+  [OK]   component 1 reached its own port
+
+=== 4. per-node energy sampler inside the container ===
+  [OK]   sampler on frnt107.frontenac.local: 47 lines
+  [OK]   sampler on frnt108.frontenac.local: 43 lines
+
+=== 5. stitch a window across both nodes ===
+  window 10.43s across 2 node(s), complete=True
+  [OK]   frnt107.frontenac.local   331.2 J    31.8 W  1 gpu(s)
+  [OK]   frnt108.frontenac.local   364.1 J    34.9 W  2 gpu(s)
+  fleet total: 695.2 J
+  [OK]   cross-node energy stitching works
+
+==================================================
+PREFLIGHT PASSED - stage2_het.sbatch can be submitted.
