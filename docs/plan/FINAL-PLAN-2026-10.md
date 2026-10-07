@@ -302,6 +302,8 @@ What this means concretely, as a pre-flight checklist for anything submitted:
 | `source .../profile/bash.sh` in a batch script | execs a replacement shell; everything after it is discarded, exit 1, empty log |
 | Deriving load from server capacity alone | says nothing about what the client can emit; ask for the impossible and nothing warns |
 | An outer `timeout` shorter than a script's own wait loop | SIGTERM, exit 143, and no result |
+| Quoting a remote command containing `$VAR` through `wsl.exe` then `ssh` | three quoting layers, each entitled to one round of expansion. `squeue -u $USER` came back as `Invalid user: ohnnie`, the username with its first character eaten. Put the remote command in a file and run the file |
+| Counting a bad state from a flag that older data does not carry | `het_final.sh` counted unusable cross-checks from `cross_check_usable`, a field added after job 12305232 ran. It reported "0 unusable" for a run in which all 25 cells are missing the engine ITL histogram. Count the absence of the *value*, so old and new data answer the same question |
 | A verification check that greps for *how* a fix was written | it rots the moment the implementation improves, then reports FAIL against working code. `verify_fixes.sh` section 1 still grepped for `$STAGED_HF` and `${SLURM_TMPDIR:-/tmp}/hfstage` after the uniform-path rewrite replaced both, so it failed a staging block that provably works. Assert the observable property where possible; where you must grep for detail, read a FAIL as "the check or the code is wrong", never as "the code is wrong" |
 
 ---
@@ -718,6 +720,8 @@ Do **not** run `ars-full` yet. That decision was already made in
 | **N12** | **An instrument probe tested the wrong thing** | **closed 2026-10-04.** `h1_sweep.sbatch` chose its Python with `python3 -c "import pynvml"`. pynvml imports from `~/.local` even when `libnvidia-ml.so.1` is unreachable, so job 12303357 passed the probe and then died on `nvmlInit`. The probe now performs import, `nvmlInit` and one counter read, and falls back to the container Python. |
 | **N13** | **Does staging the model perturb the measurement?** | **closed 2026-10-05, by construction and by ordering.** The multi-node job copies the checkpoint to node-local storage before serving. Three reasons it cannot reach a measured quantity: (1) staging completes before any vLLM server starts, and every energy window opens only after all servers report ready, so no staging I/O falls inside a measured interval; (2) the per-node energy samplers are started *after* staging for exactly this reason - started before, the copy's CPU and disk time would appear in the RAPL CPU/DRAM figures, and that ordering is now asserted in the script with a comment saying why; (3) host page cache and local disk do not affect the GPU energy counter, which is the primary metric. One genuine consequence remains and is stated rather than hidden: the heterogeneous run reads weights from local xfs while the homogeneous runs read from GPFS, so **model-load time is not comparable across those runs**. Load time is not in any measured window, so no reported number is affected, but it must not later be compared across the two configurations. |
 | **N14** | **Walltime was described as the control for a wedge; it is not** | **corrected 2026-10-05.** A process blocked in uninterruptible kernel I/O ignores SIGKILL until the I/O returns, so `scancel` cannot reap it and even Slurm's own reclaim waits on the same stuck I/O - that is why `frnt155` sat in COMPLETING for hours. The walltime only bounds how long the allocation is *held*; it neither prevents nor shortens a wedge. The real fix is upstream: node-local staging takes the shared filesystem out of every server's read path, so a GPFS stall cannot block a server at all. Walltime is the last line of defence, now 1h15m against a measured ~40 min run. |
+| **N15** | **The two arms of the central comparison do not share a storage path** | **OPEN, and it is a confound in the headline claim.** `stage2_het.sbatch` stages the checkpoint to node-local disk; `stage2_real.sbatch`, which produced the homogeneous arm (12304137/12304138), has no staging block and served weights from GPFS. The claim "energy-aware routing pays off under heterogeneity and not under homogeneity" therefore compares two runs that differ in *two* ways, fleet composition and read path. The load-time effect is the large one and measurement starts after readiness, so this is unlikely to drive the result, but "unlikely" is not a control. Closing it requires re-running the homogeneous arm with staging; see tracker 21b. |
+| **N16** | **The `afterok` chain depends on the exit-status fix being correct** | **OPEN, bounded.** 12319692 is held `afterok:12319685`. Job 12305232 produced 25 valid cells and still recorded `CANCELLED 0:15` because background `srun` steps outlived the script; `afterok` reads that as failure, so had the `wait`/`exit 0` fix not worked, the second trial would never release and would sit PENDING until purged rather than failing visibly. Detection: if 12319685 reports `CANCELLED` with complete results, resubmit trial two with no `DEP`. The dependency is a convenience, not part of the measurement. |
 | **N9** | Deep-overload cells may reflect **CPU contention, not GPU saturation** | open. The generator reached 9.8 of the node's 32 cores at 590 req/s while sharing the node with 8 vLLM servers, so server-side degradation at the top of the range is partly confounded. In the measurement region (240-360 req/s) it is 4.8-6.2 cores. Mitigations if the top cells are ever load-bearing: pin generator and servers to disjoint cores, or move the generator to a second node. |
 | **N7** | **RAPL CPU+DRAM includes the load generator itself** | **open, now quantified.** The generator runs on the same node as the servers, so its CPU time is inside the RAPL package energy. Sharding the generator across processes makes this larger. GPU-package energy, the primary metric, is unaffected. Every cell now records `generator_cpu_s` and `generator_cpu_cores_mean`, so the contamination is measured rather than unknown. Any CPU/DRAM figure must be reported with that caveat, or measured with the generator on a separate node. |
 | **N8** | Prompt mix was not reproducible from the seed | **closed 2026-10-04.** Prompt length came from an rng shared by all coroutines, so the draw order depended on asyncio scheduling and the seed did not reproduce a workload. Now derived from (seed, request index), identical under any worker count or interleaving. |
@@ -968,7 +972,7 @@ criticises). Every one of those came from carrying a note forward without
 fetching the record. The lesson is cheap to state and was expensive to learn:
 **fetch before citing, every time.**
 
-### 12.4 Standards and benchmark sources, and a fifth correction of our own
+### 12.7 Standards and benchmark sources, and a fifth correction of our own
 
 **We had been asserting that MLPerf Power establishes "<1% AC uncertainty".
 That is wrong on three counts and is withdrawn.**
@@ -1026,7 +1030,7 @@ exactly the kind of claim a reviewer checks.
 
 ---
 
-### 12.5 STAGE 2 RESULT, measured 2026-10-04
+### 12.8 STAGE 2 RESULT, measured 2026-10-04
 
 Jobs **12304137** (seed 7) and **12304138** (seed 11), 4x Quadro RTX 6000,
 Qwen2.5-1.5B-Instruct, 60 s cells, 12 generator workers, routing grounded in
@@ -1066,9 +1070,9 @@ and it is the honest headline.** It was reproduced across four independent runs
 What it does **not** establish: that energy-aware replica selection is useless.
 The fleet used here is six identical Turing cards, and the per-type curves
 measured the same day show that is the worst possible setting for the idea -
-see 12.6.
+see 12.9.
 
-### 12.6 Why the question moves to a heterogeneous fleet
+### 12.9 Why the question moves to a heterogeneous fleet
 
 Per-GPU-type curves, all at concurrency 128, same model, same window:
 
@@ -1108,7 +1112,7 @@ methodological choice here rather than a convenience.
 
 ---
 
-### 12.7 The frnt155 failure mode, and what actually fixes it
+### 12.10 The frnt155 failure mode, and what actually fixes it
 
 Worth recording in full because it shaped several scripts and because the first
 three answers to it were mitigations mistaken for fixes.
@@ -1164,9 +1168,9 @@ is currently healthy. Treat the recovery as luck, not as evidence that the
 hazard is gone; the item on the CAC request that concerned `frnt155` can be
 dropped, the other six stand.
 
-### 12.8 Stage 2 replication, launched 2026-10-07
+### 12.11 Stage 2 replication, launched 2026-10-07
 
-The single heterogeneous trial in 12.5 cannot carry Stage 3. Two further
+The single heterogeneous trial in 12.8 cannot carry Stage 3. Two further
 trials are queued, chained so they cannot race each other:
 
 | Job | Seed | Hold | Purpose |
@@ -1188,9 +1192,42 @@ reporting a silent `engine 0.0000` comparison against nothing.
 
 What a pass needs: `energy_consolidate` must win in **every** trial, not on
 average across them, and the margin must stay above the 2.0% threshold. The
-caveat recorded in 12.5 survives a pass: the three curve-using policies
+caveat recorded in 12.8 survives a pass: the three curve-using policies
 cluster within 1.6-2.0% of each other, so a win is evidence for
 heterogeneity-awareness, not for the energy objective in particular.
+
+### 12.12 Engineering defect log, 2026-10-04 to 2026-10-07
+
+Every defect below was found and fixed in this project's own measurement
+code, not in llm-d. They are recorded because several produced *clean,
+publishable-looking numbers* that were wrong, and that is the failure mode
+this project is least able to afford. Entries already covered by threats
+N4-N16 or by the known-bad table in 3.4 are not repeated here.
+
+| Defect | How it surfaced | Evidence | Fix |
+|---|---|---|---|
+| Energy policies fell through to index order | `or list(range(n))` then `min(..., key=_jtok)` with every candidate `+inf`: a no-op comparison that returns the first element, so the policy silently became round-robin-by-index while reporting itself active | found by reading, after `interp` clamping was fixed and the policy still behaved oddly | falls back to least-loaded and records that it did, so an inactive policy is visible in the output rather than impersonating a decision |
+| `cp -rL` copied the checkpoint twice | staged 5910 MiB for a 2944 MiB model; `-L` dereferences `snapshots/` symlinks that already point into `blobs/`, so both copies land | staging log size | copy `refs/` and `snapshots/` only, and verify the resolved size |
+| Every measurement cell refused on a window-boundary race | `t_energy_end = time.time()` could be up to one sampler interval ahead of the newest sample, so the aggregator saw an uncovered window and correctly refused all 25 cells | job 12305215, all cells refused with full samplers | wait `2 x` interval, allow a `3 x` interval tolerance, and report `window_clamped_start_s` / `window_clamped_end_s` so a clamp is never silent |
+| TPOT histogram name did not exist | `vllm:time_per_output_token_seconds` is not a metric in vLLM 0.30.0, so the cross-check read `None`, printed `engine 0.0000`, and read as perfect agreement against nothing | **job 12305248** inspected the installed package's metric names directly rather than guessing | real name is `vllm:request_time_per_output_token_seconds`; added `vllm:inter_token_latency_seconds`, which is the engine's own between-token gap and the correct counterpart to client timestamps; `cross_check_usable` makes the no-data state explicit |
+| A successful run recorded `CANCELLED` | background `srun` steps were still alive when the batch script exited, so Slurm recorded `CANCELLED 0:15` for a job that produced 25 valid cells | job 12305232 | signal recorded PIDs, `wait`, explicit `exit 0`. Load-bearing for the `afterok` chain, see N16 |
+| The verification suite reported FAIL against working code | `verify_fixes.sh` section 1 still grepped for `$STAGED_HF` and `${SLURM_TMPDIR:-/tmp}/hfstage`, both removed by the uniform-path rewrite | PASS=31 FAIL=1 with staging provably live at `stage2_het.sbatch` lines 218, 262, 263, 282 | check rewritten against the current design, plus a new check that per-node readability is verified. PASS=33 FAIL=0 |
+| The report could not show the fix it was testing | `het_final.sh` read `server_tpot_mean_s` alone, so a populated engine ITL histogram would never have appeared in any output | found by reading the reporter before the trials finished, not after | prints TTFT, ITL and TPOT; prints `engine ABSENT` rather than `0.0000`; counts missing ITL from the value, not from a flag absent in older runs |
+| Status script claimed zero results for a complete run | `het_status.sh` globbed `cell-*.json`; the real layout is one `policies-rate<N>.json` per load level | reported `0 cell file(s)` for 12305232, which has all 25 cells | glob corrected; verified it now reports `5/5 rate file(s), 5 with energy` |
+
+**The pattern worth naming.** Six of these eight were *silent*: they produced
+output that looked like a result. The thread-pool ceiling, the `interp` clamp,
+the index-order fallback, the absent TPOT histogram, the `CANCELLED` status and
+the stale verification check all reported success or agreement. Only the window
+boundary and the double-copy announced themselves. That ratio is the argument
+for every refusal in the harness and for `verify_fixes.sh` existing at all: the
+default failure mode of a measurement pipeline is not a crash, it is a clean
+number that means nothing.
+
+**Housekeeping.** GitHub reports one moderate Dependabot alert on the
+repository's default branch. It is in dependency metadata for the quarantined
+Go tree, touches nothing on the measurement path, and is noted here so it is
+not rediscovered as news.
 
 ## 13. Progress tracker
 
@@ -1214,8 +1251,8 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 14 | Cache hit rate + queue depth from vLLM `/metrics` | **done**, pending a run |
 | 15 | GPU-package energy labelling on all published results | **done** |
 | 16 | Verify 2605.23057 and 2603.04445 (framing-only) | **done 2026-10-04**, both fetched; see 12.3 |
-| 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **done 2026-10-04**, see 12.4 |
-| 18 | Confirm MLPerf PTDaemon / 1% AC figures | **done 2026-10-04 - our claim was WRONG and is withdrawn.** MLPerf Power states no percentage; the 1% is SPEC's overall-uncertainty budget. See 12.4 |
+| 17 | Cite SPEC PTDaemon, ML.ENERGY, Green500 | **done 2026-10-04**, see 12.7 |
+| 18 | Confirm MLPerf PTDaemon / 1% AC figures | **done 2026-10-04 - our claim was WRONG and is withdrawn.** MLPerf Power states no percentage; the 1% is SPEC's overall-uncertainty budget. See 12.7 |
 | 19 | Run: counter characterisation | **done** - jobs 12303200 (A30) and 12303324 (RTX 6000); S2 closed on both |
 | 20 | Run: Stage 2 smoke, 2 GPU | **done** job 12303326 on `frnt155`; pipeline proved end to end, but see item 21 |
 | 21 | Run: Stage 2 real, 8 GPU on `frnt155` | **DISCARDED** job 12303327. Completed clean, every cell client-limited (112.5 offered / 26.7 achieved). See threats N4-N6 |
@@ -1234,11 +1271,14 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 30b | Generator CPU cost recorded per cell (quantifies N7) | **done** |
 | 31 | Stage 2 real, verified load levels | **RUN, VERDICT REJECTED** job 12303355. Apparatus sound (25 cells, 0 client-limited, dispatch p99 0.0051 s, perturbation -0.14%) but routing was ungrounded (N10) and the apparent +9.9% round_robin win was an SLO-boundary artifact: p50 1.946/1.956/1.968 s against a 2.0 s SLO gave 99.0/94.3/90.0% attainment |
 | 31a | Extend RTX 6000 curve to concurrency 128 | **running** job 12303358 on `frnt153` (12303357 was lost to N12) |
-| 31b | Re-run Stage 2 with the grounded curve | **DONE 2026-10-04**, jobs 12304137/12304138. Verdict: **GATE FAILED informatively** - every curve-using policy is infeasible, `round_robin` wins. See 12.5 |
+| 31b | Re-run Stage 2 with the grounded curve | **DONE 2026-10-04**, jobs 12304137/12304138. Verdict: **GATE FAILED informatively** - every curve-using policy is infeasible, `round_robin` wins. See 12.8 |
 | 31c | Repeat trials | **done** - two seeds x two submissions, four runs, ordering identical in all. Formal CIs still to compute for the paper |
 | 31g | Node-local model staging (removes the frnt155 hazard) | **done 2026-10-05**, verified by job 12304897: `$SLURM_TMPDIR` is node-local xfs, 3931 MiB/s with 8 readers |
 | 31h | Fleet self-balances to the smaller component | **done** - refusing on unequal counts was brittle; `--exclusive` makes unequal the normal case |
-| 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.6); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
+| 31i | Stage 2 replication at seeds 11 and 13 | **running 2026-10-07**, jobs 12319685 and 12319692 (chained `afterok`). Gate needs `energy_consolidate` to win in every trial, not on average. See 12.11 |
+| 21b | **Re-run the homogeneous arm at 8 GPU on `frnt155`, with staging** | **open, and now the highest-value idle-resource task.** Two reasons, not one: it is the only GPU-count-matched control for the 8-GPU heterogeneous fleet (4 A100 + 4 RTX 6000), without which the comparison confounds heterogeneity with fleet size; and it closes threat N15 by putting both arms on the same read path. `frnt155` is the cluster's only 8x RTX 6000 node and is currently IDLE. **Precondition: port staging, `wait` and `exit 0` from `stage2_het.sbatch` into `stage2_real.sbatch` first.** Launching it unported would reintroduce the GPFS wedge on the exact node that wedged for hours |
+| 31j | Port staging/`wait`/`exit 0` into `stage2_real.sbatch` | **open, blocks 21b.** Only `stage2_het.sbatch` carries these. Verified by grep across all 18 `.sbatch` files: `staging=1 wait=1` for the het script, `0 0` for every other, `stage2_real.sbatch` included |
+| 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.9); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
 | 31e | Per-GPU-type curves to c=128+ | **done** - A100, A30, L4, L40S, RTX 8000, RTX 6000 (to c=256). V100 excluded, sm_70 absent from the container build |
 | 31f | In-node heterogeneity via clock control | **closed - NOT POSSIBLE.** `-pl` and `--lock-gpu-clocks` denied; `--lock-memory-clocks` and `-ac` accept and do nothing (job 12304132: clamped GPU within 1% of an untouched control, reverted run had the lowest clock of the four) |
 | 32 | Locate the SLO knee | **partly done** - NOT between 67.8 and 118.6 (that reading was a client artifact, retracted). With a verified generator: 100% through 220.3 req/s, 96.2% at 271.2. Knee is at or beyond 271 req/s; needs a sweep past the current top rate |
