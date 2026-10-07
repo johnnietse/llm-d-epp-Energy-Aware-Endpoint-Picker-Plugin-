@@ -8,11 +8,31 @@ set -u
 cd "$HOME/energy-epp/scripts" || exit 1
 
 # ---- refuse to duplicate
+# DEP chains this submission behind an existing job instead of racing it.
+# The guard exists to stop two INDEPENDENT submitters creating concurrent
+# duplicates (12304895 and 12304896 happened exactly that way); a job that
+# cannot start until another finishes is not a duplicate, so DEP is allowed
+# through. afterok rather than afterany: if the first trial fails we want to
+# read the failure before spending a second allocation reproducing it.
+DEP="${DEP:-}"
 EXISTING="$(squeue -h -u "$(id -un)" -n stage2-het -o '%i' 2>/dev/null | tr '\n' ' ')"
-if [ -n "${EXISTING// /}" ]; then
+if [ -n "${EXISTING// /}" ] && [ -z "$DEP" ]; then
   echo "REFUSING: stage2-het already queued or running: $EXISTING"
-  echo "Cancel it first, or wait. Two pending duplicates happened once already."
+  echo "Cancel it first, wait, or chain behind it with DEP=<jobid>."
   exit 1
+fi
+DEPFLAG=""
+if [ -n "$DEP" ]; then
+  case "$DEP" in
+    '' | *[!0-9]*)
+      echo "FATAL: DEP must be a bare numeric job id, got '$DEP'"; exit 1 ;;
+  esac
+  if ! squeue -h -j "$DEP" -o '%i' >/dev/null 2>&1; then
+    echo "FATAL: DEP job $DEP is not queued or running; nothing to wait for"
+    exit 1
+  fi
+  DEPFLAG="--dependency=afterok:$DEP"
+  echo "chaining: holds until $DEP finishes successfully"
 fi
 
 # ---- pre-flight: syntax
@@ -70,7 +90,7 @@ export MODEL
 echo
 echo "=== heterogeneous Stage 2: A100 + RTX 6000, $DURATION s cells ==="
 echo "rates=$RATES workers=$WORKERS seed=$SEED cap=$MAX_GPUS_PER_NODE"
-J=$(sbatch --parsable --export=ALL \
+J=$(sbatch --parsable --export=ALL $DEPFLAG \
       --gres=gpu:a100:4    --nodes=1 --exclusive --mem=0 \
     : --gres=gpu:rtx6000:4 --nodes=1 --exclusive --mem=0 \
       stage2_het.sbatch 2>&1) || { echo "SUBMIT FAILED: $J"; exit 1; }

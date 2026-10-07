@@ -302,6 +302,7 @@ What this means concretely, as a pre-flight checklist for anything submitted:
 | `source .../profile/bash.sh` in a batch script | execs a replacement shell; everything after it is discarded, exit 1, empty log |
 | Deriving load from server capacity alone | says nothing about what the client can emit; ask for the impossible and nothing warns |
 | An outer `timeout` shorter than a script's own wait loop | SIGTERM, exit 143, and no result |
+| A verification check that greps for *how* a fix was written | it rots the moment the implementation improves, then reports FAIL against working code. `verify_fixes.sh` section 1 still grepped for `$STAGED_HF` and `${SLURM_TMPDIR:-/tmp}/hfstage` after the uniform-path rewrite replaced both, so it failed a staging block that provably works. Assert the observable property where possible; where you must grep for detail, read a FAIL as "the check or the code is wrong", never as "the code is wrong" |
 
 ---
 
@@ -1153,6 +1154,43 @@ measurement window. It is not zero risk; it is a single cold sequential read
 instead of eight concurrent ones.
 
 ---
+
+**Resolution, 2026-10-07.** `frnt155` reports `State=IDLE` again: the wedge
+cleared without intervention once the stuck I/O finally returned, so no CAC
+admin action was needed for it and the node is usable again. This does not
+retire the fix. The wedge was a *symptom* of GPFS sitting in the serving read
+path, and node-local staging removes that path whether or not any single node
+is currently healthy. Treat the recovery as luck, not as evidence that the
+hazard is gone; the item on the CAC request that concerned `frnt155` can be
+dropped, the other six stand.
+
+### 12.8 Stage 2 replication, launched 2026-10-07
+
+The single heterogeneous trial in 12.5 cannot carry Stage 3. Two further
+trials are queued, chained so they cannot race each other:
+
+| Job | Seed | Hold | Purpose |
+|---|---|---|---|
+| **12319685** | 11 | none | does the +2.0% margin of `energy_consolidate` over the next policy replicate at a different seed |
+| **12319692** | 13 | `afterok:12319685` | third point, so the margin has a spread rather than a difference of two numbers |
+
+`afterok` rather than `afterany` deliberately: if trial one fails, the second
+allocation should not be spent reproducing the same failure before anyone has
+read the log. `DEP` is also the only thing that relaxes `het_submit.sh`'s
+duplicate guard, and only because a job held by a dependency cannot race the
+job it waits for - which is exactly what the guard exists to prevent.
+
+Both runs also carry the corrected vLLM histogram names
+(`vllm:inter_token_latency_seconds` and the `request_`-prefixed TPOT), so the
+first thing to check in the output is that `server_itl_mean_s` is non-null.
+If it is null, `cross_check_usable` will say so explicitly rather than
+reporting a silent `engine 0.0000` comparison against nothing.
+
+What a pass needs: `energy_consolidate` must win in **every** trial, not on
+average across them, and the margin must stay above the 2.0% threshold. The
+caveat recorded in 12.5 survives a pass: the three curve-using policies
+cluster within 1.6-2.0% of each other, so a win is evidence for
+heterogeneity-awareness, not for the energy objective in particular.
 
 ## 13. Progress tracker
 

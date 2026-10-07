@@ -358,6 +358,14 @@ cleanup() {
   for pid in "${SAMPLER_PIDS[@]:-}" "${SERVER_PIDS[@]:-}"; do
     [ -n "$pid" ] && kill "$pid" 2>/dev/null
   done
+  # Wait for the srun steps to actually go away before the batch script exits.
+  #
+  # Without this, job 12305232 completed all 25 cells and was still recorded as
+  # "CANCELLED by 6081": background srun steps were alive when the script
+  # returned, so Slurm tore them down and attributed the cancellation to the
+  # user. The measurements were fine but the job state said otherwise, which is
+  # exactly the kind of misleading signal that wastes time later.
+  wait 2>/dev/null || true
   # Give the samplers a moment to take SIGTERM and close their files cleanly;
   # node_energy_sampler.py handles it so the last JSONL line is not truncated.
   sleep 2
@@ -576,3 +584,7 @@ echo "results in $RUN"
 echo "  per-node energy samples: $SAMPLES/energy-*.jsonl"
 echo "  measured clock skew:     $(cat "$RUN/skew_seconds.txt")s"
 ls -l "$RUN"
+
+# Explicit success. The EXIT trap runs after this, and an explicit 0 is
+# what distinguishes "the sweep finished" from "something killed us".
+exit 0

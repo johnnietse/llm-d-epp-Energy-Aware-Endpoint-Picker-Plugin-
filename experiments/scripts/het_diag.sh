@@ -30,11 +30,9 @@ for f in "$R"/vllm-*.log; do
 done
 
 echo
-echo "=== what HF_HOME did the servers actually get, and does it exist per node? ==="
-grep -m1 "HF_HOME now" "$L" 2>/dev/null | sed 's/^/  /'
-for n in $(grep -oE "component [0-9]: host=[^ ]+" "$L" 2>/dev/null | awk '{print $3}' | cut -d= -f2); do
-  echo "  checking $n:"
-  srun_out="$(timeout 30 srun --nodelist="$n" --nodes=1 --ntasks=1 --overlap \
-    --jobid="$J" bash -c 'ls -d "$SLURM_TMPDIR"/hfstage 2>/dev/null || echo ABSENT' 2>/dev/null | tail -1)"
-  echo "    \$SLURM_TMPDIR/hfstage -> ${srun_out:-unknown}"
-done
+echo "=== staged path, which is now uniform across nodes ==="
+# The old version tried "srun --jobid" against a finished job and printed
+# nothing. The staging path is /tmp/hfstage-<jobid> on every node by
+# construction now, and the job verifies it per node before serving, so the
+# log line is the authoritative record.
+grep -E "HF_HOME=.*verified on all|cannot read the model" "$L" 2>/dev/null | sed 's/^/  /'   || echo "  (no verification line - job may predate the per-node check)"

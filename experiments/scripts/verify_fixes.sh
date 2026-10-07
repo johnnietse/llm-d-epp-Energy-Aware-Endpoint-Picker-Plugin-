@@ -9,12 +9,24 @@ ok()  { echo "  [OK]   $1"; PASS=$((PASS+1)); }
 bad() { echo "  [FAIL] $1"; FAIL=$((FAIL+1)); }
 
 echo "=== 1. node-local staging present, GPFS out of the serving path ==="
-if grep -q 'SLURM_TMPDIR:-/tmp}/hfstage' stage2_het.sbatch \
-   && grep -q 'export HF_HOME="\$STAGED_HF"' stage2_het.sbatch \
+# Checks the CURRENT design: one uniform staging path on every node. The
+# earlier version discovered a writable directory per step, which was right in
+# itself but incompatible with exporting a single HF_HOME to every node, and
+# that mismatch killed half the servers in job 12304926. This check kept the
+# pre-rewrite patterns, so it reported FAIL against working code. A
+# verification script that lags the thing it verifies is worse than none: it
+# spends attention on a false alarm and teaches you to distrust real ones.
+if grep -q 'STAGE_DIR="/tmp/hfstage-\$SLURM_JOB_ID"' stage2_het.sbatch \
+   && grep -q 'export HF_HOME="\$STAGE_DIR"' stage2_het.sbatch \
    && grep -q 'HF_HUB_OFFLINE=1' stage2_het.sbatch; then
-  ok "stages to \$SLURM_TMPDIR and repoints HF_HOME with HF_HUB_OFFLINE"
+  ok "stages to one uniform node-local path, HF_HOME repointed offline"
 else
   bad "staging block missing or incomplete"
+fi
+if grep -q 'cannot read the model at \$HF_HOME' stage2_het.sbatch; then
+  ok "every node verified able to read the model at the final HF_HOME"
+else
+  bad "no per-node verification of the staged path"
 fi
 if grep -q 'Refusing to fall back to GPFS reads' stage2_het.sbatch; then
   ok "staging failure is fatal, no silent GPFS fallback"
@@ -98,6 +110,25 @@ if grep -q 'policy INACTIVE' stage2_analyse.py \
 else
   bad "analyser missing the three-state logic"
 fi
+
+echo
+echo "=== 9. latency cross-check uses VERIFIED metric names ==="
+for nm in vllm:time_to_first_token_seconds vllm:inter_token_latency_seconds           vllm:request_time_per_output_token_seconds vllm:e2e_request_latency_seconds; do
+  grep -q "$nm" policy_harness.py && ok "$nm" || bad "$nm missing"
+done
+# The wrong name may remain in a comment explaining the bug; it must not be in
+# a string the code actually uses.
+if grep -n 'vllm:time_per_output_token_seconds' policy_harness.py 2>/dev/null      | grep -qv '^[0-9]*:#'; then
+  bad "the non-existent TPOT name is still used in code"
+else
+  ok "non-existent TPOT name appears only in commentary"
+fi
+grep -q 'cross_check_usable' policy_harness.py   && ok "cross-check reports whether it found any engine histogram"   || bad "no cross_check_usable flag"
+
+echo
+echo "=== 10. a finished het run reports COMPLETED, not CANCELLED ==="
+grep -q 'wait 2>/dev/null' stage2_het.sbatch   && ok "cleanup waits for srun steps before the script exits"   || bad "cleanup does not wait; Slurm will record CANCELLED"
+tail -3 stage2_het.sbatch | grep -q '^exit 0'   && ok "explicit exit 0 at the end of the sweep"   || bad "no explicit success exit"
 
 echo
 echo "=== 8. every script parses ==="

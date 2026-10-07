@@ -238,9 +238,21 @@ def rapl_delta(before, after):
 # fine and the question is closed with a number. If they do not, the server
 # histograms become the authoritative figures for per-token latency and the
 # client's remain the user-facing view.
-LATENCY_HISTOGRAMS = ("vllm:time_to_first_token_seconds",
-                      "vllm:time_per_output_token_seconds",
-                      "vllm:e2e_request_latency_seconds")
+# Names verified against the installed package by job 12305248, not guessed.
+# The first attempt used "vllm:time_per_output_token_seconds", which does not
+# exist in vLLM 0.30.0, so the cross-check read engine 0.0000 and silently
+# compared our ITL against nothing. The real name carries a "request_" prefix.
+#
+# More useful still: vllm:inter_token_latency_seconds is the engine's own
+# measure of the gap BETWEEN tokens, which is exactly what our client timestamps
+# produce. Request-level TPOT is a per-request mean over output tokens, so it is
+# a near relative rather than the same quantity. ITL is the right comparison and
+# TPOT is kept beside it.
+TTFT_METRIC = "vllm:time_to_first_token_seconds"
+ITL_METRIC = "vllm:inter_token_latency_seconds"
+TPOT_METRIC = "vllm:request_time_per_output_token_seconds"
+E2E_METRIC = "vllm:e2e_request_latency_seconds"
+LATENCY_HISTOGRAMS = (TTFT_METRIC, ITL_METRIC, TPOT_METRIC, E2E_METRIC)
 
 
 def _parse_histogram(lines, name):
@@ -330,8 +342,10 @@ def server_vs_client_latency(before, after, client_ttft_mean, client_itl_mean):
             return None
         return tot / cnt
 
-    s_ttft = delta("vllm:time_to_first_token_seconds")
-    s_tpot = delta("vllm:time_per_output_token_seconds")
+    s_ttft = delta(TTFT_METRIC)
+    s_itl = delta(ITL_METRIC)
+    s_tpot = delta(TPOT_METRIC)
+    s_e2e = delta(E2E_METRIC)
 
     def rel(client, server):
         if client is None or server is None or server <= 0:
@@ -340,15 +354,27 @@ def server_vs_client_latency(before, after, client_ttft_mean, client_itl_mean):
 
     return {
         "server_ttft_mean_s": s_ttft,
+        "server_itl_mean_s": s_itl,
         "server_tpot_mean_s": s_tpot,
+        "server_e2e_mean_s": s_e2e,
         "client_ttft_mean_s": client_ttft_mean,
         "client_itl_mean_s": client_itl_mean,
+        # Our inter-token intervals against the engine's own. This is the
+        # comparison that decides whether a Python generator is accurate enough
+        # for per-token metrics: the client's event loop has ~0.7 ms median
+        # scheduling granularity against an ITL of 13-17 ms.
+        "itl_client_excess_pct": rel(client_itl_mean, s_itl),
         # Positive means the client reports MORE latency than the engine saw,
         # which is the expected direction: the client adds its own scheduling
         # and the network hop. The size is what decides whether the Python
         # generator is good enough for per-token metrics.
         "ttft_client_excess_pct": rel(client_ttft_mean, s_ttft),
         "tpot_client_excess_pct": rel(client_itl_mean, s_tpot),
+        # Non-null means at least one engine histogram was found. If this is
+        # false the cross-check is not evidence of anything, which is the state
+        # the wrong TPOT name silently produced.
+        "cross_check_usable": any(x is not None
+                                  for x in (s_ttft, s_itl, s_tpot, s_e2e)),
     }
 
 
