@@ -1290,7 +1290,7 @@ and client-side queueing, and exact ITL agreement is what rules out generator
 jitter as the cause.
 
 **Tooling defects found while producing these numbers**, all of the silent
-kind described in 12.14:
+kind described in 12.15:
 
 - `compare_runs.py`: `glob` does not expand `~`, so a tilde path matched
   nothing and printed "no usable cells", exactly what a refused run prints.
@@ -1305,7 +1305,51 @@ kind described in 12.14:
   `QUEUED_COUNT=` line, and treats a missing count as a failed poll rather
   than as zero.
 
-### 12.14 Engineering defect log, 2026-10-04 to 2026-10-07
+### 12.14 Which upstream code this project needs, verified 2026-10-07
+
+Answered from the code and the upstream repositories, not from memory.
+
+| Component | Needed? | When | Basis |
+|---|---|---|---|
+| vLLM **source** (`vllm-project/vllm`) | **No** | never, unless we patch vLLM | Every run uses the official image `images/vllm-v0.30.0.sif` (8.0 GB) via `apptainer exec ... vllm serve`. We modify nothing in vLLM; we read its Prometheus metrics. The version pin matters (metric names differ across versions, see the TPOT defect in 12.15), so the record to keep is the image and its digest, not a source tree |
+| llm-d umbrella (`llm-d/llm-d`) | **No** | reference only | Its own description: "Achieve state of the art inference performance with modern accelerators on Kubernetes". It is the deployment layer (guides, Docker, docs, `COMPONENTS.md`). Frontenac has no Kubernetes and grants no privileges, and our artifact is a scorer plugin, which plugs into the router, not the umbrella |
+| llm-d router (`llm-d/llm-d-router`) | **Yes, from Stage 4** | Stages 4 and 5 | The plugin is built against it, and Stage 5's "stock llm-d" arm runs its EPP. Checkout on the cluster: `main` at `297bfb0` (2026-10-02), clean, never built |
+
+**Stages 1-2 deliberately do not use llm-d at all.** The routing policies live
+in the Python load generator (`policy_harness.py`, rationale at its top): a
+placement rule can be tested in ~100 lines without a Go plugin against an
+upstream API that churns, and only a rule that wins is worth building. The
+consequence must be stated wherever results are quoted: **the Stage 2 numbers
+show that the placement rule helps; they do not yet show that an llm-d plugin
+delivers it.** The EPP adds its own decision latency, a metrics-scrape
+staleness the harness does not have, and an Envoy hop. Stage 5 is where that
+is measured, and Stage 4's fixture tests are where the Go scorer is shown to
+make the same decisions as the Python one.
+
+**Stage 5 is feasible on Frontenac without Kubernetes.** The router documents
+it directly (`docs/discovery.md`, "Running EPP with file discovery (no
+Kubernetes)"): an `epp` binary built with `go build -o epp ./cmd/epp`, Envoy
+v1.31 or later, a static `endpoints.yaml` listing the vLLM servers, and
+`--config-file` naming the scheduling plugins. No `InferencePool` CRD. This
+removes what would otherwise have been the largest feasibility risk in the plan.
+
+**Three gaps to close before Stage 4**, none of them started:
+
+1. **The repository's Go module targets the wrong upstream.** `go.mod` requires
+   `sigs.k8s.io/gateway-api-inference-extension v1.5.0`, the predecessor
+   project, not `github.com/llm-d/llm-d-router`. The existing scorer code will
+   not plug into the router we have. Already flagged as REPLACE for
+   `pkg/config/gie_adapter.go` in section 2; the whole module must be
+   retargeted.
+2. **No Go toolchain on the login node** (`command -v go` returns nothing).
+   Options: cross-compile a static `linux/amd64` binary locally, build inside a
+   `golang` container under apptainer, or a cluster module if one exists. Not
+   yet checked which.
+3. **Envoy's version is unverified.** `images/envoy.sif` (42 MB, pulled
+   2026-10-03) is present, but the docs require v1.31 or later and nobody has
+   checked what the image contains.
+
+### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 
 Every defect below was found and fixed in this project's own measurement
 code, not in llm-d. They are recorded because several produced *clean,
