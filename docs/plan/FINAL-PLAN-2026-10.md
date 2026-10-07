@@ -720,7 +720,7 @@ Do **not** run `ars-full` yet. That decision was already made in
 | **N12** | **An instrument probe tested the wrong thing** | **closed 2026-10-04.** `h1_sweep.sbatch` chose its Python with `python3 -c "import pynvml"`. pynvml imports from `~/.local` even when `libnvidia-ml.so.1` is unreachable, so job 12303357 passed the probe and then died on `nvmlInit`. The probe now performs import, `nvmlInit` and one counter read, and falls back to the container Python. |
 | **N13** | **Does staging the model perturb the measurement?** | **closed 2026-10-05, by construction and by ordering.** The multi-node job copies the checkpoint to node-local storage before serving. Three reasons it cannot reach a measured quantity: (1) staging completes before any vLLM server starts, and every energy window opens only after all servers report ready, so no staging I/O falls inside a measured interval; (2) the per-node energy samplers are started *after* staging for exactly this reason - started before, the copy's CPU and disk time would appear in the RAPL CPU/DRAM figures, and that ordering is now asserted in the script with a comment saying why; (3) host page cache and local disk do not affect the GPU energy counter, which is the primary metric. One genuine consequence remains and is stated rather than hidden: the heterogeneous run reads weights from local xfs while the homogeneous runs read from GPFS, so **model-load time is not comparable across those runs**. Load time is not in any measured window, so no reported number is affected, but it must not later be compared across the two configurations. |
 | **N14** | **Walltime was described as the control for a wedge; it is not** | **corrected 2026-10-05.** A process blocked in uninterruptible kernel I/O ignores SIGKILL until the I/O returns, so `scancel` cannot reap it and even Slurm's own reclaim waits on the same stuck I/O - that is why `frnt155` sat in COMPLETING for hours. The walltime only bounds how long the allocation is *held*; it neither prevents nor shortens a wedge. The real fix is upstream: node-local staging takes the shared filesystem out of every server's read path, so a GPFS stall cannot block a server at all. Walltime is the last line of defence, now 1h15m against a measured ~40 min run. |
-| **N15** | **The two arms of the central comparison do not share a storage path** | **OPEN, and it is a confound in the headline claim.** `stage2_het.sbatch` stages the checkpoint to node-local disk; `stage2_real.sbatch`, which produced the homogeneous arm (12304137/12304138), has no staging block and served weights from GPFS. The claim "energy-aware routing pays off under heterogeneity and not under homogeneity" therefore compares two runs that differ in *two* ways, fleet composition and read path. The load-time effect is the large one and measurement starts after readiness, so this is unlikely to drive the result, but "unlikely" is not a control. Closing it requires re-running the homogeneous arm with staging; see tracker 21b. |
+| **N15** | **The two arms of the central comparison do not share a storage path** | **being closed 2026-10-07, job 12319815.** `stage2_real.sbatch` now carries the same staging block, per-node readability verification, `wait` and `exit 0` as the het script, enforced by `verify_fixes.sh` section 11 so the two cannot drift apart again. The matched 8-GPU control is running on `frnt155`. The original defect, for the record: `stage2_het.sbatch` stages the checkpoint to node-local disk; `stage2_real.sbatch`, which produced the homogeneous arm (12304137/12304138), has no staging block and served weights from GPFS. The claim "energy-aware routing pays off under heterogeneity and not under homogeneity" therefore compares two runs that differ in *two* ways, fleet composition and read path. The load-time effect is the large one and measurement starts after readiness, so this is unlikely to drive the result, but "unlikely" is not a control. Closing it requires re-running the homogeneous arm with staging; see tracker 21b. |
 | **N16** | **The `afterok` chain depends on the exit-status fix being correct** | **OPEN, bounded.** 12319692 is held `afterok:12319685`. Job 12305232 produced 25 valid cells and still recorded `CANCELLED 0:15` because background `srun` steps outlived the script; `afterok` reads that as failure, so had the `wait`/`exit 0` fix not worked, the second trial would never release and would sit PENDING until purged rather than failing visibly. Detection: if 12319685 reports `CANCELLED` with complete results, resubmit trial two with no `DEP`. The dependency is a convenience, not part of the measurement. |
 | **N9** | Deep-overload cells may reflect **CPU contention, not GPU saturation** | open. The generator reached 9.8 of the node's 32 cores at 590 req/s while sharing the node with 8 vLLM servers, so server-side degradation at the top of the range is partly confounded. In the measurement region (240-360 req/s) it is 4.8-6.2 cores. Mitigations if the top cells are ever load-bearing: pin generator and servers to disjoint cores, or move the generator to a second node. |
 | **N7** | **RAPL CPU+DRAM includes the load generator itself** | **open, now quantified.** The generator runs on the same node as the servers, so its CPU time is inside the RAPL package energy. Sharding the generator across processes makes this larger. GPU-package energy, the primary metric, is unaffected. Every cell now records `generator_cpu_s` and `generator_cpu_cores_mean`, so the contamination is measured rather than unknown. Any CPU/DRAM figure must be reported with that caveat, or measured with the generator on a separate node. |
@@ -1196,7 +1196,40 @@ caveat recorded in 12.8 survives a pass: the three curve-using policies
 cluster within 1.6-2.0% of each other, so a win is evidence for
 heterogeneity-awareness, not for the energy objective in particular.
 
-### 12.12 Engineering defect log, 2026-10-04 to 2026-10-07
+### 12.12 The matched homogeneous control, job 12319815
+
+The heterogeneous result in 12.8 is compared against a homogeneous arm
+(12304137/12304138) that differed from it in **three** ways, not one:
+
+| | Heterogeneous (12305232) | Old homogeneous (12304137/8) | New control (12319815) |
+|---|---|---|---|
+| Fleet | 4 A100 + 4 RTX 6000 | 4x RTX 6000 | 8x RTX 6000 |
+| GPU count | 8 | **4** | **8** |
+| Read path | node-local xfs | **GPFS** | **node-local xfs** |
+| Offered rates | 200-600 req/s | derived from `PEAK_RPS` | **200-600 req/s, pinned** |
+
+Only the first row should differ if the claim is about heterogeneity. The
+control removes the other two, so a surviving effect is attributable to fleet
+composition rather than to fleet size or to storage. `RATES` is pinned rather
+than derived from this node's own `PEAK_RPS` for exactly this reason: a
+capacity-derived ladder would hand each arm a different demand and make the
+cells incomparable.
+
+The node is pinned with `-w frnt155`, not selected with `-C`, because driver
+version, profiling permission and idle power were each measured to vary
+between nodes of the same GPU model. `real_submit.sh` additionally refuses to
+submit onto a node in `COMPLETING`, which is the wedge state, and refuses to
+submit at all if the staging block is absent from `stage2_real.sbatch`.
+
+**What this run can and cannot settle.** If `energy_consolidate` wins on the
+heterogeneous fleet and does not win here, at matched GPU count and matched
+read path, that is the cleanest evidence the project can produce on this
+cluster. It still cannot separate the energy objective from
+heterogeneity-awareness in general, because the three curve-using policies
+cluster within 1.6-2.0% of each other; that separation needs a policy that is
+heterogeneity-aware but energy-blind, which is a Stage 3 design question.
+
+### 12.13 Engineering defect log, 2026-10-04 to 2026-10-07
 
 Every defect below was found and fixed in this project's own measurement
 code, not in llm-d. They are recorded because several produced *clean,
@@ -1276,8 +1309,8 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 31g | Node-local model staging (removes the frnt155 hazard) | **done 2026-10-05**, verified by job 12304897: `$SLURM_TMPDIR` is node-local xfs, 3931 MiB/s with 8 readers |
 | 31h | Fleet self-balances to the smaller component | **done** - refusing on unequal counts was brittle; `--exclusive` makes unequal the normal case |
 | 31i | Stage 2 replication at seeds 11 and 13 | **running 2026-10-07**, jobs 12319685 and 12319692 (chained `afterok`). Gate needs `energy_consolidate` to win in every trial, not on average. See 12.11 |
-| 21b | **Re-run the homogeneous arm at 8 GPU on `frnt155`, with staging** | **open, and now the highest-value idle-resource task.** Two reasons, not one: it is the only GPU-count-matched control for the 8-GPU heterogeneous fleet (4 A100 + 4 RTX 6000), without which the comparison confounds heterogeneity with fleet size; and it closes threat N15 by putting both arms on the same read path. `frnt155` is the cluster's only 8x RTX 6000 node and is currently IDLE. **Precondition: port staging, `wait` and `exit 0` from `stage2_het.sbatch` into `stage2_real.sbatch` first.** Launching it unported would reintroduce the GPFS wedge on the exact node that wedged for hours |
-| 31j | Port staging/`wait`/`exit 0` into `stage2_real.sbatch` | **open, blocks 21b.** Only `stage2_het.sbatch` carries these. Verified by grep across all 18 `.sbatch` files: `staging=1 wait=1` for the het script, `0 0` for every other, `stage2_real.sbatch` included |
+| 21b | **Re-run the homogeneous arm at 8 GPU on `frnt155`, with staging** | **RUNNING 2026-10-07, job 12319815**, seed 11 to match heterogeneous trial one, rates pinned to the het ladder 200-600 req/s so offered load matches too. Rationale: Two reasons, not one: it is the only GPU-count-matched control for the 8-GPU heterogeneous fleet (4 A100 + 4 RTX 6000), without which the comparison confounds heterogeneity with fleet size; and it closes threat N15 by putting both arms on the same read path. `frnt155` is the cluster's only 8x RTX 6000 node and is currently IDLE. **Precondition: port staging, `wait` and `exit 0` from `stage2_het.sbatch` into `stage2_real.sbatch` first.** Launching it unported would reintroduce the GPFS wedge on the exact node that wedged for hours |
+| 31j | Port staging/`wait`/`exit 0` into `stage2_real.sbatch` | **done 2026-10-07.** Both scripts now report `staging=1 wait=1 exit0=1`. Locked in by `verify_fixes.sh` section 11, which fails if either arm loses staging, the offline flag, the fatal-on-failure refusal, the `wait`, or the explicit `exit 0`. Suite now PASS=43 FAIL=0 |
 | 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.9); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
 | 31e | Per-GPU-type curves to c=128+ | **done** - A100, A30, L4, L40S, RTX 8000, RTX 6000 (to c=256). V100 excluded, sm_70 absent from the container build |
 | 31f | In-node heterogeneity via clock control | **closed - NOT POSSIBLE.** `-pl` and `--lock-gpu-clocks` denied; `--lock-memory-clocks` and `-ac` accept and do nothing (job 12304132: clamped GPU within 1% of an untouched control, reverted run had the lowest clock of the four) |

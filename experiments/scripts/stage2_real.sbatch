@@ -120,6 +120,77 @@ fi
   "$APPTAINER" exec "$IMG" python3 -c "import vllm,torch;print('vllm',vllm.__version__,'torch',torch.__version__)"
 } | tee "$RUN/instruments.txt"
 
+# --------------------------------------------- stage the model to node-local
+# Ported from stage2_het.sbatch 2026-10-07. Until then only the heterogeneous
+# script staged, so this script served weights from GPFS while the het script
+# served from local disk: the two arms of the central comparison differed in
+# read path as well as fleet composition (plan threat N15). This closes that.
+#
+# It also removes the hazard directly. Eight cold concurrent readers of one
+# 2.88 GiB checkpoint over GPFS is the most likely trigger of the wedge that
+# held frnt155 in COMPLETING for hours with processes in uninterruptible I/O
+# that ignored SIGKILL. /tmp here is node-local xfs, measured at 3931 MiB/s
+# with 8 readers (job 12304897), and the allocation is --exclusive so nothing
+# competes for it. $SLURM_JOB_ID in the path means two jobs cannot collide.
+STAGE_DIR="/tmp/hfstage-$SLURM_JOB_ID"
+MODEL_DIR_NAME="models--$(printf '%s' "$MODEL" | sed 's#/#--#g')"
+echo
+echo "=== staging $MODEL to $STAGE_DIR ==="
+src="$HF_HOME/hub/$MODEL_DIR_NAME"
+if [ ! -d "$src" ]; then
+  echo "FATAL: no $MODEL_DIR_NAME under $HF_HOME/hub"
+  exit 1
+fi
+mkdir -p "$STAGE_DIR/hub/$MODEL_DIR_NAME" || {
+  echo "FATAL: cannot create $STAGE_DIR on $(hostname)"
+  echo "Refusing to fall back to GPFS reads: that is the exact path that"
+  echo "wedged frnt155, and a silent fallback would hide it."
+  exit 1
+}
+# refs/ and snapshots/ only, dereferenced. HF keeps real weights in blobs/
+# and exposes snapshots/ as symlinks into them, so "cp -rL" on the whole
+# model directory writes every weight TWICE: that is why an earlier het run
+# staged 5910 MiB for a 2944 MiB checkpoint. Reading needs only these two.
+for part in refs snapshots; do
+  [ -e "$src/$part" ] || continue
+  cp -rL "$src/$part" "$STAGE_DIR/hub/$MODEL_DIR_NAME/" 2>/dev/null || {
+    echo "FATAL: staging failed copying $part"
+    echo "Refusing to fall back to GPFS reads."
+    exit 1
+  }
+done
+# A tree copied with dangling links passes the copy and fails later at model
+# load, 20 minutes into a readiness timeout. Confirm real weight bytes.
+STAGED_MB="$(find "$STAGE_DIR/hub/$MODEL_DIR_NAME" -name '*.safetensors' \
+              -exec stat -Lc %s {} + 2>/dev/null \
+            | awk '{t+=$1} END{printf "%d", (t+0)/1048576}')"
+if [ "${STAGED_MB:-0}" -lt 1000 ]; then
+  echo "FATAL: copied the tree but only ${STAGED_MB:-0} MiB of weight bytes."
+  echo "The snapshot links were probably dangling."
+  exit 1
+fi
+echo "  ${STAGED_MB} MiB of weights staged on $(hostname)"
+
+export HF_HOME="$STAGE_DIR"
+export HF_HUB_OFFLINE=1
+
+# Verify the model resolves at the FINAL HF_HOME, not merely that the copy
+# reported success. In the het script that distinction was the difference
+# between catching job 12304926 in seconds and discovering it after a
+# 20-minute readiness timeout.
+if ! v="$("$APPTAINER" exec "$IMG" python3 -c '
+import os, glob, sys
+h = os.environ["HF_HOME"]
+f = glob.glob(os.path.join(h, "hub", "models--*", "snapshots", "*", "*.safetensors"))
+if not f:
+    sys.exit("no safetensors visible under " + h)
+print(len(f))
+' 2>&1)"; then
+  echo "FATAL: $(hostname) cannot read the model at $HF_HOME ($v)."
+  exit 1
+fi
+echo "  HF_HOME=$HF_HOME verified readable ($v shard file(s)); HF_HUB_OFFLINE=1"
+
 # ------------------------------------------------------- launch one server/GPU
 PORTS=()
 PIDS=()
@@ -133,10 +204,12 @@ for ((i=0; i<NGPU; i++)); do
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
       > "$RUN/vllm-gpu$i.log" 2>&1 &
   PIDS+=($!)
-  # Stagger. All eight servers read the SAME 2.88 GiB checkpoint from GPFS;
-  # launching them simultaneously means eight cold concurrent readers of one
-  # file, which is the most likely trigger for the wedge seen in job 12303653.
-  # A short offset lets the first reader warm the page cache for the rest.
+  # Stagger. All servers read the SAME 2.88 GiB checkpoint, now from the
+  # node-local staging directory rather than GPFS, so the wedge risk that
+  # motivated this (job 12303653) is gone with the read path. Kept anyway:
+  # eight simultaneous cold readers of one file still contend, and a short
+  # offset lets the first reader warm the page cache for the rest. Cheap
+  # insurance, and it costs only seconds against a multi-minute load.
   # Explicit if, not "[ ] && sleep": the latter evaluates false on the last
   # iteration, which is harmless under "set -uo pipefail" but would abort
   # the loop the moment anyone adds -e.
@@ -148,6 +221,11 @@ cleanup() {
   for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done
   sleep 5
   for p in "${PIDS[@]}"; do kill -9 "$p" 2>/dev/null; done
+  # Reap them before the script exits. Slurm records CANCELLED for a batch
+  # script whose children outlive it, which is how job 12305232 reported
+  # CANCELLED 0:15 after producing 25 valid cells. Cosmetic until something
+  # reads the exit status, and --dependency=afterok does.
+  wait 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -422,3 +500,9 @@ echo
 echo "Pass A (measured energy): policies-rate*.json"
 echo "Pass B (mechanism):       mechanism/mechanism.txt"
 echo "Telemetry gate:           telemetry.txt"
+
+# Explicit success. Without it the script exits with the status of the last
+# command above, and the EXIT trap runs cleanup afterwards; a non-zero leak
+# from either would be recorded as a failed job for a run whose data is
+# complete, and would block anything chained with --dependency=afterok.
+exit 0

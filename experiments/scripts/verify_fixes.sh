@@ -131,8 +131,54 @@ grep -q 'wait 2>/dev/null' stage2_het.sbatch   && ok "cleanup waits for srun ste
 tail -3 stage2_het.sbatch | grep -q '^exit 0'   && ok "explicit exit 0 at the end of the sweep"   || bad "no explicit success exit"
 
 echo
+echo "=== 11. BOTH arms of the comparison share a read path (threat N15) ==="
+# The headline claim contrasts a heterogeneous fleet against a homogeneous one.
+# Until 2026-10-07 only stage2_het.sbatch staged the checkpoint node-locally,
+# so stage2_real.sbatch served from GPFS and the two arms differed in read path
+# as well as fleet composition. A reviewer is entitled to ask which variable
+# moved. This check exists so that cannot drift apart again silently.
+for f in stage2_het.sbatch stage2_real.sbatch; do
+  miss=""
+  grep -q 'STAGE_DIR="/tmp/hfstage-\$SLURM_JOB_ID"' "$f" || miss="$miss staging"
+  grep -q 'export HF_HOME="\$STAGE_DIR"' "$f"            || miss="$miss hf_home"
+  grep -q 'HF_HUB_OFFLINE=1' "$f"                        || miss="$miss offline"
+  grep -q 'Refusing to fall back to GPFS reads' "$f"     || miss="$miss no_fallback"
+  grep -q 'wait 2>/dev/null' "$f"                        || miss="$miss wait"
+  tail -4 "$f" | grep -q '^exit 0' || miss="$miss exit0"
+  if [ -z "$miss" ]; then
+    ok "$f: staging, offline, fatal-on-failure, wait, exit 0"
+  else
+    bad "$f missing:$miss"
+  fi
+done
+
+echo
+echo "=== 12. the homogeneous control is pinned and GPU-count matched ==="
+if [ -f real_submit.sh ]; then
+  # -w, not -C. Driver version, profiling permission and idle power were each
+  # measured to vary between nodes of the same GPU model, so a control run on
+  # an unspecified node of the right type is not a control.
+  grep -q -- '-w "\$NODE"' real_submit.sh \
+    && ok "pins the node explicitly rather than selecting by feature" \
+    || bad "does not pin the node with -w"
+  grep -q 'rtx6000:8' real_submit.sh \
+    && ok "asserts 8 GPUs, matching the 4+4 heterogeneous fleet" \
+    || bad "no 8-GPU assertion"
+  grep -q 'RATES:-200,300,400,500,600' real_submit.sh \
+    && ok "offered load pinned to the heterogeneous ladder, not derived" \
+    || bad "rates not pinned to the het ladder; arms would be incomparable"
+  grep -q 'COMPLETING' real_submit.sh \
+    && ok "refuses to submit onto a node in the wedge state" \
+    || bad "does not check for COMPLETING"
+else
+  bad "real_submit.sh absent; the matched control cannot be submitted"
+fi
+
+echo
 echo "=== 8. every script parses ==="
-for f in stage2_het.sbatch het_submit.sh het_watch.sh; do
+for f in stage2_het.sbatch stage2_real.sbatch het_submit.sh het_watch.sh \
+         real_submit.sh het_status.sh het_final.sh; do
+  [ -f "$f" ] || { bad "bash: $f absent"; continue; }
   bash -n "$f" 2>/dev/null && ok "bash: $f" || bad "bash: $f"
 done
 for f in policy_harness.py multinode_energy.py node_energy_sampler.py \
