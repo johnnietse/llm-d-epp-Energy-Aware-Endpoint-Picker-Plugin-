@@ -119,7 +119,13 @@ export MODEL
 echo
 echo "=== homogeneous control: 8x RTX 6000 on $NODE, $DURATION s cells ==="
 echo "rates=$RATES workers=$WORKERS seed=$SEED"
-echo "matched against the heterogeneous fleet on GPU count and offered load"
+if [ "$RATES" = "200,300,400,500,600" ]; then
+  echo "matched against the heterogeneous fleet on GPU count and offered load"
+else
+  # Printing "matched offered load" for an overridden ladder would put a
+  # false provenance claim into the job log, which is what gets read later.
+  echo "matched on GPU count; offered load is a custom ladder, NOT the het one"
+fi
 J=$(sbatch --parsable --export=ALL \
       -w "$NODE" --nodes=1 --exclusive --mem=0 --gres=gpu:rtx6000:8 \
       stage2_real.sbatch 2>&1) || { echo "SUBMIT FAILED: $J"; exit 1; }

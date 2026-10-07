@@ -36,15 +36,21 @@ the energy sample JSONL.
 
 Decompress one with `gunzip -k file.log.gz`, or read in place with `zcat`.
 
-## Incomplete at fetch time
+## Completeness
 
-Two jobs were still RUNNING when this snapshot was taken, so their directories
-are **partial** and must be re-fetched after they finish:
+The first snapshot (2026-10-07, early morning) caught two jobs mid-run. Both
+were re-fetched after finishing and are now complete, 5 of 5 rate files each:
 
-- `results/stage2het-12319685` — heterogeneous replication, seed 11
-- `results/stage2-12319815` — matched 8-GPU homogeneous control on frnt155
+- `results/stage2het-12319685` - heterogeneous replication, seed 11
+- `results/stage2-12319815` - matched 8-GPU homogeneous control on frnt155
 
-`results/stage2het-12319692` (seed 13) had not started and is absent.
+Still running at the time of this update, so not yet here:
+
+- `results/stage2het-12321476` - heterogeneous replication, seed 13
+- `results/stage2-12321478` - capacity-matched homogeneous control, 100-300 req/s
+
+Re-fetch only named directories with `bash fr-fetchall.sh <dir> [dir...]`. A
+full re-fetch re-downloads every log already gzipped here.
 
 ## What is deliberately absent
 
