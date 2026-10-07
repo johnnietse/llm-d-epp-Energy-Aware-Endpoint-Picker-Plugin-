@@ -10,6 +10,19 @@ set -u
 cd "$HOME/energy-epp/scripts" 2>/dev/null || true
 ME="$(id -un)"
 
+# Machine-readable count for waiters, given job ids as arguments. fr-hetwait.sh
+# used to count lines matching "stage2-het" in this script's human output, and
+# the section header below contains that string, so the count could never reach
+# zero and the waiter ran to its deadline every time. Counting job ids in
+# squeue directly has no header to collide with.
+if [ "$#" -gt 0 ]; then
+  n=0
+  for j in "$@"; do
+    squeue -h -j "$j" -o '%i' 2>/dev/null | grep -q . && n=$((n + 1))
+  done
+  echo "QUEUED_COUNT=$n"
+fi
+
 echo "=== queue for $ME ==="
 squeue -u "$ME" -o '%.12i %.12j %.9T %.9M %.11l %.6D %R' 2>/dev/null
 
