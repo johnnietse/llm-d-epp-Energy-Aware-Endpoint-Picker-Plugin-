@@ -53,15 +53,65 @@ echo
 echo "=== latency cross-check: our timestamps vs the engine's own ==="
 python3 - "$R" <<'PY'
 import glob, json, os, sys
-for f in sorted(glob.glob(os.path.join(sys.argv[1], "policies-rate*.json")))[:2]:
-    for r in json.load(open(f))["results"][:2]:
+
+# ITL is the comparison that matters: the engine's own gap BETWEEN tokens
+# against our client-side inter-token timestamps, the same quantity measured
+# two ways. Request-level TPOT is a per-request mean over output tokens, so it
+# is a near relative, kept beside it rather than instead of it.
+#
+# This block used to read server_tpot_mean_s alone, under the name
+# vllm:time_per_output_token_seconds, which does not exist in vLLM 0.30.0. The
+# field was therefore always None and printed as "engine 0.0000", i.e. a
+# cross-check that silently compared our numbers against nothing and reported
+# agreement. cross_check_usable is printed first so that state can never be
+# mistaken for a result again.
+rows = 0
+flagged = 0
+itl_absent = 0
+for f in sorted(glob.glob(os.path.join(sys.argv[1], "policies-rate*.json"))):
+    for r in json.load(open(f))["results"]:
         c = r.get("latency_cross_check") or {}
-        if c.get("server_ttft_mean_s"):
-            print("  %-18s %4.0f req/s  TTFT ours %.4f vs engine %.4f (%+.1f%%)  "
-                  "TPOT ours %.4f vs engine %.4f (%+.1f%%)" % (
-                r["policy"], r["offered_rate_rps"],
-                c["client_ttft_mean_s"] or 0, c["server_ttft_mean_s"],
-                c.get("ttft_client_excess_pct") or 0,
-                c["client_itl_mean_s"] or 0, c["server_tpot_mean_s"] or 0,
-                c.get("tpot_client_excess_pct") or 0))
+        if c.get("cross_check_usable") is False:
+            flagged += 1
+            continue
+        if not c.get("server_ttft_mean_s"):
+            continue
+        rows += 1
+        # Counted from the value itself, not from cross_check_usable, which is
+        # absent in runs collected before the flag existed. Trusting the flag
+        # alone reported "0 unusable" for job 12305232, every one of whose 25
+        # cells is in fact missing the engine ITL histogram.
+        if not c.get("server_itl_mean_s"):
+            itl_absent += 1
+        if rows > 6:
+            continue
+
+        def pair(ours, theirs, pct):
+            if theirs:
+                return "ours %.4f vs engine %.4f (%+.1f%%)" % (
+                    ours or 0, theirs, pct or 0)
+            return "ours %.4f vs engine ABSENT" % (ours or 0)
+
+        print("  %-18s %4.0f req/s" % (r["policy"], r["offered_rate_rps"]))
+        print("      TTFT %s" % pair(c.get("client_ttft_mean_s"),
+                                     c.get("server_ttft_mean_s"),
+                                     c.get("ttft_client_excess_pct")))
+        print("      ITL  %s" % pair(c.get("client_itl_mean_s"),
+                                     c.get("server_itl_mean_s"),
+                                     c.get("itl_client_excess_pct")))
+        print("      TPOT %s" % pair(c.get("client_itl_mean_s"),
+                                     c.get("server_tpot_mean_s"),
+                                     c.get("tpot_client_excess_pct")))
+
+print()
+print("  cells with a TTFT cross-check: %d" % rows)
+print("  cells flagged cross_check_usable=false: %d" % flagged)
+print("  cells missing the engine ITL histogram: %d" % itl_absent)
+if itl_absent or flagged:
+    print("  WARNING: a cell with no engine ITL histogram proves nothing about")
+    print("  client inter-token accuracy. Do not quote agreement from it. If")
+    print("  this is a run collected after 2026-10-07, the metric name is")
+    print("  wrong again or the engine stopped exporting the histogram.")
+else:
+    print("  ITL cross-check populated for every cell.")
 PY
