@@ -71,7 +71,7 @@ selection, autoscaling as a headline, and anything resting on simulation.
 |---|---|---|
 | **Feasible** | Yes, with one caveat | Hardware, telemetry and harness are all proven on Frontenac. The caveat is effect size: if Stage 2 shows the achievable saving is within noise, the comparative question becomes unanswerable on this cluster and the project pivots to measurement. |
 | **Interesting** | To a systems-integration audience | A reviewer who values deployable artifacts will care. One who wants a new mechanism will not, because we deliberately claim no new mechanism. Venue choice must match. |
-| **Novel** | Narrowly, and the window is closing | Two agenda papers name this gap without filling it (2609.05565, 2603.21354) and vLLM semantic-router #2332 is building the telemetry contract for it. Unimplemented today; not necessarily in six months. |
+| **Novel** | Narrowly, and the window is closing; **narrower than first stated** | The idea that heterogeneity-aware placement saves inference energy is **not new**: Wilkins, Keshav and Mortier proposed it in 2024 (2407.00010, 7.5% CPU+GPU energy against a workload-unaware baseline) from offline workload energy models (2407.04014, HotCarbon 2024). Found 2026-10-07; see 12.2. What remains open is narrower and still real: a **measured, online** test inside a **production router's plugin API**, at matched SLO, by an **unprivileged** tenant, with a **matched homogeneous control** showing the sign reverses. Two agenda papers name that gap without filling it (2609.05565, 2603.21354) and vLLM semantic-router #2332 is building the telemetry contract for it. |
 | **Ethical** | Yes | No human subjects, no dual use. AI assistance disclosed. |
 | **Relevant** | Yes | Inference energy is the dominant and growing share of LLM energy use, and the unprivileged tenant case is the common one. |
 
@@ -848,6 +848,10 @@ because this project has already been bitten three times.
 | **2608.06188** | Bernhard, Yardimci, "Routing LLM Inference to the Cleanest Grid in Real Time" (2026-08-06) | FETCHED | Region-level carbon routing. ~51% headline is a **year-long historical replay**, stated as an upper bound; only steering ran live. |
 | **2601.17551** | Ziller, Ilager, Tundo, Bartocci, Mariani, Brandic, "GreenServ: Energy-Efficient Context-Aware Dynamic Routing for Multi-Model LLM Inference" (2026-01-24, rev 02-27) | FETCHED | **Multi-armed bandit** (the abstract does **not** say LinUCB - an earlier note of ours claimed it; corrected). **16 models**, 5 tasks, RouterBench: +22% accuracy, **-31% energy vs random routing**. **Model** selection, not replica selection. |
 | **2609.23085** | Siddiqui, Rojas, Yang, Cui, Shi, Chen, "Measured Joules, Learned Routes: Learning to Route for Energy-Efficient LLM Serving" (2026-09-19) | FETCHED | Routes among **different models** from a fixed candidate pool. Abstract claims an improved accuracy-energy tradeoff and a "sharp accuracy-energy phase transition", **no specific percentage** - an earlier note of ours cited "~23%"; **withdrawn as unsupported**. |
+| **2407.00010** | Wilkins, Keshav, Mortier, "Hybrid Heterogeneous Clusters Can Lower the Energy Consumption of LLM Inference Workloads" (2024-04-25) | FETCHED (arXiv API, 2026-10-07) | **Closest prior art, missing from the plan until 2026-10-07.** Cost-based scheduling across accelerators of differing energy efficiency, deciding by input and output token counts; abstract reports **7.5%** lower CPU+GPU energy than a workload-unaware baseline. The abstract describes an "analysis of a representative LLM dataset", i.e. evaluated on a trace, not in a live router. Our difference: online, inside a router plugin API, at matched SLO, with a homogeneous control. Must be cited as the origin of the idea, not as a competitor we beat. |
+| **2407.04014** | Wilkins, Keshav, Mortier, "Offline Energy-Optimal LLM Serving: Workload-Based Energy Models for LLM Inference on Heterogeneous Systems" (HotCarbon 2024) | FETCHED (arXiv API) | The measured models behind 2407.00010: per-LLM energy and runtime models with R^2 > 0.96 across prompt and output sizes, used for an **offline** energy-optimal scheduler. Our Stage 1 per-type curves are the same kind of object, measured per GPU type rather than per model. |
+| **2511.00807** | He, Fang, Lian, Tsang, Zhang, Chen, "FREESH: Fair, Resource- and Energy-Efficient Scheduling for LLM Serving on Heterogeneous GPUs" (2025-11-02) | FETCHED (arXiv API) | Joint routing and scheduling across geographically distributed heterogeneous GPU data centres; **28.6%** energy and **45.45%** emissions reduction over a 1-hour production workload. Uses **dynamic GPU frequency scaling**, which requires the clock control Frontenac denies (tracker 31f), and spans multiple data centres. Different operating point: we are one tenant on one cluster with no privileges. |
+| **2603.17280** | Chen, Liu, Liu, Jiang, He, Liu, "The 1/W Law: ... Context-Length Routing Topology and GPU Generation Gains for LLM Inference Energy Efficiency" (2026-03-18) | FETCHED (arXiv API) | Same vLLM semantic-router group as 2603.21354. Predicts about **2.5x** tok/W from two-pool routing over a homogeneous fleet. States: "no new hardware experiments were conducted" - analytical, calibrated to published H100 data. Our homogeneous-versus-heterogeneous sign reversal is measured evidence in the direction it models, at far smaller magnitude; cite as the model our data partly tests, never as a number to compare against. |
 | **2605.23057** | "RequestRouter: Request-Boundary Routing for Efficient Single-GPU LLM Inference" | **SEARCH** | Intra-GPU scheduling on one A100. Framing only; verify before citing. |
 | **2603.04445** | "Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey" | **SEARCH** | Related-work framing only; verify before citing. |
 
@@ -1191,7 +1195,7 @@ If it is null, `cross_check_usable` will say so explicitly rather than
 reporting a silent `engine 0.0000` comparison against nothing.
 
 What a pass needs: `energy_consolidate` must win in **every** trial, not on
-average across them, and the margin must stay above the 2.0% threshold. The
+average across them. (This sentence originally added "and the margin must stay above the 2.0% threshold"; the gate has no such threshold, see the correction in 12.13.) The
 caveat recorded in 12.8 survives a pass: the three curve-using policies
 cluster within 1.6-2.0% of each other, so a win is evidence for
 heterogeneity-awareness, not for the energy objective in particular.
@@ -1243,15 +1247,23 @@ Goodput per joule:
 | energy_greedy | 0.2066 | 0.2625 | 0.3208 | 0.3578 | 0.3384 | 0.2972 |
 | energy_consolidate | 0.2116 | 0.2643 | 0.3233 | 0.3593 | 0.3392 | **0.2995** |
 
-The ordering seen in 12305232 reproduces. The pooled margin over `slo_packing`
-is **+4.07%**, which clears the +2.0% gate. Two qualifications travel with it.
+The ordering seen in 12305232 reproduces. **CORRECTED 2026-10-07, see the
+gate result below:** this paragraph first said the pooled margin over
+`slo_packing` was +4.07% and that it "clears the +2.0% gate". Both halves were
+wrong. +4.07% is `compare_runs.py`'s mean across load levels, not the gate's
+statistic; the pre-registered gate (`stage2_analyse.py`) compares each policy
+at its own best feasible operating point and gives **+1.2%** for this trial.
+And there is no +2.0% gate: the pass rule (`stage2_analyse.py:445`) is
+sign-consistency, a win in every trial by any positive margin. "+2.0%" was the
+first trial's margin, which hardened into a "threshold" in our own prose. Two
+further qualifications travel with this trial.
 The margin over `energy_greedy` is only **+0.78%**, so consolidate against
 greedy is not resolved. And at 600 req/s `energy_consolidate` loses to
 `slo_packing` by 0.03%: the advantage is concentrated at low and middle load
 and is gone at saturation. The claim the data supports is that
-curve-using policies beat SLO-only packing by about 4% and round-robin by
-about 2.5x on a heterogeneous fleet. It is not "consolidate is the best
-policy".
+curve-using policies beat SLO-only packing by a small, consistent margin
+(gate, three trials pooled: **+1.4%**, see 12.13a) and round-robin by far more
+on a heterogeneous fleet. It is not "consolidate is the best policy".
 
 **Matched homogeneous control (job 12319815): a sign reversal.** At
 200 req/s, the one load level where both fleets have slack:
@@ -1305,6 +1317,61 @@ kind described in 12.15:
   `QUEUED_COUNT=` line, and treats a missing count as a failed poll rather
   than as zero.
 
+### 12.13a Three seeds and the capacity-matched control, judged by the gate
+
+All figures below are from the pre-registered gate, `stage2_analyse.py`: each
+policy at its own best feasible operating point (SLO attainment >= 95%),
+compared on SLO-goodput per joule. `compare_runs.py`'s means across load levels
+are descriptive only and are not quoted as results.
+
+**Heterogeneous fleet, seeds 7, 11, 13 (jobs 12305232, 12319685, 12321476).**
+All 75 cells clean: none client-limited, none ungrounded, none missing energy,
+and the engine ITL histogram populated in every cell.
+
+| policy | best feasible point | gp/J | vs `slo_packing`, pooled | per trial |
+|---|---|---|---|---|
+| energy_consolidate | 500 req/s | 0.3574 | **+1.4%** | +2.0%, +1.2%, +1.0% |
+| energy_greedy | 500 req/s | 0.3559 | +0.9% | +1.6%, +0.8%, +0.5% |
+| slo_packing | 500 req/s | 0.3526 | baseline | |
+| least_loaded | 500 req/s | 0.2323 | -34.1% | |
+| round_robin | 200 req/s | 0.1096 | -68.9% | |
+
+**GATE PASSED**: `energy_consolidate` beats `slo_packing` in all three trials.
+
+**Homogeneous 8x RTX 6000, in-capacity ladder 100-300 req/s (job 12321478).**
+`round_robin` best at 250 req/s, 0.1682 gp/J; `least_loaded` 0.1664. **No
+feasible point** for `energy_consolidate`, `energy_greedy` or `slo_packing`: all
+three concentrate load and break the 95% SLO before the saving can be
+collected. **GATE FAILED, informatively.** This replicates the earlier
+homogeneous result (12304137/12304138) at matched GPU count, matched read path,
+and now a load ladder the fleet can actually serve. A descriptive table showed
+energy policies ahead at 100 req/s; those cells miss the SLO and the gate
+correctly discards them, which is why the descriptive table is never quoted.
+
+**What this supports.** The policy ranking reverses with fleet composition,
+measured by one instrument: on a heterogeneous fleet the energy-curve policies
+are the best feasible policies, and on a homogeneous fleet they are not
+feasible at all. That is the result Stage 4 is built on.
+
+**What it does not support, yet.**
+
+- **The margin is small and its uncertainty unknown.** +1.0% to +2.0% per
+  trial. Three trials all positive is what a symmetric null produces with
+  probability 1/8, so sign-consistency alone is weak evidence. Stage 3 must set
+  the trial count from a power analysis on the measured between-trial variance
+  (roughly 0.5 percentage points here), not from the three we happen to have.
+- **Consolidate against greedy is not resolved.** It leads in every trial, by
+  +0.4, +0.4, +0.5 points. Consistent and tiny; a claim that consolidation
+  specifically beats greedy energy placement needs Stage 5's trial count.
+- **Fleet-to-fleet ratios are not routing effects.** The heterogeneous fleet's
+  best (0.3574) is about 2.1x the homogeneous fleet's best (0.1682), but the
+  fleets differ in hardware - A100s are more efficient per joule - so that
+  ratio mixes hardware and routing and must not be quoted as either.
+
+**Slurm detail, now seen twice.** 12321476 was recorded `CANCELLED by 6081`
+on both components, like 12319685, with complete data and exit `0:0`. Every
+heterogeneous run is affected; never chain one with `afterok`.
+
 ### 12.14 Which upstream code this project needs, verified 2026-10-07
 
 Answered from the code and the upstream repositories, not from memory.
@@ -1333,21 +1400,123 @@ v1.31 or later, a static `endpoints.yaml` listing the vLLM servers, and
 `--config-file` naming the scheduling plugins. No `InferencePool` CRD. This
 removes what would otherwise have been the largest feasibility risk in the plan.
 
-**Three gaps to close before Stage 4**, none of them started:
+**The three gaps before Stage 4, closed 2026-10-07.**
 
-1. **The repository's Go module targets the wrong upstream.** `go.mod` requires
-   `sigs.k8s.io/gateway-api-inference-extension v1.5.0`, the predecessor
-   project, not `github.com/llm-d/llm-d-router`. The existing scorer code will
-   not plug into the router we have. Already flagged as REPLACE for
-   `pkg/config/gie_adapter.go` in section 2; the whole module must be
-   retargeted.
-2. **No Go toolchain on the login node** (`command -v go` returns nothing).
-   Options: cross-compile a static `linux/amd64` binary locally, build inside a
-   `golang` container under apptainer, or a cluster module if one exists. Not
-   yet checked which.
-3. **Envoy's version is unverified.** `images/envoy.sif` (42 MB, pulled
-   2026-10-03) is present, but the docs require v1.31 or later and nobody has
-   checked what the image contains.
+1. **Module retargeted.** `go.mod` at the repository root required
+   `sigs.k8s.io/gateway-api-inference-extension v1.5.0`. That dependency is not
+   wrong in itself: llm-d-router v0.11.0 requires the same module for its API
+   types. The real defect was narrower and worse. The router registers plugins
+   into **its own** registry
+   (`github.com/llm-d/llm-d-router/pkg/epp/framework/interface/plugin`), and the
+   existing scorer implemented no framework `Score` interface at all; it is the
+   TDP-proxy code section 2 already marks REWRITE. New out-of-tree module
+   `router-plugin/` (`github.com/johnnie/energy-aware-epp/router-plugin`) pins
+   **llm-d-router v0.11.0**, the latest release, not `main`, which moves daily.
+   Its `cmd/epp` is the upstream runner unchanged plus our `Register` calls, so
+   any behavioural difference from stock llm-d comes only from plugins a config
+   selects. It ships one plugin, an **inert plumbing probe**
+   (`energy-epp-plumbing-probe`) that scores every endpoint 1.0 and counts its
+   calls in `energy_epp_probe_score_calls_total`. It refuses parameters and is
+   registered Alpha, so it cannot be mistaken for a tunable policy or loaded
+   without `--allow-experimental-plugins`. `go vet` clean; 4 unit tests pass.
+   The real scorer is still Stage 4 and still waits for Stage 3
+   pre-registration.
+2. **No Go toolchain needed on the cluster.** The router is pure Go (no cgo, no
+   `replace` directives), so the EPP is cross-compiled here:
+   `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, Go 1.26.6 (the router requires
+   >= 1.26.6; Go's toolchain switching fetched it). Result: a statically linked
+   ELF, sha256 `f3f2aa63...2acf8`, with `llm-d-router v0.11.0` and its module
+   hash embedded. The job refuses to run any binary whose hash differs.
+3. **Envoy is 1.39.2**, read inside a job: `/usr/local/bin/envoy version:
+   50d48c6c.../1.39.2/Clean/RELEASE/BoringSSL`. The router needs >= 1.31. This
+   could not be checked from the login node, which **disables user namespaces
+   and so cannot run any container** - a cluster fact worth keeping, since it
+   means every container check must be a job.
+
+**Found by running the binary locally before spending cluster time**, each of
+which would have failed the first cluster attempt:
+
+- `--pool-name` is **required** at v0.11.0 in file-discovery mode
+  (`either pool-name or endpoint-selector must be set`), although
+  `docs/discovery.md` on `main` calls it optional. Documentation tracks `main`;
+  behaviour tracks the release we pin.
+- `--secure-serving` defaults to **true**, while the documented Envoy config
+  speaks plaintext gRPC to the EPP. Must be `false` here.
+- `--metrics-endpoint-auth` defaults to **true** and authenticates through a
+  Kubernetes API. Must be `false` without Kubernetes.
+- The EPP **injects a `utilization-detector` filter** by default. Every llm-d
+  arm in Stage 5 will carry it; it must be named in the method, not discovered
+  by a reviewer.
+
+**End-to-end smoke test:** `experiments/scripts/router_smoke.sbatch` runs
+curl, then Envoy, then the EPP with the probe, then two vLLM servers, and counts
+evidence twice: the probe's counter and each vLLM server's own access log.
+**PASSED twice.** Job 12321494: 40 of 40 requests returned 200, the
+probe's `Score()` was called exactly 40 times, and vLLM's own access logs show
+19 and 21 completions on the two servers, `COMPLETED 0:0` in 2 min 46 s. It
+also logged OpenTelemetry export timeouts, which is how `--tracing` defaulting
+to true was found. Job 12321494's predecessor 12321493 failed in 4 s at the
+Envoy version gate because the version parse took the last line of output; the
+gate refusing an unreadable version was the intended behaviour. Job 12321496,
+identical but with `--tracing=false`, so that the committed script is the one
+that passed: 40 of 40, 40 calls, 17 and 23, zero trace errors, `COMPLETED 0:0`
+in 3 min 17 s. The router path from client to vLLM through our plugin works on
+Frontenac with no Kubernetes.
+
+### 12.14a Is this work built on Kubernetes?
+
+Short answer: **the artifact targets a Kubernetes-native project; the
+contribution and the measurements do not depend on Kubernetes.**
+
+What Kubernetes does inside llm-d, from the router's own source
+(`cmd/epp/runner/runner.go`, v0.11.0, the comment beginning "File mode runs
+without a controller manager"):
+
+| Kubernetes provides | Without it (file discovery) | Touches our scorer? |
+|---|---|---|
+| Endpoint discovery: an `InferencePool` selects pods; the EPP watches them | A static `endpoints.yaml`; `watchFile` can reload it | No - the scorer receives the same `[]Endpoint` either way |
+| `InferenceObjective` reconciler: per-request priority | Inactive; priority falls back to `Director.defaultPriority` | Indirectly, only if flow control queues by priority |
+| `InferenceModelRewrite` reconciler: model-name rewriting and traffic splits | Inactive | No |
+| `k8s-notification-source` data-layer plugins | Cannot bind | No; vLLM metrics are scraped over HTTP in both modes |
+| Deployment, scaling, networking (Helm charts, Services) | Slurm launches the processes | No |
+| Security defaults: TLS serving, metrics auth via the Kubernetes API | Disabled explicitly (`--secure-serving=false`, `--metrics-endpoint-auth=false`) | No |
+
+The scheduling pipeline - filters, scorers, picker, and the data layer that
+scrapes vLLM's Prometheus endpoint - is the same code in both modes. A scorer
+plugin is an in-process Go value called with a request and a list of
+endpoints; nothing in its interface names a Kubernetes type.
+
+**What a reviewer can still say, and the honest answer.** Production llm-d
+runs on Kubernetes, so our evaluation exercises the scheduler but not the
+control plane. Three things differ in production and are untested here:
+endpoints appear and disappear as pods scale, whereas ours are static;
+`InferenceObjective` priorities can reorder admission ahead of scoring; and
+pod networking adds latency our loopback setup lacks. None changes what the
+scorer decides for a given request and endpoint set; all can change the
+request mix it sees. Recorded as a threat to external validity, not hidden.
+
+**Why this is a strength for the paper's framing, not a weakness.** The plan's
+central claim is *unprivileged* energy-aware routing: what a tenant who cannot
+touch clocks, power limits or cluster configuration can still do. HPC centres
+like Frontenac run Slurm, not Kubernetes, and grant no privileges. That llm-d's
+scheduler runs unmodified in its documented non-Kubernetes mode on such a
+cluster is evidence for the framing.
+
+**Comparable systems, for positioning only** (GitHub descriptions as fetched
+2026-10-07, not further verified): `vllm-project/production-stack` describes
+itself as "K8S-native"; `vllm-project/router` as "a high-performance and
+light-weight router for vLLM"; `ai-dynamo/dynamo` as "a Datacenter Scale
+Distributed Inference Serving Framework"; `kubernetes-sigs/gateway-api-inference-extension`
+is the upstream llm-d-router's EPP derives from. llm-d remains the right target
+because the agenda papers name *its* plugin API as the gap.
+
+**Hugging Face resources that bear on method, not on routing.**
+`ml-energy/benchmark-v3` (dataset) and the `AIEnergyScore` organisation
+(leaderboard Space plus per-task datasets, including `text_generation`)
+publish per-model inference energy. Neither routes requests. Their use here is
+an external sanity check: if either reports Qwen2.5-1.5B on A100 or RTX 6000,
+our Stage 1 joules per token should land in the same range, and a large
+disagreement would point at our instrument before at theirs.
 
 ### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 
@@ -1428,9 +1597,9 @@ Updated 2026-10-04. One line per item so nothing silently drops.
 | 31c | Repeat trials | **done** - two seeds x two submissions, four runs, ordering identical in all. Formal CIs still to compute for the paper |
 | 31g | Node-local model staging (removes the frnt155 hazard) | **done 2026-10-05**, verified by job 12304897: `$SLURM_TMPDIR` is node-local xfs, 3931 MiB/s with 8 readers |
 | 31h | Fleet self-balances to the smaller component | **done** - refusing on unequal counts was brittle; `--exclusive` makes unequal the normal case |
-| 31i | Stage 2 replication at seeds 11 and 13 | **seed 11 DONE 2026-10-07, job 12319685: replicates.** `energy_consolidate` is again the pooled winner and wins 4 of 5 load levels. Seed 13 never ran (the `afterok` chain failed, see N16); **resubmitted standalone as job 12321476**, running. See 12.13 |
+| 31i | Stage 2 replication at seeds 11 and 13 | **DONE 2026-10-07.** Seeds 7, 11, 13 are jobs 12305232, 12319685, 12321476. Pre-registered gate: **PASSED**, `energy_consolidate` beats `slo_packing` in all three trials, +2.0%, +1.2%, +1.0%, pooled +1.4%. Small margins; see 12.13a for what three trials can and cannot support |
 | 21b | **Re-run the homogeneous arm at 8 GPU on `frnt155`, with staging** | **DONE 2026-10-07, job 12319815, with a design flaw of our own.** `COMPLETED 0:0`, all 25 cells with energy, matched GPU count and matched read path, so N15 is closed. But pinning `RATES` to the heterogeneous ladder drove 8x RTX 6000 far past saturation at 400 req/s and above, where goodput per joule fell to about 0.0001; those cells carry no information. Only 200 req/s, and marginally 300, can be interpreted. See 12.13 and 21c |
-| 21c | **Capacity-matched homogeneous control** | **RUNNING 2026-10-07, job 12321478** on frnt155, seed 11. Same node, same seed, ladder 100,150,200,250,300 req/s, inside 8x RTX 6000's measured SLO knee (271-350 req/s, job 12303354). Gives several interpretable homogeneous cells, and 200 and 300 still match heterogeneous cells directly. The comparison is then reported over the overlapping feasible region only, never pooled across saturated cells |
+| 21c | **Capacity-matched homogeneous control** | **DONE 2026-10-07, job 12321478**, 100-300 req/s on frnt155. Gate FAILED, informatively: every energy-curve policy, and `slo_packing`, has **no feasible point**; `round_robin` is best (0.1682 gp/J at 250 req/s). See 12.13a |
 | 31j | Port staging/`wait`/`exit 0` into `stage2_real.sbatch` | **done 2026-10-07.** Both scripts now report `staging=1 wait=1 exit0=1`. Locked in by `verify_fixes.sh` section 11, which fails if either arm loses staging, the offline flag, the fatal-on-failure refusal, the `wait`, or the explicit `exit 0`. Suite now PASS=43 FAIL=0 |
 | 31d | Heterogeneous-fleet Stage 2 | **open and now the critical path.** Per-type curves measured (12.9); blocked on multi-node allocation with cross-node energy collection, since NVML is node-local and in-node clock control is denied |
 | 31e | Per-GPU-type curves to c=128+ | **done** - A100, A30, L4, L40S, RTX 8000, RTX 6000 (to c=256). V100 excluded, sm_70 absent from the container build |

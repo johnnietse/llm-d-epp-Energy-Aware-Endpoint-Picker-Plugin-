@@ -1,0 +1,21 @@
+plugins:
+  - name: file-disc
+    type: file-discovery
+    parameters:
+      path: /global/home/hpc6081/energy-epp/results/router-smoke-12321496/endpoints.yaml
+      watchFile: false
+  - name: probe
+    type: energy-epp-plumbing-probe
+  - name: random-picker
+    type: random-picker
+  - name: single-profile
+    type: single-profile-handler
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: probe
+      - pluginRef: random-picker
+dataLayer:
+  discovery:
+    endpoints:
+      pluginRef: file-disc

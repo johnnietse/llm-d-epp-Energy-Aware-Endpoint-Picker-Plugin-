@@ -1,0 +1,159 @@
+load generator: 16 worker process(es)
+--- round_robin at 200.0 req/s ---
+    J/req 9.10  goodput/J 0.1099  SLO 100.0%
+    TTFT p50/p95 0.031/0.048s  TPOT 0.0088s  ITL p99/max 0.0180/0.0658s  e2e p99 1.773s  errors 0
+    SLO margin p50/p95 0.566/0.882 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 192.1 req/s  fidelity 96.0%  send delay p99 0.002s  TTFT from send p50 0.029
+--- least_loaded at 200.0 req/s ---
+    J/req 9.62  goodput/J 0.1040  SLO 100.0%
+    TTFT p50/p95 0.019/0.040s  TPOT 0.0064s  ITL p99/max 0.0158/0.0476s  e2e p99 1.464s  errors 0
+    SLO margin p50/p95 0.296/0.728 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 192.6 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.018
+--- slo_packing at 200.0 req/s ---
+    J/req 4.91  goodput/J 0.2035  SLO 100.0%
+    TTFT p50/p95 0.040/0.090s  TPOT 0.0063s  ITL p99/max 0.0108/0.0457s  e2e p99 0.977s  errors 0
+    SLO margin p50/p95 0.449/0.481 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 194.4 req/s  fidelity 97.2%  send delay p99 0.001s  TTFT from send p50 0.040
+    (curve probed above its measured range 3916 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 200.0 req/s ---
+    J/req 4.81  goodput/J 0.2078  SLO 100.0%
+    TTFT p50/p95 0.037/0.080s  TPOT 0.0063s  ITL p99/max 0.0107/0.0505s  e2e p99 0.979s  errors 0
+    SLO margin p50/p95 0.452/0.481 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 194.7 req/s  fidelity 97.4%  send delay p99 0.001s  TTFT from send p50 0.036
+    (curve probed above its measured range 3950 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 200.0 req/s ---
+    J/req 4.84  goodput/J 0.2064  SLO 100.0%
+    TTFT p50/p95 0.039/0.091s  TPOT 0.0063s  ITL p99/max 0.0110/0.0426s  e2e p99 0.972s  errors 0
+    SLO margin p50/p95 0.445/0.479 x SLO  within 10% of boundary 0.0%
+    offered 200.0 req/s  achieved 194.5 req/s  fidelity 97.2%  send delay p99 0.001s  TTFT from send p50 0.039
+    (curve probed above its measured range 3903 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12321476/policies-rate200.json
+load generator: 16 worker process(es)
+--- round_robin at 300.0 req/s ---
+    J/req 6.44  goodput/J 0.1374  SLO 88.5%
+    TTFT p50/p95 0.031/0.058s  TPOT 0.0098s  ITL p99/max 0.0190/0.0662s  e2e p99 2.045s  errors 0
+    SLO margin p50/p95 0.630/1.006 x SLO  within 10% of boundary 47.7%
+    offered 300.0 req/s  achieved 286.1 req/s  fidelity 95.4%  send delay p99 0.002s  TTFT from send p50 0.029
+--- least_loaded at 300.0 req/s ---
+    J/req 6.57  goodput/J 0.1522  SLO 100.0%
+    TTFT p50/p95 0.022/0.045s  TPOT 0.0069s  ITL p99/max 0.0166/0.0636s  e2e p99 1.671s  errors 0
+    SLO margin p50/p95 0.319/0.827 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 287.1 req/s  fidelity 95.7%  send delay p99 0.001s  TTFT from send p50 0.022
+--- slo_packing at 300.0 req/s ---
+    J/req 3.91  goodput/J 0.2556  SLO 100.0%
+    TTFT p50/p95 0.058/0.095s  TPOT 0.0065s  ITL p99/max 0.0113/0.0476s  e2e p99 0.971s  errors 0
+    SLO margin p50/p95 0.452/0.477 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 290.9 req/s  fidelity 97.0%  send delay p99 0.001s  TTFT from send p50 0.057
+    (curve probed above its measured range 13849 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 300.0 req/s ---
+    J/req 3.86  goodput/J 0.2591  SLO 100.0%
+    TTFT p50/p95 0.052/0.091s  TPOT 0.0065s  ITL p99/max 0.0113/0.0538s  e2e p99 0.972s  errors 0
+    SLO margin p50/p95 0.450/0.477 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 290.8 req/s  fidelity 96.9%  send delay p99 0.001s  TTFT from send p50 0.052
+    (curve probed above its measured range 13910 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 3.84  goodput/J 0.2604  SLO 100.0%
+    TTFT p50/p95 0.057/0.094s  TPOT 0.0065s  ITL p99/max 0.0118/0.0641s  e2e p99 0.975s  errors 0
+    SLO margin p50/p95 0.452/0.478 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 290.8 req/s  fidelity 96.9%  send delay p99 0.001s  TTFT from send p50 0.056
+    (curve probed above its measured range 13973 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12321476/policies-rate300.json
+load generator: 16 worker process(es)
+--- round_robin at 400.0 req/s ---
+    J/req 5.24  goodput/J 0.0996  SLO 52.2%
+    TTFT p50/p95 0.037/0.069s  TPOT 0.0113s  ITL p99/max 0.0220/0.0819s  e2e p99 2.452s  errors 0
+    SLO margin p50/p95 0.681/1.215 x SLO  within 10% of boundary 5.1%
+    offered 400.0 req/s  achieved 375.5 req/s  fidelity 93.9%  send delay p99 0.003s  TTFT from send p50 0.034
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- least_loaded at 400.0 req/s ---
+    J/req 5.11  goodput/J 0.1956  SLO 100.0%
+    TTFT p50/p95 0.026/0.049s  TPOT 0.0075s  ITL p99/max 0.0178/0.0632s  e2e p99 1.809s  errors 0
+    SLO margin p50/p95 0.341/0.896 x SLO  within 10% of boundary 2.4%
+    offered 400.0 req/s  achieved 377.6 req/s  fidelity 94.4%  send delay p99 0.001s  TTFT from send p50 0.025
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- slo_packing at 400.0 req/s ---
+    J/req 3.19  goodput/J 0.3132  SLO 100.0%
+    TTFT p50/p95 0.062/0.098s  TPOT 0.0065s  ITL p99/max 0.0114/0.0494s  e2e p99 0.969s  errors 0
+    SLO margin p50/p95 0.445/0.476 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 382.5 req/s  fidelity 95.6%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 28977 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 400.0 req/s ---
+    J/req 3.15  goodput/J 0.3175  SLO 100.0%
+    TTFT p50/p95 0.061/0.097s  TPOT 0.0066s  ITL p99/max 0.0119/0.0594s  e2e p99 0.968s  errors 0
+    SLO margin p50/p95 0.448/0.476 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 382.6 req/s  fidelity 95.7%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 28921 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 400.0 req/s ---
+    J/req 3.13  goodput/J 0.3196  SLO 100.0%
+    TTFT p50/p95 0.058/0.095s  TPOT 0.0065s  ITL p99/max 0.0116/0.0602s  e2e p99 0.969s  errors 0
+    SLO margin p50/p95 0.446/0.476 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 382.8 req/s  fidelity 95.7%  send delay p99 0.001s  TTFT from send p50 0.058
+    (curve probed above its measured range 28980 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12321476/policies-rate400.json
+load generator: 16 worker process(es)
+--- round_robin at 500.0 req/s ---
+    J/req 4.31  goodput/J 0.1161  SLO 50.0%
+    TTFT p50/p95 0.044/0.098s  TPOT 0.0147s  ITL p99/max 0.0302/0.1068s  e2e p99 3.467s  errors 0
+    SLO margin p50/p95 0.773/1.691 x SLO  within 10% of boundary 0.3%
+    offered 500.0 req/s  achieved 463.1 req/s  fidelity 92.6%  send delay p99 0.005s  TTFT from send p50 0.039
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- least_loaded at 500.0 req/s ---
+    J/req 4.18  goodput/J 0.2294  SLO 96.0%
+    TTFT p50/p95 0.031/0.055s  TPOT 0.0083s  ITL p99/max 0.0186/0.0971s  e2e p99 2.013s  errors 0
+    SLO margin p50/p95 0.382/0.998 x SLO  within 10% of boundary 26.7%
+    offered 500.0 req/s  achieved 468.1 req/s  fidelity 93.6%  send delay p99 0.001s  TTFT from send p50 0.030
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- slo_packing at 500.0 req/s ---
+    J/req 2.86  goodput/J 0.3493  SLO 100.0%
+    TTFT p50/p95 0.072/0.103s  TPOT 0.0065s  ITL p99/max 0.0114/0.0638s  e2e p99 0.971s  errors 0
+    SLO margin p50/p95 0.453/0.477 x SLO  within 10% of boundary 0.0%
+    offered 500.0 req/s  achieved 475.3 req/s  fidelity 95.1%  send delay p99 0.001s  TTFT from send p50 0.071
+    (curve probed above its measured range 52998 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 500.0 req/s ---
+    J/req 2.85  goodput/J 0.3509  SLO 100.0%
+    TTFT p50/p95 0.069/0.104s  TPOT 0.0065s  ITL p99/max 0.0122/0.0625s  e2e p99 0.979s  errors 0
+    SLO margin p50/p95 0.453/0.481 x SLO  within 10% of boundary 0.0%
+    offered 500.0 req/s  achieved 475.7 req/s  fidelity 95.1%  send delay p99 0.001s  TTFT from send p50 0.069
+    (curve probed above its measured range 53047 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 500.0 req/s ---
+    J/req 2.84  goodput/J 0.3526  SLO 100.0%
+    TTFT p50/p95 0.070/0.102s  TPOT 0.0065s  ITL p99/max 0.0126/0.0730s  e2e p99 0.974s  errors 0
+    SLO margin p50/p95 0.453/0.479 x SLO  within 10% of boundary 0.0%
+    offered 500.0 req/s  achieved 475.3 req/s  fidelity 95.1%  send delay p99 0.001s  TTFT from send p50 0.069
+    (curve probed above its measured range 54036 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12321476/policies-rate500.json
+load generator: 16 worker process(es)
+--- round_robin at 600.0 req/s ---
+    J/req 3.86  goodput/J 0.1297  SLO 50.0%
+    TTFT p50/p95 0.050/5.271s  TPOT 0.0173s  ITL p99/max 0.0378/0.1519s  e2e p99 9.525s  errors 0
+    SLO margin p50/p95 0.823/4.480 x SLO  within 10% of boundary 0.0%
+    offered 600.0 req/s  achieved 502.5 req/s  fidelity 83.8%  send delay p99 0.005s  TTFT from send p50 0.045
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- least_loaded at 600.0 req/s ---
+    J/req 3.55  goodput/J 0.2078  SLO 73.7%
+    TTFT p50/p95 0.039/0.061s  TPOT 0.0089s  ITL p99/max 0.0189/0.0840s  e2e p99 2.133s  errors 0
+    SLO margin p50/p95 0.409/1.057 x SLO  within 10% of boundary 27.2%
+    offered 600.0 req/s  achieved 558.6 req/s  fidelity 93.1%  send delay p99 0.002s  TTFT from send p50 0.038
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- slo_packing at 600.0 req/s ---
+    J/req 2.92  goodput/J 0.3390  SLO 99.0%
+    TTFT p50/p95 0.075/0.107s  TPOT 0.0074s  ITL p99/max 0.0164/0.0746s  e2e p99 2.000s  errors 0
+    SLO margin p50/p95 0.460/0.938 x SLO  within 10% of boundary 6.1%
+    offered 600.0 req/s  achieved 564.9 req/s  fidelity 94.2%  send delay p99 0.001s  TTFT from send p50 0.074
+    (curve probed above its measured range 84157 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 600.0 req/s ---
+    J/req 2.90  goodput/J 0.3413  SLO 99.1%
+    TTFT p50/p95 0.073/0.107s  TPOT 0.0074s  ITL p99/max 0.0165/0.0768s  e2e p99 1.995s  errors 0
+    SLO margin p50/p95 0.459/0.926 x SLO  within 10% of boundary 5.8%
+    offered 600.0 req/s  achieved 563.4 req/s  fidelity 93.9%  send delay p99 0.001s  TTFT from send p50 0.073
+    (curve probed above its measured range 86157 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 600.0 req/s ---
+    J/req 2.89  goodput/J 0.3447  SLO 99.6%
+    TTFT p50/p95 0.072/0.104s  TPOT 0.0074s  ITL p99/max 0.0165/0.0939s  e2e p99 1.981s  errors 0
+    SLO margin p50/p95 0.460/0.923 x SLO  within 10% of boundary 5.8%
+    offered 600.0 req/s  achieved 560.7 req/s  fidelity 93.4%  send delay p99 0.001s  TTFT from send p50 0.072
+    (curve probed above its measured range 85647 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12321476/policies-rate600.json

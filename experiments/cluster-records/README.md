@@ -44,10 +44,14 @@ were re-fetched after finishing and are now complete, 5 of 5 rate files each:
 - `results/stage2het-12319685` - heterogeneous replication, seed 11
 - `results/stage2-12319815` - matched 8-GPU homogeneous control on frnt155
 
-Still running at the time of this update, so not yet here:
+Added 2026-10-07 evening, complete:
 
 - `results/stage2het-12321476` - heterogeneous replication, seed 13
 - `results/stage2-12321478` - capacity-matched homogeneous control, 100-300 req/s
+- `results/router-smoke-12321494`, `results/router-smoke-12321496` - end-to-end
+  llm-d router smoke tests, both PASS; `smoke-verdict.txt` in each. 12321493
+  failed in 4 s at its Envoy version gate before writing results; its Slurm log
+  is in `slurm-logs/`.
 
 Re-fetch only named directories with `bash fr-fetchall.sh <dir> [dir...]`. A
 full re-fetch re-downloads every log already gzipped here.
