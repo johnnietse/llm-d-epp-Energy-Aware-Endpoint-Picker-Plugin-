@@ -180,7 +180,13 @@ jobs:
           set -eu
           BRANCH="upstream/llm-d-router-$TAG"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          N=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')
+          # Count only pull requests this workflow could have opened: authored
+          # by the Actions bot and from this repository, not a fork. Anyone can
+          # open a fork PR whose branch has the same name, and counting it would
+          # let them silently suppress the real proposal (fail-open dedup).
+          N=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+                --json number,author,isCrossRepository \
+                --jq '[.[] | select(.isCrossRepository == false and .author.login == "app/github-actions")] | length')
           if [ "$N" != "0" ]; then
             echo "open=true" >> "$GITHUB_OUTPUT"
             echo "A pull request for $BRANCH is already open." >> "$GITHUB_STEP_SUMMARY"
@@ -293,9 +299,16 @@ jobs:
               echo ""
               cat body.md
             } > issue.md
-            EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-                         --search "Propose llm-d-router $TAG in:title" --json number --jq 'length')
-            if [ "$EXISTING" = "0" ]; then
+            # Count only issues the Actions bot opened with exactly this title.
+            # Anyone can open an issue, and a fuzzy title search over all of
+            # them would let an outsider suppress the notice by filing a
+            # look-alike first (fail-open dedup).
+            TITLE="Propose llm-d-router $TAG (from $OLD)"
+            EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 500 \
+                         --json title,author \
+                         --jq '.[] | select(.author.login == "app/github-actions") | .title' \
+                       | grep -Fxc -- "$TITLE" || true)
+            if [ "${EXISTING:-0}" = "0" ]; then
               gh issue create --repo "$GITHUB_REPOSITORY" \
                 --title "Propose llm-d-router $TAG (from $OLD)" --body-file issue.md
               echo "PR creation refused; opened an issue for $TAG instead." >> "$GITHUB_STEP_SUMMARY"
