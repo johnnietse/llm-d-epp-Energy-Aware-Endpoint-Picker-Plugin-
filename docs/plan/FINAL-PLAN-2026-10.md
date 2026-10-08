@@ -1448,6 +1448,25 @@ which would have failed the first cluster attempt:
   arm in Stage 5 will carry it; it must be named in the method, not discovered
   by a reviewer.
 
+**One router version, three copies, all pinned (2026-10-07).** Nothing here
+re-implements the router: `llm-d-ref/` is a git submodule of
+`https://github.com/llm-d/llm-d-router.git`, the cluster has a clone of the same
+repository, and the EPP binary is built from it as a Go module. They had drifted
+to three commits (submodule `e149f34f`, cluster `297bfb0`, build `v0.11.0`), so a
+config read from one could describe different software from the binary that ran.
+All three now resolve to `a5cbe600`, the commit the annotated `v0.11.0` tag
+points to; the submodule and the module cache are identical apart from Windows
+line endings (400 of 400 `.go` files match with CR stripped). Configs used in
+jobs are **extracted from the pinned upstream docs at run time**, not retyped:
+`router_overhead.sbatch` pulls the Envoy block out of `docs/discovery.md` and
+changes only ports and the bind address, printing the diff into its log.
+
+**Open decision, not yet taken:** `.github/workflows/sync-upstream.yml` on
+`main` advances the submodule to upstream `main` daily. That is its intended
+job, but it will undo this pin when `docs/technical-plan-v2` merges. Before
+merging, either retarget the workflow to follow release tags or exclude the
+submodule from it.
+
 **End-to-end smoke test:** `experiments/scripts/router_smoke.sbatch` runs
 curl, then Envoy, then the EPP with the probe, then two vLLM servers, and counts
 evidence twice: the probe's counter and each vLLM server's own access log.
@@ -1517,6 +1536,102 @@ publish per-model inference energy. Neither routes requests. Their use here is
 an external sanity check: if either reports Qwen2.5-1.5B on A100 or RTX 6000,
 our Stage 1 joules per token should land in the same range, and a large
 disagreement would point at our instrument before at theirs.
+
+### 12.14b Is Prometheus needed, and what does metrics polling cost? Measured 2026-10-07
+
+**There is no Prometheus server anywhere in this system.** "Prometheus" here
+means only the text exposition format vLLM serves at `/metrics`. Three things
+read that endpoint, verified in code:
+
+| Reader | How often | On the request path? |
+|---|---|---|
+| llm-d-router EPP metrics data source | every **50 ms** per endpoint (`MinRefreshMetricsInterval`, `pkg/epp/server/options.go:48`, also the default); values older than **2 s** are treated as stale | No. It polls in the background and the scheduler reads cached values |
+| Our Stage 2 harness | **twice per cell**, before and after (`policy_harness.py:849, 959`), only for the latency cross-check | No. Routing in the harness uses its own in-flight counters |
+| Energy measurement | never: NVML counters | No |
+
+The latency people associate with Prometheus is a different architecture: a
+Prometheus *server* scraping every 15-30 s and a consumer (for example an
+autoscaler through an adapter) querying it, which makes decisions tens of
+seconds stale. llm-d's EPP bypasses that entirely and scrapes model servers
+directly. Staleness in the EPP is bounded by the 50 ms poll plus one scrape,
+not by a Prometheus server.
+
+**The polling can be switched off.** `dataLayer.injectDefaults: false`
+(`pkg/epp/config/loader/defaults.go`, `ensureDataLayer`) removes the default
+metrics source and extractor. Confirmed by running the binary: the EPP log
+reports `pollers:1` by default and `pollers:0` with the opt-out. The EPP also
+keeps its own load signal with no polling at all: `inflight-load-producer`,
+default-registered, counts requests it has routed and not yet seen complete,
+updated at dispatch and completion. `active-request-scorer` consumes it.
+
+**Measured: job 12321497**, one RTX 6000, one vLLM server, `vllm bench serve`
+(vLLM's own client, so no load generator of ours is involved), random 256-token
+input and 128-token output, 600 or 1200 prompts per run. Three arms, same
+offered load, order A B C C B A at each rate so drift cannot pose as an arm
+effect:
+
+- **A** direct to vLLM, no router
+- **B** Envoy, then the EPP **polling** `/metrics` (default): vLLM served
+  2060-2096 `GET /metrics` per run, about 20 per second, as expected
+- **C** Envoy, then the EPP with **polling off**: 4 `GET /metrics` per run, the
+  same as arm A, i.e. none from the EPP
+
+Both router arms run the same scheduler (`active-request-scorer`,
+`max-score-picker`); the only difference is whether the poller exists.
+
+| Cost | rate 10 req/s | rate 20 req/s |
+|---|---|---|
+| **Polling (B - C)**, TTFT p50 | +0.85 ms (39.41 vs 38.56) | +0.63 ms (54.61 vs 53.98) |
+| Polling, TTFT p99 | +1.4 ms | -0.1 ms |
+| Polling, ITL p50 | 0.00 ms | 0.00 ms |
+| Polling, ITL p99 | +0.3 ms | +1.7 ms (22.96 vs 21.29) |
+| Polling, end-to-end p50 | +1.8 ms (+0.12%) | -1.5 ms |
+| **Router path (C - A)**, TTFT p50 | +1.2 ms | +2.4 ms |
+| Router path, end-to-end p50 | +0.9 ms (+0.06%) | +6.2 ms (+0.28%) |
+| EPP decision time, mean `request_processing_duration_seconds` | 0.19-0.23 ms | 0.19-0.20 ms |
+| One `/metrics` scrape, idle server | p50 **4.42 ms**, p99 7.13 ms, 46.5 KB | |
+
+**Verdict.** Polling costs under 1 ms of median TTFT and nothing measurable end
+to end. The whole router path (Envoy, ext_proc, EPP) costs 1-2.4 ms of median
+TTFT and 0.06-0.28% of end-to-end latency, against requests that take 1.6-2.2 s
+and tokens 12-17 ms apart. The EPP's own decision takes about 0.2 ms. **None of
+this is a reason to avoid the router or the metrics path.** The small polling
+effect that does appear (TTFT p50 +0.6 to +0.9 ms at both rates, ITL p99
++1.7 ms at 20 req/s) has a plausible channel that this job did not isolate:
+vLLM answers `/metrics` in its API-server process, and 20 scrapes a second at
+about 4.4 ms each occupy roughly 9% of that event loop. If it ever matters,
+`--refresh-metrics-interval 200ms` cuts it fourfold at the cost of staleness.
+
+**Limits of this measurement.** One GPU, one model, two load levels, two reps
+per router arm, one usable rep of the direct arm (below), loopback networking.
+The polling result is the strong one: four router runs per rate, consistent
+direction on TTFT p50. The router-path figures rest on n = 1 per rate.
+
+**An artifact the A B C C B A order caught.** The first run at each new rate was
+anomalous in the direct arm: at 10 req/s TTFT p99 6440 ms and one failed
+request out of 600; at 20 req/s ITL p99 52 ms against 21 ms in the mirrored
+repeat. A first-at-a-new-rate transient in vLLM is the likely cause, though
+this job does not identify the mechanism. Had the arms run in one fixed order,
+it would have appeared as "direct is slower than the router". The mean-of-reps
+line for arm A in `summary.txt` is contaminated by it and is not quoted; the
+router-path figures above use only the second, clean A run. **Rule for Stage 5:
+a discarded warm-up run at every load level, not only once per job.**
+
+**Decision for Stage 4: the energy scorer needs no vLLM metrics.** The Stage 1
+curves are indexed by concurrency, and the policy that won Stage 2 placed
+requests by the in-flight count, which is exactly what `inflight-load-producer`
+provides, with no staleness. The scorer therefore consumes that, and the EPP
+runs with `injectDefaults: false`: no polling, one fewer moving part, and the
+same signal the Python harness measured. If a later scorer wants KV-cache
+utilization or queue depth, those do need polling, and the cost above applies.
+
+**Literature.** Stale load information in load balancing is a studied problem:
+M. Mitzenmacher, "How useful is old information?", *IEEE Transactions on
+Parallel and Distributed Systems* 11(1):6-20, 2000, doi 10.1109/71.824633
+(citation verified through Crossref, 2026-10-07). It is the classic reference
+for routing on out-of-date queue lengths. It supports preferring the EPP's own
+event-driven in-flight count over a polled queue length for a load-sensitive
+scorer, and it is why the EPP's 2 s staleness threshold should not be loosened.
 
 ### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 
