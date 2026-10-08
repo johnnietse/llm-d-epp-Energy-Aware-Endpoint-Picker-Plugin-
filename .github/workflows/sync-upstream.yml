@@ -6,29 +6,32 @@
 # `main`. The router is pinned to a release (v0.11.0) in three places that
 # must agree - this submodule, router-plugin/go.mod, and the clone on the
 # cluster - and results, extracted configs and the EPP binary all tie to that
-# one version. A daily move to `main` silently broke the agreement. It now
-# follows release tags only and opens a pull request that moves both
-# in-repo pins together. It never pushes to `main`.
+# one version. It now follows release tags only and opens a pull request that
+# moves both in-repo pins together. It never pushes to `main`.
 #
-# Why two jobs (security, 2026-10-08). Evaluating a new release means running
-# upstream's code: `go test` links llm-d-router packages and runs their init()
-# functions. That code must never run where a write-capable token is
-# reachable. So:
+# Security design (2026-10-08, after two automated reviews):
 #
-#   evaluate  read-only token, checkout with persist-credentials: false, and
-#             no token in any environment. Bumps the pins, builds, vets and
-#             tests, and hands go.mod/go.sum plus results to the next job as
-#             an artifact.
-#   propose   the only job with write permissions. Runs no third-party code:
-#             git, gh and file copies only. It re-validates every value it
-#             receives before using it.
+#   evaluate  Runs upstream code: `go test` links llm-d-router packages and
+#             executes their init(). So: read-only token, checkout with
+#             persist-credentials: false, no token in any environment, and the
+#             Go cache DISABLED, so nothing it leaves behind is saved for later
+#             CI runs to restore (cache poisoning). Its only output is a small
+#             text file of integers and two sha256 hashes.
+#   propose   The only job with write permission. Runs no build, test or vet,
+#             so no module code executes. It regenerates go.mod and go.sum
+#             itself with `go get` and `go mod tidy` (which download and
+#             resolve modules, checked against the Go checksum database, but do
+#             not run them) and refuses to continue unless their hashes match
+#             the ones `evaluate` tested. Nothing produced by the untrusted job
+#             is ever committed; only validated integers and hashes cross over.
 #
-# Untrusted values (tag names, results) are never interpolated into shell
-# text with ${{ }}. They are passed through `env:` and validated in the shell.
+# All actions are pinned to full commit SHAs (resolved 2026-10-08 from the
+# tags shown in the trailing comments). Untrusted values (tag names) reach the
+# shell only through `env:` and are validated before use; no run block
+# contains ${{ }}.
 #
 # Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so CI
-# does not run on them; the evaluate job's results in the PR body are the only
-# automated checks.
+# does not run on them; the evaluate job's results are the automated checks.
 #
 # Repository setting required once: Settings -> Actions -> General ->
 # Workflow permissions -> "Allow GitHub Actions to create and approve pull
@@ -46,7 +49,6 @@ env:
   UPSTREAM: https://github.com/llm-d/llm-d-router.git
   GOTOOLCHAIN: auto
 
-# Default for every job: read-only. Only `propose` raises it.
 permissions:
   contents: read
 
@@ -61,7 +63,7 @@ jobs:
       pinned: ${{ steps.cmp.outputs.pinned }}
     steps:
       - name: Checkout (no credentials left on disk)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           submodules: true
@@ -80,15 +82,10 @@ jobs:
           echo "latest upstream release: $LATEST"
           echo "submodule pinned at:     $PINNED"
           echo "router-plugin/go.mod:    $GOMOD"
-          # Refuse anything that is not a plain release tag before it is used
-          # anywhere else, including the output handed to the write job.
           printf '%s' "$LATEST" | grep -Eq "$semver" || { echo "no valid upstream release tag" >&2; exit 1; }
           printf '%s' "$PINNED" | grep -Eq "$semver" || PINNED=untagged
           printf '%s' "$GOMOD"  | grep -Eq "$semver" || GOMOD=invalid
-          {
-            echo "latest=$LATEST"
-            echo "pinned=$PINNED"
-          } >> "$GITHUB_OUTPUT"
+          { echo "latest=$LATEST"; echo "pinned=$PINNED"; } >> "$GITHUB_OUTPUT"
           {
             echo "## llm-d-router release check"
             echo ""
@@ -110,11 +107,12 @@ jobs:
             echo "bump=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up Go
+      - name: Set up Go (cache disabled - this job runs upstream code)
         if: steps.cmp.outputs.bump == 'true'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: router-plugin/go.mod
+          cache: false
 
       - name: Bump both pins, then build, vet and test against the new release
         if: steps.cmp.outputs.bump == 'true'
@@ -127,37 +125,40 @@ jobs:
           cd router-plugin
           go get "github.com/llm-d/llm-d-router@$TAG" || exit 1
           go mod tidy || exit 1
+          # Hash go.mod/go.sum BEFORE any module code runs, so the hashes
+          # describe what was resolved, not what tests might have touched.
+          MODSUM=$(sha256sum go.mod | cut -d' ' -f1)
+          SUMSUM=$(sha256sum go.sum | cut -d' ' -f1)
           go build ./... > ../build.log 2>&1; B=$?
           go vet ./...   > ../vet.log 2>&1;   V=$?
           go test ./...  > ../test.log 2>&1;  T=$?
           cd ..
-          # Interface landmarks the plugin depends on, at their real locations.
           # grep -c prints 0 AND exits non-zero on no match, so "|| echo 0"
           # would yield "0" twice; capture, then default an empty result.
           L1=$(grep -c 'type Scorer interface' llm-d-ref/pkg/epp/framework/interface/scheduling/plugins.go 2>/dev/null); L1=${L1:-0}
           L2=$(grep -c '^func Register(' llm-d-ref/pkg/epp/framework/interface/plugin/registry.go 2>/dev/null); L2=${L2:-0}
           L3=$(grep -c 'file discovery (no Kubernetes)' llm-d-ref/docs/discovery.md 2>/dev/null); L3=${L3:-0}
           mkdir -p handoff
-          cp router-plugin/go.mod router-plugin/go.sum handoff/
-          printf 'build=%s\nvet=%s\ntest=%s\nl_scorer=%s\nl_register=%s\nl_filedisc=%s\n' \
-                 "$B" "$V" "$T" "$L1" "$L2" "$L3" > handoff/results.txt
-          tail -40 build.log vet.log test.log > handoff/logs-tail.txt 2>&1 || true
+          printf 'build=%s\nvet=%s\ntest=%s\nl_scorer=%s\nl_register=%s\nl_filedisc=%s\nmodsum=%s\nsumsum=%s\n' \
+                 "$B" "$V" "$T" "$L1" "$L2" "$L3" "$MODSUM" "$SUMSUM" > handoff/results.txt
           cat handoff/results.txt
+          echo "Build, vet and test log tails are printed below for review in this run's log."
+          tail -40 build.log vet.log test.log 2>&1 || true
 
       - name: Hand results to the propose job
         if: steps.cmp.outputs.bump == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: llm-d-router-bump
-          path: handoff/
+          path: handoff/results.txt
           retention-days: 7
 
   propose:
     needs: evaluate
     if: needs.evaluate.outputs.bump == 'true'
     runs-on: ubuntu-latest
-    # The only job with write access. It runs git, gh and cp - never Go, never
-    # any code from upstream.
+    # The only job with write access. It runs git, gh, `go get` and
+    # `go mod tidy` - never build, test or vet - so no module code executes.
     permissions:
       contents: write
       pull-requests: write
@@ -188,17 +189,50 @@ jobs:
 
       - name: Checkout
         if: steps.existing.outputs.open == 'false'
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           submodules: true
 
-      - name: Fetch the evaluate job's files
+      - name: Fetch the evaluate job's results (integers and hashes only)
         if: steps.existing.outputs.open == 'false'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: llm-d-router-bump
           path: handoff
+
+      - name: Set up Go (cache disabled)
+        if: steps.existing.outputs.open == 'false'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: router-plugin/go.mod
+          cache: false
+
+      - name: Regenerate the pins here, require they match what was tested
+        if: steps.existing.outputs.open == 'false'
+        run: |
+          set -eu
+          # Every value read from the artifact is validated by shape; the file
+          # itself is never sourced, executed or committed.
+          getn() { v=$(sed -n "s/^$1=//p" handoff/results.txt | head -1)
+                   printf '%s' "$v" | grep -Eq '^[0-9]+$' || { echo "bad $1" >&2; exit 1; }
+                   printf '%s' "$v"; }
+          geth() { v=$(sed -n "s/^$1=//p" handoff/results.txt | head -1)
+                   printf '%s' "$v" | grep -Eq '^[0-9a-f]{64}$' || { echo "bad $1" >&2; exit 1; }
+                   printf '%s' "$v"; }
+          MODSUM_T=$(geth modsum); SUMSUM_T=$(geth sumsum)
+          git -C llm-d-ref fetch --quiet --tags origin
+          git -C llm-d-ref -c advice.detachedHead=false checkout --quiet "$TAG"
+          cd router-plugin
+          go get "github.com/llm-d/llm-d-router@$TAG"
+          go mod tidy
+          MODSUM=$(sha256sum go.mod | cut -d' ' -f1)
+          SUMSUM=$(sha256sum go.sum | cut -d' ' -f1)
+          if [ "$MODSUM" != "$MODSUM_T" ] || [ "$SUMSUM" != "$SUMSUM_T" ]; then
+            echo "Regenerated go.mod/go.sum differ from what the evaluate job tested; refusing to propose untested pins." >&2
+            exit 1
+          fi
+          echo "go.mod and go.sum regenerated here match the tested ones byte for byte."
 
       - name: Commit, push the branch, open the pull request
         if: steps.existing.outputs.open == 'false'
@@ -206,34 +240,17 @@ jobs:
           BRANCH: ${{ steps.existing.outputs.branch }}
         run: |
           set -eu
-          # Results are numbers; anything else is rejected rather than echoed.
-          get() {
-            v=$(sed -n "s/^$1=//p" handoff/results.txt | head -1)
-            printf '%s' "$v" | grep -Eq '^[0-9]+$' || { echo "bad $1" >&2; exit 1; }
-            printf '%s' "$v"
-          }
-          B=$(get build); V=$(get vet); T=$(get test)
-          L1=$(get l_scorer); L2=$(get l_register); L3=$(get l_filedisc)
+          getn() { v=$(sed -n "s/^$1=//p" handoff/results.txt | head -1)
+                   printf '%s' "$v" | grep -Eq '^[0-9]+$' || { echo "bad $1" >&2; exit 1; }
+                   printf '%s' "$v"; }
+          B=$(getn build); V=$(getn vet); T=$(getn test)
+          L1=$(getn l_scorer); L2=$(getn l_register); L3=$(getn l_filedisc)
           ok()  { [ "$1" = "0" ] && echo "pass" || echo "**FAIL**"; }
           has() { [ "$1" -ge 1 ] && echo "present" || echo "**MISSING**"; }
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # go.mod/go.sum come from a job that ran upstream code, so check them
-          # before committing: the module must still be ours and must require
-          # exactly the tag being proposed, with no replace directives added.
-          head -1 handoff/go.mod | grep -qx 'module github.com/johnnie/energy-aware-epp/router-plugin' \
-            || { echo "handed-over go.mod names a different module" >&2; exit 1; }
-          grep -qE "^[[:space:]]*github.com/llm-d/llm-d-router ${TAG}( |\$)" handoff/go.mod \
-            || { echo "handed-over go.mod does not require llm-d-router $TAG" >&2; exit 1; }
-          if grep -qE '^[[:space:]]*replace[[:space:](]' handoff/go.mod; then
-            echo "handed-over go.mod contains a replace directive" >&2; exit 1
-          fi
-
           git checkout -b "$BRANCH"
-          git -C llm-d-ref fetch --quiet --tags origin
-          git -C llm-d-ref -c advice.detachedHead=false checkout --quiet "$TAG"
-          cp handoff/go.mod handoff/go.sum router-plugin/
           git add llm-d-ref router-plugin/go.mod router-plugin/go.sum
           git commit -m "Propose llm-d-router $OLD -> $TAG (submodule and router-plugin together)"
           git push --force origin "$BRANCH"
@@ -251,7 +268,7 @@ jobs:
             echo "| \`func Register(\` in \`plugin/registry.go\` | $(has "$L2") |"
             echo "| File-discovery (no Kubernetes) section in \`docs/discovery.md\` | $(has "$L3") |"
             echo ""
-            echo "CI does not run on pull requests opened by GitHub Actions; these are the only automated checks. Log tails are in the workflow run's \`llm-d-router-bump\` artifact."
+            echo "go.mod and go.sum in this PR were regenerated in the write job and match, byte for byte, the ones the read-only job built and tested. CI does not run on pull requests opened by GitHub Actions; these are the only automated checks. Log tails are in the evaluate job's run log."
             echo ""
             echo "### Before merging, by hand"
             echo "- [ ] Read upstream release notes ($OLD to $TAG) for EPP flag or config changes. The file-discovery flags we depend on are listed in \`router-plugin/README.md\`."
