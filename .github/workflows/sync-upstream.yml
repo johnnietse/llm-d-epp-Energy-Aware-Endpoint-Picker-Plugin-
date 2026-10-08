@@ -1,28 +1,34 @@
 # ─────────────────────────────────────────────────────────────────────
 # Watch llm-d-router for new RELEASES and propose a pin bump
 #
-# What changed and why (2026-10-08). This workflow used to fast-forward the
-# llm-d-ref submodule to upstream `main` every day and push the result
-# straight to our `main`. That is wrong for a measurement project:
+# Why it follows releases (2026-10-08). This workflow used to fast-forward
+# the llm-d-ref submodule to upstream `main` daily and push straight to our
+# `main`. The router is pinned to a release (v0.11.0) in three places that
+# must agree - this submodule, router-plugin/go.mod, and the clone on the
+# cluster - and results, extracted configs and the EPP binary all tie to that
+# one version. A daily move to `main` silently broke the agreement. It now
+# follows release tags only and opens a pull request that moves both
+# in-repo pins together. It never pushes to `main`.
 #
-#   * The router is pinned to a release (v0.11.0) in three places that must
-#     agree: this submodule, router-plugin/go.mod, and the clone on the
-#     cluster. Results, configs extracted from the docs, and the EPP binary
-#     are all tied to that one version. A daily move to `main` silently broke
-#     the agreement; it had drifted the submodule to a different commit than
-#     the build used.
-#   * `main` moves daily and its docs already disagree with the release
-#     (`--pool-name` is optional on main, required at v0.11.0).
+# Why two jobs (security, 2026-10-08). Evaluating a new release means running
+# upstream's code: `go test` links llm-d-router packages and runs their init()
+# functions. That code must never run where a write-capable token is
+# reachable. So:
 #
-# It now follows release tags only, never changes `main` itself, and opens
-# a pull request that bumps the submodule and router-plugin/go.mod TOGETHER,
-# after building and testing the plugin against the new release. Moving the
-# pin stays a human decision, because it obliges a rebuild, a smoke test on
-# the cluster, and re-pinning the cluster clone; the PR lists those steps.
+#   evaluate  read-only token, checkout with persist-credentials: false, and
+#             no token in any environment. Bumps the pins, builds, vets and
+#             tests, and hands go.mod/go.sum plus results to the next job as
+#             an artifact.
+#   propose   the only job with write permissions. Runs no third-party code:
+#             git, gh and file copies only. It re-validates every value it
+#             receives before using it.
 #
-# Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so
-# CI will not run on them by itself. That is why this job builds and tests
-# the plugin itself and reports the result in the PR body.
+# Untrusted values (tag names, results) are never interpolated into shell
+# text with ${{ }}. They are passed through `env:` and validated in the shell.
+#
+# Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so CI
+# does not run on them; the evaluate job's results in the PR body are the only
+# automated checks.
 #
 # Repository setting required once: Settings -> Actions -> General ->
 # Workflow permissions -> "Allow GitHub Actions to create and approve pull
@@ -40,54 +46,61 @@ env:
   UPSTREAM: https://github.com/llm-d/llm-d-router.git
   GOTOOLCHAIN: auto
 
+# Default for every job: read-only. Only `propose` raises it.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  check-release:
+  evaluate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      bump: ${{ steps.cmp.outputs.bump }}
+      latest: ${{ steps.cmp.outputs.latest }}
+      pinned: ${{ steps.cmp.outputs.pinned }}
     steps:
-      - name: Checkout
+      - name: Checkout (no credentials left on disk)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
+          persist-credentials: false
 
       - name: Compare the pinned release with the latest upstream release
         id: cmp
         run: |
-          # Latest stable release tag: vX.Y.Z only, release candidates excluded.
+          set -eu
+          semver='^v[0-9]+\.[0-9]+\.[0-9]+$'
           LATEST=$(git ls-remote --tags --refs "$UPSTREAM" 'v*' \
-                   | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-                   | sort -V | tail -1)
+                   | sed 's#.*refs/tags/##' | grep -E "$semver" | sort -V | tail -1 || true)
           git -C llm-d-ref fetch --quiet --tags origin
-          PINNED=$(git -C llm-d-ref describe --tags --exact-match 2>/dev/null || echo "untagged")
+          PINNED=$(git -C llm-d-ref describe --tags --exact-match 2>/dev/null || echo untagged)
           GOMOD=$(grep -oE 'github.com/llm-d/llm-d-router v[^ ]+' router-plugin/go.mod | awk '{print $2}')
           echo "latest upstream release: $LATEST"
           echo "submodule pinned at:     $PINNED"
           echo "router-plugin/go.mod:    $GOMOD"
+          # Refuse anything that is not a plain release tag before it is used
+          # anywhere else, including the output handed to the write job.
+          printf '%s' "$LATEST" | grep -Eq "$semver" || { echo "no valid upstream release tag" >&2; exit 1; }
+          printf '%s' "$PINNED" | grep -Eq "$semver" || PINNED=untagged
+          printf '%s' "$GOMOD"  | grep -Eq "$semver" || GOMOD=invalid
           {
             echo "latest=$LATEST"
             echo "pinned=$PINNED"
-            echo "gomod=$GOMOD"
           } >> "$GITHUB_OUTPUT"
           {
             echo "## llm-d-router release check"
             echo ""
             echo "| | Version |"
             echo "|---|---|"
-            echo "| Latest upstream release | \`$LATEST\` |"
-            echo "| Submodule \`llm-d-ref\` | \`$PINNED\` |"
-            echo "| \`router-plugin/go.mod\` | \`$GOMOD\` |"
+            echo "| Latest upstream release | $LATEST |"
+            echo "| Submodule llm-d-ref | $PINNED |"
+            echo "| router-plugin/go.mod | $GOMOD |"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$PINNED" != "$GOMOD" ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "**The two pins disagree.** Fix this before anything else; results tie to one version." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -z "$LATEST" ]; then
-            echo "Could not list upstream release tags." >&2
-            exit 1
+            echo "**The two pins disagree.** Results tie to one version; fix this first." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$LATEST" = "$PINNED" ] && [ "$LATEST" = "$GOMOD" ]; then
             echo "bump=false" >> "$GITHUB_OUTPUT"
@@ -97,99 +110,157 @@ jobs:
             echo "bump=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip if a pull request for this release already exists
-        id: existing
-        if: steps.cmp.outputs.bump == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="upstream/llm-d-router-${{ steps.cmp.outputs.latest }}"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          N=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
-          if [ "$N" != "0" ]; then
-            echo "open=true" >> "$GITHUB_OUTPUT"
-            echo "A pull request for $BRANCH is already open; not opening another." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "open=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Set up Go
-        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
+        if: steps.cmp.outputs.bump == 'true'
         uses: actions/setup-go@v5
         with:
           go-version-file: router-plugin/go.mod
 
-      - name: Bump submodule and router-plugin together, then build and test
-        id: bump
-        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
+      - name: Bump both pins, then build, vet and test against the new release
+        if: steps.cmp.outputs.bump == 'true'
+        env:
+          TAG: ${{ steps.cmp.outputs.latest }}
         run: |
-          TAG="${{ steps.cmp.outputs.latest }}"
+          set -u
+          printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "bad tag" >&2; exit 1; }
           git -C llm-d-ref -c advice.detachedHead=false checkout --quiet "$TAG"
           cd router-plugin
-          go get "github.com/llm-d/llm-d-router@$TAG"
-          go mod tidy
-          # The checks that matter for us, against the NEW release: the plugin
-          # still compiles against the router's interfaces and its tests pass.
-          set +e
-          go build ./... > ../build.log 2>&1;  B=$?
-          go vet ./...   > ../vet.log 2>&1;    V=$?
-          go test ./...  > ../test.log 2>&1;   T=$?
-          set -e
+          go get "github.com/llm-d/llm-d-router@$TAG" || exit 1
+          go mod tidy || exit 1
+          go build ./... > ../build.log 2>&1; B=$?
+          go vet ./...   > ../vet.log 2>&1;   V=$?
+          go test ./...  > ../test.log 2>&1;  T=$?
           cd ..
-          # Interface landmarks the plugin depends on, by their real locations
-          # at v0.11.0 (the old workflow looked for a scorer.go that does not
-          # exist).
-          # grep -c prints 0 AND exits non-zero on no match, so "|| echo 0" would
-          # yield "0" twice; capture, then default an empty result (missing file).
+          # Interface landmarks the plugin depends on, at their real locations.
+          # grep -c prints 0 AND exits non-zero on no match, so "|| echo 0"
+          # would yield "0" twice; capture, then default an empty result.
           L1=$(grep -c 'type Scorer interface' llm-d-ref/pkg/epp/framework/interface/scheduling/plugins.go 2>/dev/null); L1=${L1:-0}
           L2=$(grep -c '^func Register(' llm-d-ref/pkg/epp/framework/interface/plugin/registry.go 2>/dev/null); L2=${L2:-0}
           L3=$(grep -c 'file discovery (no Kubernetes)' llm-d-ref/docs/discovery.md 2>/dev/null); L3=${L3:-0}
-          {
-            echo "build=$B"; echo "vet=$V"; echo "test=$T"
-            echo "l_scorer=$L1"; echo "l_register=$L2"; echo "l_filedisc=$L3"
-          } >> "$GITHUB_OUTPUT"
+          mkdir -p handoff
+          cp router-plugin/go.mod router-plugin/go.sum handoff/
+          printf 'build=%s\nvet=%s\ntest=%s\nl_scorer=%s\nl_register=%s\nl_filedisc=%s\n' \
+                 "$B" "$V" "$T" "$L1" "$L2" "$L3" > handoff/results.txt
+          tail -40 build.log vet.log test.log > handoff/logs-tail.txt 2>&1 || true
+          cat handoff/results.txt
 
-      - name: Push branch and open pull request
-        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Hand results to the propose job
+        if: steps.cmp.outputs.bump == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-d-router-bump
+          path: handoff/
+          retention-days: 7
+
+  propose:
+    needs: evaluate
+    if: needs.evaluate.outputs.bump == 'true'
+    runs-on: ubuntu-latest
+    # The only job with write access. It runs git, gh and cp - never Go, never
+    # any code from upstream.
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      TAG: ${{ needs.evaluate.outputs.latest }}
+      OLD: ${{ needs.evaluate.outputs.pinned }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Validate inputs from the evaluate job
         run: |
-          TAG="${{ steps.cmp.outputs.latest }}"
-          OLD="${{ steps.cmp.outputs.pinned }}"
-          BRANCH="${{ steps.existing.outputs.branch }}"
-          ok() { [ "$1" = "0" ] && echo "pass" || echo "**FAIL**"; }
-          has() { [ "$1" -ge 1 ] 2>/dev/null && echo "present" || echo "**MISSING**"; }
+          set -eu
+          printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "bad TAG" >&2; exit 1; }
+          printf '%s' "$OLD" | grep -Eq '^(v[0-9]+\.[0-9]+\.[0-9]+|untagged)$' || { echo "bad OLD" >&2; exit 1; }
+
+      - name: Skip if a pull request for this release is already open
+        id: existing
+        run: |
+          set -eu
+          BRANCH="upstream/llm-d-router-$TAG"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          N=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "$N" != "0" ]; then
+            echo "open=true" >> "$GITHUB_OUTPUT"
+            echo "A pull request for $BRANCH is already open." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "open=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.existing.outputs.open == 'false'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Fetch the evaluate job's files
+        if: steps.existing.outputs.open == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: llm-d-router-bump
+          path: handoff
+
+      - name: Commit, push the branch, open the pull request
+        if: steps.existing.outputs.open == 'false'
+        env:
+          BRANCH: ${{ steps.existing.outputs.branch }}
+        run: |
+          set -eu
+          # Results are numbers; anything else is rejected rather than echoed.
+          get() {
+            v=$(sed -n "s/^$1=//p" handoff/results.txt | head -1)
+            printf '%s' "$v" | grep -Eq '^[0-9]+$' || { echo "bad $1" >&2; exit 1; }
+            printf '%s' "$v"
+          }
+          B=$(get build); V=$(get vet); T=$(get test)
+          L1=$(get l_scorer); L2=$(get l_register); L3=$(get l_filedisc)
+          ok()  { [ "$1" = "0" ] && echo "pass" || echo "**FAIL**"; }
+          has() { [ "$1" -ge 1 ] && echo "present" || echo "**MISSING**"; }
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # go.mod/go.sum come from a job that ran upstream code, so check them
+          # before committing: the module must still be ours and must require
+          # exactly the tag being proposed, with no replace directives added.
+          head -1 handoff/go.mod | grep -qx 'module github.com/johnnie/energy-aware-epp/router-plugin' \
+            || { echo "handed-over go.mod names a different module" >&2; exit 1; }
+          grep -qE "^[[:space:]]*github.com/llm-d/llm-d-router ${TAG}( |\$)" handoff/go.mod \
+            || { echo "handed-over go.mod does not require llm-d-router $TAG" >&2; exit 1; }
+          if grep -qE '^[[:space:]]*replace[[:space:](]' handoff/go.mod; then
+            echo "handed-over go.mod contains a replace directive" >&2; exit 1
+          fi
+
           git checkout -b "$BRANCH"
+          git -C llm-d-ref fetch --quiet --tags origin
+          git -C llm-d-ref -c advice.detachedHead=false checkout --quiet "$TAG"
+          cp handoff/go.mod handoff/go.sum router-plugin/
           git add llm-d-ref router-plugin/go.mod router-plugin/go.sum
           git commit -m "Propose llm-d-router $OLD -> $TAG (submodule and router-plugin together)"
           git push --force origin "$BRANCH"
-          cat > body.md <<EOF
-          Upstream released **$TAG**. This moves both pins together, from \`$OLD\`:
-          the \`llm-d-ref\` submodule and \`router-plugin/go.mod\`.
 
-          ### Checks run by this workflow against $TAG
-          | Check | Result |
-          |---|---|
-          | \`go build ./...\` in router-plugin | $(ok "${{ steps.bump.outputs.build }}") |
-          | \`go vet ./...\` | $(ok "${{ steps.bump.outputs.vet }}") |
-          | \`go test ./...\` | $(ok "${{ steps.bump.outputs.test }}") |
-          | \`type Scorer interface\` in \`scheduling/plugins.go\` | $(has "${{ steps.bump.outputs.l_scorer }}") |
-          | \`func Register(\` in \`plugin/registry.go\` | $(has "${{ steps.bump.outputs.l_register }}") |
-          | File-discovery (no Kubernetes) section in \`docs/discovery.md\` | $(has "${{ steps.bump.outputs.l_filedisc }}") |
-
-          CI does not run on pull requests opened by GitHub Actions, so these
-          are the only automated checks.
-
-          ### Before merging, by hand
-          - [ ] Read upstream release notes ($OLD to $TAG) for EPP flag or config changes. The file-discovery flags we depend on are listed in \`router-plugin/README.md\`.
-          - [ ] Rebuild with \`bash router-plugin/build.sh\` and record the new sha256 in \`router-plugin/README.md\`.
-          - [ ] Re-pin the cluster clone: \`bash fr-sync.sh run router_pin.sh $TAG\`.
-          - [ ] Update the version checks in \`router_smoke.sbatch\`, \`router_overhead.sbatch\` and \`verify_fixes.sh\`, which assert v0.11.0.
-          - [ ] Rerun the router smoke test and require \`VERDICT=PASS\`.
-          - [ ] Do **not** mix results across router versions. Anything measured before this merge stays attributed to \`$OLD\`.
-          EOF
+          {
+            echo "Upstream released **$TAG**. This moves both pins together from \`$OLD\`: the \`llm-d-ref\` submodule and \`router-plugin/go.mod\`."
+            echo ""
+            echo "### Checks against $TAG (run in a read-only job)"
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| \`go build ./...\` in router-plugin | $(ok "$B") |"
+            echo "| \`go vet ./...\` | $(ok "$V") |"
+            echo "| \`go test ./...\` | $(ok "$T") |"
+            echo "| \`type Scorer interface\` in \`scheduling/plugins.go\` | $(has "$L1") |"
+            echo "| \`func Register(\` in \`plugin/registry.go\` | $(has "$L2") |"
+            echo "| File-discovery (no Kubernetes) section in \`docs/discovery.md\` | $(has "$L3") |"
+            echo ""
+            echo "CI does not run on pull requests opened by GitHub Actions; these are the only automated checks. Log tails are in the workflow run's \`llm-d-router-bump\` artifact."
+            echo ""
+            echo "### Before merging, by hand"
+            echo "- [ ] Read upstream release notes ($OLD to $TAG) for EPP flag or config changes. The file-discovery flags we depend on are listed in \`router-plugin/README.md\`."
+            echo "- [ ] Rebuild with \`bash router-plugin/build.sh\` and record the new sha256 in \`router-plugin/README.md\`."
+            echo "- [ ] Re-pin the cluster clone: \`bash fr-sync.sh run router_pin.sh $TAG\`."
+            echo "- [ ] Update the v0.11.0 assertions in \`router_smoke.sbatch\`, \`router_overhead.sbatch\` and \`verify_fixes.sh\`."
+            echo "- [ ] Rerun the router smoke test and require \`VERDICT=PASS\`."
+            echo "- [ ] Do **not** mix results across router versions. Anything measured before this merge stays attributed to \`$OLD\`."
+          } > body.md
           gh pr create --base main --head "$BRANCH" \
             --title "Propose llm-d-router $TAG (from $OLD)" --body-file body.md
           echo "Opened a pull request for $TAG." >> "$GITHUB_STEP_SUMMARY"
