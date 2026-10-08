@@ -1425,7 +1425,10 @@ removes what would otherwise have been the largest feasibility risk in the plan.
    `replace` directives), so the EPP is cross-compiled here:
    `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, Go 1.26.6 (the router requires
    >= 1.26.6; Go's toolchain switching fetched it). Result: a statically linked
-   ELF, sha256 `f3f2aa63...2acf8`, with `llm-d-router v0.11.0` and its module
+   ELF, sha256 `f3f2aa63...2acf8` (**not reproducible**: it embedded a dirty-tree
+   git revision; from 2026-10-08 `router-plugin/build.sh` builds with
+   `-buildvcs=false`, reproducibly, sha256 `6e92f44b...29250`; see
+   `router-plugin/README.md`), with `llm-d-router v0.11.0` and its module
    hash embedded. The job refuses to run any binary whose hash differs.
 3. **Envoy is 1.39.2**, read inside a job: `/usr/local/bin/envoy version:
    50d48c6c.../1.39.2/Clean/RELEASE/BoringSSL`. The router needs >= 1.31. This

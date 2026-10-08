@@ -175,14 +175,35 @@ else
 fi
 
 echo
+echo "=== 13. measurement tooling cannot silently mislead again ==="
+grep -q 'echo "QUEUED_COUNT=' het_status.sh \
+  && ok "het_status.sh emits a machine-readable QUEUED_COUNT for waiters" \
+  || bad "het_status.sh has no QUEUED_COUNT; waiters would grep human output again"
+grep -q 'router_ungrounded_frac is a FRACTION' compare_runs.py \
+  && ok "compare_runs.py does not veto cells on a fraction" \
+  || bad "compare_runs.py filter may drop every cell again"
+grep -q 'It is NOT the Stage 2 gate' compare_runs.py \
+  && ok "compare_runs.py labels its pooled mean as not the gate" \
+  || bad "compare_runs.py pooled mean is unlabelled and quotable as the gate"
+for f in router_smoke.sbatch router_overhead.sbatch; do
+  grep -q 'tracing=false' "$f" \
+    && ok "$f disables trace export to a non-existent collector" \
+    || bad "$f leaves tracing on"
+done
+grep -q 'RTAG" = "v0.11.0"' router_overhead.sbatch \
+  && ok "router_overhead refuses a router clone not at v0.11.0" \
+  || bad "router_overhead does not check the router version"
+
+echo
 echo "=== 8. every script parses ==="
 for f in stage2_het.sbatch stage2_real.sbatch het_submit.sh het_watch.sh \
-         real_submit.sh het_status.sh het_final.sh; do
+         real_submit.sh het_status.sh het_final.sh router_smoke.sbatch \
+         router_overhead.sbatch router_pin.sh; do
   [ -f "$f" ] || { bad "bash: $f absent"; continue; }
   bash -n "$f" 2>/dev/null && ok "bash: $f" || bad "bash: $f"
 done
 for f in policy_harness.py multinode_energy.py node_energy_sampler.py \
-         stage2_analyse.py curve_report.py provisional_report.py; do
+         stage2_analyse.py curve_report.py provisional_report.py compare_runs.py; do
   python3 -c "import ast;ast.parse(open('$f').read())" 2>/dev/null \
     && ok "python: $f" || bad "python: $f"
 done

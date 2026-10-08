@@ -60,6 +60,14 @@ def main():
 
     runs = [(os.path.basename(d.rstrip("/")), load(d)) for d in dirs]
 
+    # This script's "pooled" column is a mean across load levels. It is
+    # descriptive only. The plan once quoted +4.07% from it as if it were the
+    # gate's result, when the gate (stage2_analyse.py, each policy at its own
+    # best SLO-feasible point) gave +1.2% for the same trial. Say so in the
+    # output itself, where a reader cannot miss it.
+    print("NOTE: 'pooled' is a mean over load levels, including cells that miss")
+    print("the SLO. It is NOT the Stage 2 gate. Quote stage2_analyse.py, not this.")
+
     for name, data in runs:
         print("=" * 72)
         print(name)
