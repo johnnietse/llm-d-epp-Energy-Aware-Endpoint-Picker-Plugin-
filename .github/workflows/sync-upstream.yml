@@ -33,9 +33,9 @@
 # Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so CI
 # does not run on them; the evaluate job's results are the automated checks.
 #
-# Repository setting required once: Settings -> Actions -> General ->
-# Workflow permissions -> "Allow GitHub Actions to create and approve pull
-# requests".
+# The repository setting "Allow GitHub Actions to create and approve pull
+# requests" is OFF (checked 2026-10-08) and may stay off: if PR creation is
+# refused, the propose job opens an issue linking the pushed branch instead.
 # ─────────────────────────────────────────────────────────────────────
 name: Watch llm-d-router releases
 
@@ -162,6 +162,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     env:
       TAG: ${{ needs.evaluate.outputs.latest }}
       OLD: ${{ needs.evaluate.outputs.pinned }}
@@ -278,6 +279,27 @@ jobs:
             echo "- [ ] Rerun the router smoke test and require \`VERDICT=PASS\`."
             echo "- [ ] Do **not** mix results across router versions. Anything measured before this merge stays attributed to \`$OLD\`."
           } > body.md
-          gh pr create --base main --head "$BRANCH" \
-            --title "Propose llm-d-router $TAG (from $OLD)" --body-file body.md
-          echo "Opened a pull request for $TAG." >> "$GITHUB_STEP_SUMMARY"
+          # The repository setting "Allow GitHub Actions to create and approve
+          # pull requests" was OFF when this was written (checked 2026-10-08),
+          # and is a security setting best left off. When PR creation is
+          # refused, open an issue linking the pushed branch instead; issue
+          # creation is not governed by that setting.
+          if gh pr create --base main --head "$BRANCH" \
+               --title "Propose llm-d-router $TAG (from $OLD)" --body-file body.md; then
+            echo "Opened a pull request for $TAG." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "Branch \`$BRANCH\` is pushed and ready, but a pull request could not be opened automatically (the repository setting that allows GitHub Actions to create pull requests is off). Open one from that branch by hand."
+              echo ""
+              cat body.md
+            } > issue.md
+            EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+                         --search "Propose llm-d-router $TAG in:title" --json number --jq 'length')
+            if [ "$EXISTING" = "0" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" \
+                --title "Propose llm-d-router $TAG (from $OLD)" --body-file issue.md
+              echo "PR creation refused; opened an issue for $TAG instead." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "PR creation refused; an issue for $TAG is already open." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi

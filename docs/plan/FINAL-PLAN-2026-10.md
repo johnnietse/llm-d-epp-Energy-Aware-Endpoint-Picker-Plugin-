@@ -1476,7 +1476,21 @@ checklist: rebuild and record the hash, re-pin the cluster clone, update the
 v0.11.0 assertions in the job scripts, rerun the smoke test, and never mix
 results across router versions. Its own checks were also wrong before: they
 looked for a `scorer.go` that does not exist, and now look at the real
-interface locations.
+interface locations. After two automated security reviews it is split into a
+read-only job that runs upstream code (no token, Go cache off) and a write job
+that runs none and commits only files it regenerated itself, whose hashes must
+match what was tested; all actions in both workflows are pinned to commit
+SHAs. The repository setting that lets Actions create pull requests is **off**
+(checked 2026-10-08) and is left off: when the pull request is refused, the
+job opens an issue linking the pushed branch instead.
+
+**Still open, all waiting on one merge.** `docs/technical-plan-v2` is 86 commits
+ahead of `main` with no pull request yet. Until it merges, GitHub shows the old
+README, the old daily sync keeps moving `main`'s submodule, and Dependabot's
+alert stays open: `main` has `golang.org/x/net` v0.52.0 (vulnerable below
+0.55.0), while this branch has 0.59.0 at the root and 0.58.0 in
+`router-plugin`. The Docker CI job and the release-watch workflow have never
+run; their first runs will be on that pull request and after the merge.
 
 **CI repaired at the same time** (`.github/workflows/ci.yml`, `Dockerfile`).
 On a pull request into `main` it would have failed three ways: it still ran
