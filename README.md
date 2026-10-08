@@ -14,8 +14,9 @@ has no privileged control over the hardware?**
 
 The thesis report is
 [here](Johnnie_Yan_Ho_Tse_Energy_Aware_Token_Level_Routing_for_Heterogeneous_LLM_Inference_in_Kubernetes_Research_Paper.pdf).
-It was written before the measurements below, so check any figure in it
-against the plan before quoting it.
+It was written before the measurements below. Its figures may come from
+synthetic data (see [What was withdrawn](#what-was-withdrawn)); check each one
+against [`docs/figures/measured/`](docs/figures/measured/) before quoting it.
 
 ## What has been measured
 
@@ -77,9 +78,12 @@ off entirely.
 
 ### 4. The load generator is accurate per token
 
-A Python generator's inter-token timings agree with vLLM's own histogram to
-within **0.6%**, across all 25 cells of job 12319685. The two come from
-independent sources.
+A Python generator's inter-token timings agree with vLLM's own histogram:
+across 50 cells (jobs 12319685 and 12321476), the median gap is **0.6-0.9%**
+and the worst is **2.3%**, about 0.15 ms on a 7 ms gap. The generator reads
+slightly high, by about 0.8% on average, most at the highest load. The two
+come from independent sources. See
+[`docs/figures/measured/`](docs/figures/measured/).
 
 ## The llm-d router runs here without Kubernetes
 
@@ -124,6 +128,7 @@ effect reversing. The full positioning is in plan section 12.2.
 | [`docs/plan/FINAL-PLAN-2026-10.md`](docs/plan/FINAL-PLAN-2026-10.md) | The authoritative plan, results, threats to validity and defect log |
 | [`experiments/scripts/`](experiments/scripts/) | Measurement harness, Slurm jobs, the Stage 2 gate (`stage2_analyse.py`), the verification suite (`verify_fixes.sh`) |
 | [`experiments/cluster-records/`](experiments/cluster-records/) | Every raw record fetched from the cluster, logs gzipped |
+| [`docs/figures/measured/`](docs/figures/measured/) | Figures from those records, each with a CSV of the plotted numbers; regenerate with `python experiments/scripts/make_figures.py` |
 | [`router-plugin/`](router-plugin/) | Out-of-tree llm-d-router plugin module and the EPP entry point |
 | [`llm-d-ref/`](llm-d-ref/) | Git submodule of the official llm-d-router, pinned to v0.11.0 |
 | [`tools/cluster-helpers/`](tools/cluster-helpers/) | Local scripts that connect to the cluster, submit, wait and fetch |
@@ -142,6 +147,17 @@ adaptive weight controller's modes. **None of that hardware was measured.** The
 energy and power figures were modelled, not read from instruments. The
 project's rule since 2026-10-03 is that simulated numbers are never presented
 as results.
+
+**The older figures are synthetic too.** `docs/figures/fig1` to `fig16` are
+drawn from `benchmarks/results/frontenac/heterogeneous_realistic/`, which is
+written by `generate_realistic_telemetry.py`. By its own description, that
+script produces "Production-Grade Synthetic Telemetry" with imperfections added
+"to make the data credible". The `frontenac` in the path does not make it a
+measurement. The data-style plots in `docs/diagrams/` come from values written
+into their generators. Both folders now carry a README saying so; the figures
+are kept because drafts refer to them. Measured replacements are in
+[`docs/figures/measured/`](docs/figures/measured/). **Any thesis or paper
+figure built from the old ones must be replaced or removed.**
 
 The simulation and the components built around it are in [`legacy/`](legacy/).
 The old README remains in git history: `git show 3543e10:README.md`.

@@ -157,9 +157,15 @@ jobs:
           echo "EPP sha256: \`$A\`" >> "$GITHUB_STEP_SUMMARY"
           [ "$A" = "$B" ] || { echo "Two builds differ; the provenance hash cannot be trusted." >&2; exit 1; }
 
-  # ─── Diagrams (optional) ──────────────────────────────────────────
-  diagrams:
-    name: Generate Diagrams
+  # ─── Measured figures: regenerate, and fail if the data changed ──
+  # Replaces a job that redrew diagrams from hard-coded and random values
+  # (docs/diagrams/README.md). These figures come only from the committed
+  # cluster records; the CSV beside each PNG is the exact plotted data, and is
+  # deterministic text, so a CSV that changes on regeneration means a figure no
+  # longer matches its records. PNG bytes differ across OSes (fonts), so they
+  # are regenerated but not compared.
+  figures:
+    name: Measured figures
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -172,9 +178,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Generate diagrams
-        env:
-          PYTHONIOENCODING: utf-8
+      - name: Regenerate from committed records
+        run: python experiments/scripts/make_figures.py
+
+      - name: Plotted data unchanged
         run: |
-          python benchmarks/scripts/generate_advanced_diagrams.py
-          echo "Diagrams generated successfully"
+          if ! git diff --exit-code -- 'docs/figures/measured/*.csv'; then
+            echo "A figure's plotted data changed on regeneration; it no longer matches the committed records." >&2
+            exit 1
+          fi

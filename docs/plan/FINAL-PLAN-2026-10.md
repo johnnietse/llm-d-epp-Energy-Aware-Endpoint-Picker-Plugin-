@@ -304,6 +304,8 @@ What this means concretely, as a pre-flight checklist for anything submitted:
 | An outer `timeout` shorter than a script's own wait loop | SIGTERM, exit 143, and no result |
 | Quoting a remote command containing `$VAR` through `wsl.exe` then `ssh` | three quoting layers, each entitled to one round of expansion. `squeue -u $USER` came back as `Invalid user: ohnnie`, the username with its first character eaten. Put the remote command in a file and run the file |
 | Counting a bad state from a flag that older data does not carry | `het_final.sh` counted unusable cross-checks from `cross_check_usable`, a field added after job 12305232 ran. It reported "0 unusable" for a run in which all 25 cells are missing the engine ITL histogram. Count the absence of the *value*, so old and new data answer the same question |
+| Editing a file by opening it for writing in place | opening for write truncates first; if the write then fails (here: disk full), the file is left empty. `README.md` was zeroed on 2026-10-08 and restored from git. Write a temporary file and `os.replace` it into place |
+| Quoting a number from a summary that prints a subset | `het_final.sh` prints six cross-check cells; "within 0.6%" was read off those, and the worst of all 50 cells was 2.32%. Compute extremes over the full data, never over a printout |
 | A verification check that greps for *how* a fix was written | it rots the moment the implementation improves, then reports FAIL against working code. `verify_fixes.sh` section 1 still grepped for `$STAGED_HF` and `${SLURM_TMPDIR:-/tmp}/hfstage` after the uniform-path rewrite replaced both, so it failed a staging block that provably works. Assert the observable property where possible; where you must grep for detail, read a FAIL as "the check or the code is wrong", never as "the code is wrong" |
 
 ---
@@ -1295,11 +1297,26 @@ feasible.
 **The generator-accuracy question is answered.** The engine ITL histogram
 populated for all 25 cells, and the two values were confirmed to come from
 independent sources: `s_itl` is a Prometheus histogram delta and
-`client_itl_mean` is computed from client token timestamps. They agree within
-**0.6%** (0.0062 against 0.0062, 0.0088 against 0.0088). A Python generator is
-not costing per-token accuracy. The +16 to 27% on TTFT is the cross-node hop
-and client-side queueing, and exact ITL agreement is what rules out generator
-jitter as the cause.
+`client_itl_mean` is computed from client token timestamps.
+
+**CORRECTED 2026-10-08.** This paragraph first said they "agree within
+**0.6%**". That figure came from `het_final.sh`, which prints only the first
+six cells; the worst case over all cells was never computed. Computed by
+`make_figures.py` over all 50 usable cells:
+
+| Job | Median gap | Worst gap | Mean signed | Cells over 1% |
+|---|---|---|---|---|
+| 12319685 | 0.64% | 2.16% | +0.79% | 9 of 25 |
+| 12321476 | 0.93% | 2.32% | +0.87% | 11 of 25 |
+
+The generator reads **slightly high**, by about 0.8% on average, and the worst
+cells are at 600 req/s, the highest load, consistent with client-side
+scheduling adding a little at saturation. The conclusion stands at its
+corrected size: about 2% of a 7 ms inter-token gap is roughly 0.15 ms, well
+below anything the SLO or the policy comparison turns on. So a Python
+generator is not costing meaningful per-token accuracy, but "exact agreement"
+was an overstatement. The +16 to 27% on TTFT remains the cross-node hop and
+client-side queueing, not per-token jitter.
 
 **Tooling defects found while producing these numbers**, all of the silent
 kind described in 12.15:
@@ -1676,6 +1693,41 @@ Parallel and Distributed Systems* 11(1):6-20, 2000, doi 10.1109/71.824633
 for routing on out-of-date queue lengths. It supports preferring the EPP's own
 event-driven in-flight count over a polled queue length for a load-sensitive
 scorer, and it is why the EPP's 2 s staleness threshold should not be loosened.
+
+### 12.14c Figures regenerated from measurements; the old ones are synthetic (2026-10-08)
+
+`experiments/scripts/make_figures.py` draws seven figures into
+`docs/figures/measured/`, only from the committed cluster records, each with a
+CSV of the plotted numbers. It is deterministic (two runs byte-identical), and
+CI regenerates it and fails if any CSV changes. The gate figure calls
+`stage2_analyse.py`'s own functions and reproduces the verdict exactly
+(consolidate +1.98, +1.19, +0.95%, pooled +1.38%). The Stage 1 figure mirrors
+the harness's `load_curve`, so it shows the curves the policies actually used.
+
+**Finding: the old figures are synthetic data built to look measured.**
+`docs/figures/fig1`-`fig16` read
+`benchmarks/results/frontenac/heterogeneous_realistic/`, which is written by
+`benchmarks/scripts/generate_realistic_telemetry.py`. Its docstring calls it
+"Production-Grade Synthetic Telemetry" that "adds real-world imperfections to
+make the data credible for PR review". Despite the `frontenac` path, no step
+reads a measurement. The data-style plots in `docs/diagrams/` come from
+generators that read no file at all. Both folders now carry READMEs saying so.
+The figures are kept, not deleted, because drafts refer to them by path.
+**Every thesis or paper figure built from them must be replaced from
+`measured/` or removed.** This is the same failure the project's no-simulation
+rule exists to prevent, and it is the most serious finding of 2026-10-08.
+
+**A correction found by plotting.** The generator-accuracy figure showed a
+worst disagreement of 2.32% where the plan, README and memory all said "within
+0.6%". The 0.6% came from six printed cells. Corrected in all three places; see
+12.13.
+
+**Disk-full incident.** Mid-session the C: drive reached 0 bytes free. A
+script editing `README.md` opened it for writing, which truncates the file,
+and then failed to write: the README became 0 bytes. It was restored from git
+with no loss. Space was recovered by clearing Go's build cache (4.2 GB,
+regenerable) and three test binaries; 6.6 GB was free afterwards. Edits now
+write to a temporary file and rename it into place, which is atomic.
 
 ### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 
