@@ -1,0 +1,61 @@
+node=frnt108.frontenac.local job=12321497 base=44970 gpus=0 rates='10 20'
+epp sha256=f3f2aa63492547ae3edfecac92aa1820f6c6edfb1cae1a6c8e3cfa019fe2acf8
+router source: a5cbe600 tag=v0.11.0
+envoy: 1.39.2
+envoy.yaml: upstream v0.11.0 docs block, 84 lines, only ports and bind address changed:
+    <       port_value: 19000
+    >       port_value: 44976
+    <           address: 0.0.0.0
+    <           port_value: 8080
+    >           address: 127.0.0.1
+    >           port_value: 44975
+    <                           authority: localhost:9002
+    >                           authority: 127.0.0.1:44972
+    <                       port_value: 9002
+    >                       port_value: 44972
+staged 2956 MiB
+vLLM healthy
+metrics_endpoint_idle n=300 bytes=46560 p50_ms=4.42 p90_ms=4.49 p99_ms=7.13 max_ms=69.14
+warm-up (discarded)
+  r10-1-A done, vLLM served 4 GET /metrics during it
+    EPP on: "pollers":1
+  r10-2-B done, vLLM served 2060 GET /metrics during it
+    EPP off: "pollers":0
+  r10-3-C done, vLLM served 4 GET /metrics during it
+    EPP off: "pollers":0
+  r10-4-C done, vLLM served 4 GET /metrics during it
+    EPP on: "pollers":1
+  r10-5-B done, vLLM served 2065 GET /metrics during it
+  r10-6-A done, vLLM served 4 GET /metrics during it
+  r20-1-A done, vLLM served 4 GET /metrics during it
+    EPP on: "pollers":1
+  r20-2-B done, vLLM served 2096 GET /metrics during it
+    EPP off: "pollers":0
+  r20-3-C done, vLLM served 4 GET /metrics during it
+    EPP off: "pollers":0
+  r20-4-C done, vLLM served 4 GET /metrics during it
+    EPP on: "pollers":1
+  r20-5-B done, vLLM served 2086 GET /metrics during it
+  r20-6-A done, vLLM served 4 GET /metrics during it
+run            arm      done  polls  p50_ttft_ms  p99_ttft_ms   p50_itl_ms   p99_itl_ms  p50_e2el_ms  p99_e2el_ms    epp_proc_ms
+r10-1-A        A     599/600      4        56.30      6440.33        12.92        59.94      1930.04     14339.54              -
+r10-2-B        B     600/600   2060        39.23        53.93        11.97        17.23      1579.36      1765.45          0.229
+r10-3-C        C     600/600      4        38.60        51.80        11.96        16.81      1576.69      1766.41          0.201
+r10-4-C        C     600/600      4        38.51        51.79        11.97        16.95      1576.45      1771.18          0.223
+r10-5-B        B     600/600   2065        39.59        52.53        11.96        17.16      1577.45      1766.39          0.192
+r10-6-A        A     600/600      4        37.37        48.31        11.88        16.92      1575.67      1769.39              -
+r20-1-A        A    1200/1200      4        61.86       138.55        18.99        52.24      2502.22      4007.84              -
+r20-2-B        B    1200/1200   2096        54.41        67.42        16.99        22.82      2248.59      2450.93          0.204
+r20-3-C        C    1200/1200      4        54.14        68.78        16.96        21.34      2249.18      2455.00          0.197
+r20-4-C        C    1200/1200      4        53.82        66.75        16.97        21.24      2245.83      2450.11          0.194
+r20-5-B        B    1200/1200   2086        54.80        67.94        16.96        23.09      2243.45      2451.83          0.195
+r20-6-A        A    1200/1200      4        51.63        65.09        16.89        21.04      2241.29      2444.69              -
+
+MEAN OF REPS
+rate 10   arm A  p50_ttft_ms=46.83  p99_ttft_ms=3244.32  p50_itl_ms=12.40  p99_itl_ms=38.43  p50_e2el_ms=1752.85  p99_e2el_ms=8054.46
+rate 10   arm B  p50_ttft_ms=39.41  p99_ttft_ms=53.23  p50_itl_ms=11.96  p99_itl_ms=17.20  p50_e2el_ms=1578.41  p99_e2el_ms=1765.92
+rate 10   arm C  p50_ttft_ms=38.56  p99_ttft_ms=51.80  p50_itl_ms=11.96  p99_itl_ms=16.88  p50_e2el_ms=1576.57  p99_e2el_ms=1768.80
+rate 20   arm A  p50_ttft_ms=56.74  p99_ttft_ms=101.82  p50_itl_ms=17.94  p99_itl_ms=36.64  p50_e2el_ms=2371.75  p99_e2el_ms=3226.27
+rate 20   arm B  p50_ttft_ms=54.61  p99_ttft_ms=67.68  p50_itl_ms=16.97  p99_itl_ms=22.96  p50_e2el_ms=2246.02  p99_e2el_ms=2451.38
+rate 20   arm C  p50_ttft_ms=53.98  p99_ttft_ms=67.77  p50_itl_ms=16.97  p99_itl_ms=21.29  p50_e2el_ms=2247.51  p99_e2el_ms=2452.55
+results in /global/home/hpc6081/energy-epp/results/router-overhead-12321497

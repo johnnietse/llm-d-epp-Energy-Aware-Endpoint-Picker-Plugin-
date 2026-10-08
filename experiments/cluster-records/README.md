@@ -53,6 +53,15 @@ Added 2026-10-07 evening, complete:
   failed in 4 s at its Envoy version gate before writing results; its Slurm log
   is in `slurm-logs/`.
 
+Added 2026-10-08, complete:
+
+- `results/router-overhead-12321497` - metrics-polling and router-path latency,
+  `vllm bench serve` in A B C C B A order (plan 12.14b). 12 per-run result JSONs
+  carrying per-request TTFT/ITL arrays, `runs.tsv` with the `GET /metrics` count
+  per run, `summary.txt`, `metrics-endpoint-cost.txt`, and both
+  `envoy.upstream.yaml` (extracted verbatim from llm-d-router v0.11.0
+  `docs/discovery.md`) and the port-substituted `envoy.yaml` that ran.
+
 Re-fetch only named directories with `bash fr-fetchall.sh <dir> [dir...]`. A
 full re-fetch re-downloads every log already gzipped here.
 

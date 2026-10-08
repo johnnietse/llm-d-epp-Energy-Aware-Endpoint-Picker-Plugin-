@@ -1,0 +1,22 @@
+plugins:
+  - name: file-disc
+    type: file-discovery
+    parameters:
+      path: /global/home/hpc6081/energy-epp/results/router-overhead-12321497/endpoints.yaml
+      watchFile: false
+  - name: active
+    type: active-request-scorer
+  - name: picker
+    type: max-score-picker
+  - name: single-profile
+    type: single-profile-handler
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: active
+      - pluginRef: picker
+dataLayer:
+  injectDefaults: false
+  discovery:
+    endpoints:
+      pluginRef: file-disc
