@@ -1,130 +1,195 @@
 # ─────────────────────────────────────────────────────────────────────
-# Sync llm-d-router upstream reference
+# Watch llm-d-router for new RELEASES and propose a pin bump
 #
-# This workflow automatically pulls the latest code from the official
-# llm-d/llm-d-router repository into our llm-d-ref/ directory whenever
-# the upstream repo is updated. Runs on a daily schedule and can also
-# be triggered manually.
+# What changed and why (2026-10-08). This workflow used to fast-forward the
+# llm-d-ref submodule to upstream `main` every day and push the result
+# straight to our `main`. That is wrong for a measurement project:
 #
-# SETUP REQUIRED (one-time):
-#   1. Go to your repo → Settings → Secrets and variables → Actions
-#   2. No extra secrets needed — uses the default GITHUB_TOKEN
-#   3. Go to Settings → Actions → General → Workflow permissions
-#   4. Select "Read and write permissions"
-#   5. Check "Allow GitHub Actions to create and approve pull requests"
+#   * The router is pinned to a release (v0.11.0) in three places that must
+#     agree: this submodule, router-plugin/go.mod, and the clone on the
+#     cluster. Results, configs extracted from the docs, and the EPP binary
+#     are all tied to that one version. A daily move to `main` silently broke
+#     the agreement; it had drifted the submodule to a different commit than
+#     the build used.
+#   * `main` moves daily and its docs already disagree with the release
+#     (`--pool-name` is optional on main, required at v0.11.0).
+#
+# It now follows release tags only, never changes `main` itself, and opens
+# a pull request that bumps the submodule and router-plugin/go.mod TOGETHER,
+# after building and testing the plugin against the new release. Moving the
+# pin stays a human decision, because it obliges a rebuild, a smoke test on
+# the cluster, and re-pinning the cluster clone; the PR lists those steps.
+#
+# Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so
+# CI will not run on them by itself. That is why this job builds and tests
+# the plugin itself and reports the result in the PR body.
+#
+# Repository setting required once: Settings -> Actions -> General ->
+# Workflow permissions -> "Allow GitHub Actions to create and approve pull
+# requests".
 # ─────────────────────────────────────────────────────────────────────
-name: Sync Upstream llm-d-router
+name: Watch llm-d-router releases
 
 on:
   schedule:
-    # Run daily at 06:00 UTC (2:00 AM EST)
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC; releases are weeks apart
   workflow_dispatch:
-    # Allow manual trigger from GitHub Actions tab
-    inputs:
-      force_sync:
-        description: 'Force sync even if no new commits'
-        required: false
-        default: 'false'
-        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  UPSTREAM: https://github.com/llm-d/llm-d-router.git
+  GOTOOLCHAIN: auto
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  sync-upstream:
+  check-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout our repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git
+      - name: Compare the pinned release with the latest upstream release
+        id: cmp
         run: |
+          # Latest stable release tag: vX.Y.Z only, release candidates excluded.
+          LATEST=$(git ls-remote --tags --refs "$UPSTREAM" 'v*' \
+                   | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | sort -V | tail -1)
+          git -C llm-d-ref fetch --quiet --tags origin
+          PINNED=$(git -C llm-d-ref describe --tags --exact-match 2>/dev/null || echo "untagged")
+          GOMOD=$(grep -oE 'github.com/llm-d/llm-d-router v[^ ]+' router-plugin/go.mod | awk '{print $2}')
+          echo "latest upstream release: $LATEST"
+          echo "submodule pinned at:     $PINNED"
+          echo "router-plugin/go.mod:    $GOMOD"
+          {
+            echo "latest=$LATEST"
+            echo "pinned=$PINNED"
+            echo "gomod=$GOMOD"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## llm-d-router release check"
+            echo ""
+            echo "| | Version |"
+            echo "|---|---|"
+            echo "| Latest upstream release | \`$LATEST\` |"
+            echo "| Submodule \`llm-d-ref\` | \`$PINNED\` |"
+            echo "| \`router-plugin/go.mod\` | \`$GOMOD\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PINNED" != "$GOMOD" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "**The two pins disagree.** Fix this before anything else; results tie to one version." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -z "$LATEST" ]; then
+            echo "Could not list upstream release tags." >&2
+            exit 1
+          fi
+          if [ "$LATEST" = "$PINNED" ] && [ "$LATEST" = "$GOMOD" ]; then
+            echo "bump=false" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Up to date. Nothing to propose." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "bump=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if a pull request for this release already exists
+        id: existing
+        if: steps.cmp.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="upstream/llm-d-router-${{ steps.cmp.outputs.latest }}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          N=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "$N" != "0" ]; then
+            echo "open=true" >> "$GITHUB_OUTPUT"
+            echo "A pull request for $BRANCH is already open; not opening another." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "open=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: router-plugin/go.mod
+
+      - name: Bump submodule and router-plugin together, then build and test
+        id: bump
+        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
+        run: |
+          TAG="${{ steps.cmp.outputs.latest }}"
+          git -C llm-d-ref -c advice.detachedHead=false checkout --quiet "$TAG"
+          cd router-plugin
+          go get "github.com/llm-d/llm-d-router@$TAG"
+          go mod tidy
+          # The checks that matter for us, against the NEW release: the plugin
+          # still compiles against the router's interfaces and its tests pass.
+          set +e
+          go build ./... > ../build.log 2>&1;  B=$?
+          go vet ./...   > ../vet.log 2>&1;    V=$?
+          go test ./...  > ../test.log 2>&1;   T=$?
+          set -e
+          cd ..
+          # Interface landmarks the plugin depends on, by their real locations
+          # at v0.11.0 (the old workflow looked for a scorer.go that does not
+          # exist).
+          # grep -c prints 0 AND exits non-zero on no match, so "|| echo 0" would
+          # yield "0" twice; capture, then default an empty result (missing file).
+          L1=$(grep -c 'type Scorer interface' llm-d-ref/pkg/epp/framework/interface/scheduling/plugins.go 2>/dev/null); L1=${L1:-0}
+          L2=$(grep -c '^func Register(' llm-d-ref/pkg/epp/framework/interface/plugin/registry.go 2>/dev/null); L2=${L2:-0}
+          L3=$(grep -c 'file discovery (no Kubernetes)' llm-d-ref/docs/discovery.md 2>/dev/null); L3=${L3:-0}
+          {
+            echo "build=$B"; echo "vet=$V"; echo "test=$T"
+            echo "l_scorer=$L1"; echo "l_register=$L2"; echo "l_filedisc=$L3"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push branch and open pull request
+        if: steps.cmp.outputs.bump == 'true' && steps.existing.outputs.open == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.cmp.outputs.latest }}"
+          OLD="${{ steps.cmp.outputs.pinned }}"
+          BRANCH="${{ steps.existing.outputs.branch }}"
+          ok() { [ "$1" = "0" ] && echo "pass" || echo "**FAIL**"; }
+          has() { [ "$1" -ge 1 ] 2>/dev/null && echo "present" || echo "**MISSING**"; }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add llm-d-ref router-plugin/go.mod router-plugin/go.sum
+          git commit -m "Propose llm-d-router $OLD -> $TAG (submodule and router-plugin together)"
+          git push --force origin "$BRANCH"
+          cat > body.md <<EOF
+          Upstream released **$TAG**. This moves both pins together, from \`$OLD\`:
+          the \`llm-d-ref\` submodule and \`router-plugin/go.mod\`.
 
-      - name: Fetch latest upstream llm-d-router
-        run: |
-          cd llm-d-ref
-          git fetch origin main
-          
-          # Check if there are new commits
-          LOCAL_HEAD=$(git rev-parse HEAD)
-          REMOTE_HEAD=$(git rev-parse origin/main)
-          
-          echo "Local HEAD:  $LOCAL_HEAD"
-          echo "Remote HEAD: $REMOTE_HEAD"
-          
-          if [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ] && [ "${{ inputs.force_sync }}" != "true" ]; then
-            echo "SYNC_NEEDED=false" >> $GITHUB_ENV
-            echo "Already up to date — no sync needed"
-          else
-            BEHIND=$(git rev-list HEAD..origin/main --count)
-            echo "SYNC_NEEDED=true" >> $GITHUB_ENV
-            echo "COMMITS_BEHIND=$BEHIND" >> $GITHUB_ENV
-            echo "Upstream is $BEHIND commits ahead"
-          fi
+          ### Checks run by this workflow against $TAG
+          | Check | Result |
+          |---|---|
+          | \`go build ./...\` in router-plugin | $(ok "${{ steps.bump.outputs.build }}") |
+          | \`go vet ./...\` | $(ok "${{ steps.bump.outputs.vet }}") |
+          | \`go test ./...\` | $(ok "${{ steps.bump.outputs.test }}") |
+          | \`type Scorer interface\` in \`scheduling/plugins.go\` | $(has "${{ steps.bump.outputs.l_scorer }}") |
+          | \`func Register(\` in \`plugin/registry.go\` | $(has "${{ steps.bump.outputs.l_register }}") |
+          | File-discovery (no Kubernetes) section in \`docs/discovery.md\` | $(has "${{ steps.bump.outputs.l_filedisc }}") |
 
-      - name: Pull upstream changes
-        if: env.SYNC_NEEDED == 'true'
-        run: |
-          cd llm-d-ref
-          git pull origin main --ff-only
-          echo "NEW_HEAD=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          CI does not run on pull requests opened by GitHub Actions, so these
+          are the only automated checks.
 
-      - name: Verify upstream scorer interface compatibility
-        if: env.SYNC_NEEDED == 'true'
-        run: |
-          # Check if the scheduling.Scorer interface still exists and is compatible
-          echo "Checking upstream interface compatibility..."
-          
-          SCORER_FILE="llm-d-ref/pkg/epp/framework/interface/scheduling/scorer.go"
-          if [ -f "$SCORER_FILE" ]; then
-            echo "✓ Scorer interface file exists"
-          else
-            echo "⚠ Scorer interface file not found at expected path"
-            # Search for it
-            find llm-d-ref/pkg -name "*.go" -exec grep -l "type Scorer interface" {} \; || true
-          fi
-          
-          # Check if the plugin registration pattern still exists
-          RUNNER_FILE="llm-d-ref/cmd/epp/runner/runner.go"
-          if grep -q "registerInTreePlugins" "$RUNNER_FILE" 2>/dev/null; then
-            echo "✓ Plugin registration function exists"
-          else
-            echo "⚠ registerInTreePlugins not found — upstream may have refactored"
-          fi
-          
-          # Count current number of scorers
-          SCORER_COUNT=$(ls -d llm-d-ref/pkg/epp/framework/plugins/scheduling/scorer/*/ 2>/dev/null | wc -l)
-          echo "✓ Upstream has $SCORER_COUNT scorer plugins"
-
-      - name: Commit and push
-        if: env.SYNC_NEEDED == 'true'
-        run: |
-          git add llm-d-ref/
-          git commit -m "chore: sync llm-d-router upstream to ${{ env.NEW_HEAD }} (${{ env.COMMITS_BEHIND }} new commits)" || echo "No changes to commit"
-          git push
-
-      - name: Create summary
-        if: env.SYNC_NEEDED == 'true'
-        run: |
-          echo "## 🔄 Upstream Sync Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commits synced**: ${{ env.COMMITS_BEHIND }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **New HEAD**: \`${{ env.NEW_HEAD }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source**: [llm-d/llm-d-router](https://github.com/llm-d/llm-d-router)" >> $GITHUB_STEP_SUMMARY
-
-      - name: No sync needed summary
-        if: env.SYNC_NEEDED == 'false'
-        run: |
-          echo "## ✅ Already Up to Date" >> $GITHUB_STEP_SUMMARY
-          echo "No new commits from upstream llm-d-router." >> $GITHUB_STEP_SUMMARY
+          ### Before merging, by hand
+          - [ ] Read upstream release notes ($OLD to $TAG) for EPP flag or config changes. The file-discovery flags we depend on are listed in \`router-plugin/README.md\`.
+          - [ ] Rebuild with \`bash router-plugin/build.sh\` and record the new sha256 in \`router-plugin/README.md\`.
+          - [ ] Re-pin the cluster clone: \`bash fr-sync.sh run router_pin.sh $TAG\`.
+          - [ ] Update the version checks in \`router_smoke.sbatch\`, \`router_overhead.sbatch\` and \`verify_fixes.sh\`, which assert v0.11.0.
+          - [ ] Rerun the router smoke test and require \`VERDICT=PASS\`.
+          - [ ] Do **not** mix results across router versions. Anything measured before this merge stays attributed to \`$OLD\`.
+          EOF
+          gh pr create --base main --head "$BRANCH" \
+            --title "Propose llm-d-router $TAG (from $OLD)" --body-file body.md
+          echo "Opened a pull request for $TAG." >> "$GITHUB_STEP_SUMMARY"

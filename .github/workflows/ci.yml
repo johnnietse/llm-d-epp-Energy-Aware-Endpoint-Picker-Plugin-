@@ -1,9 +1,15 @@
 # ─────────────────────────────────────────────────────────────────────
 # CI Pipeline — Build, Test, and Validate
 #
-# Runs on every push and pull request to ensure the project stays
-# healthy. Tests the Go code, validates the Docker build, and
-# checks that the upstream-port interface is still compatible.
+# Runs on pushes to main and pull requests into it. Tests the root Go code,
+# builds and tests the llm-d-router plugin against its pinned release, checks
+# that every copy of the router agrees on one version, and validates the
+# Docker build.
+#
+# 2026-10-08: the E2E simulation step and the upstream-port check were
+# removed. Both target code moved to legacy/ on 2026-10-03, and the project
+# no longer presents simulated results. Go versions now come from go.mod
+# instead of a hard-coded '1.25', which go.mod (go 1.26.0) had outgrown.
 # ─────────────────────────────────────────────────────────────────────
 name: CI
 
@@ -30,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
 
       - name: Go mod download
         run: go mod download
@@ -45,10 +51,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           go test -count=1 ./pkg/... 2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Run E2E simulation
-        run: |
-          go test -v -count=1 -run TestEndToEnd_FullPipelineSimulation ./pkg/simulation/
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -66,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
 
       - name: Build binary
         run: |
@@ -106,46 +108,54 @@ jobs:
           echo "## 🔧 Infrastructure Diagnostics Run" >> $GITHUB_STEP_SUMMARY
           echo "Validation of Linux systems, GPU infrastructure, and networking layers completed successfully." >> $GITHUB_STEP_SUMMARY
 
-  # ─── Interface Compatibility Check ────────────────────────────────
-  compatibility:
-    name: Upstream Compatibility
+  # ─── llm-d-router plugin, against its pinned release ─────────────
+  router-plugin:
+    name: Router plugin (llm-d-router pin)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
-      - name: Check upstream-port interface conformance
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: router-plugin/go.mod
+
+      - name: Every copy of the router agrees on one version
         run: |
-          echo "## 🔌 Upstream Compatibility" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Check that the upstream-port implements the correct interface
-          if grep -q "var _ .*Scorer = " upstream-port/energy_aware.go; then
-            echo "✅ Compile-time Scorer interface assertion present" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Missing Scorer interface assertion" >> $GITHUB_STEP_SUMMARY
+          git -C llm-d-ref fetch --quiet --tags origin
+          SUB=$(git -C llm-d-ref describe --tags --exact-match 2>/dev/null || echo "untagged")
+          MOD=$(grep -oE 'github.com/llm-d/llm-d-router v[^ ]+' router-plugin/go.mod | awk '{print $2}')
+          echo "llm-d-ref submodule: $SUB"
+          echo "router-plugin/go.mod: $MOD"
+          {
+            echo "## llm-d-router pin"
+            echo "| Copy | Version |"; echo "|---|---|"
+            echo "| \`llm-d-ref\` submodule | \`$SUB\` |"
+            echo "| \`router-plugin/go.mod\` | \`$MOD\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SUB" != "$MOD" ]; then
+            echo "Submodule and go.mod pin different router versions; results tie to one version." >&2
             exit 1
           fi
-          
-          # Check that the factory function exists
-          if grep -q "Factory" upstream-port/energy_aware.go; then
-            echo "✅ Factory function present (required for plugin registration)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Missing Factory function" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-          
-          # Check required methods
-          for method in "Score" "TypedName" "Category"; do
-            if grep -q "func.*${method}" upstream-port/energy_aware.go; then
-              echo "✅ Method \`${method}\` implemented" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Method \`${method}\` missing" >> $GITHUB_STEP_SUMMARY
-              exit 1
-            fi
-          done
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All interface checks passed. Plugin is compatible with llm-d-router." >> $GITHUB_STEP_SUMMARY
+
+      - name: Build, vet and test
+        working-directory: router-plugin
+        run: |
+          go build ./...
+          go vet ./...
+          go test -count=1 ./...
+
+      - name: EPP binary builds reproducibly
+        run: |
+          bash router-plugin/build.sh
+          A=$(cut -d' ' -f1 router-plugin/bin/epp-linux-amd64.sha256)
+          bash router-plugin/build.sh
+          B=$(cut -d' ' -f1 router-plugin/bin/epp-linux-amd64.sha256)
+          echo "build 1: $A"; echo "build 2: $B"
+          echo "EPP sha256: \`$A\`" >> "$GITHUB_STEP_SUMMARY"
+          [ "$A" = "$B" ] || { echo "Two builds differ; the provenance hash cannot be trusted." >&2; exit 1; }
 
   # ─── Diagrams (optional) ──────────────────────────────────────────
   diagrams:

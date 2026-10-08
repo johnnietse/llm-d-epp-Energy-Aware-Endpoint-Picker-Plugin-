@@ -1464,11 +1464,38 @@ jobs are **extracted from the pinned upstream docs at run time**, not retyped:
 `router_overhead.sbatch` pulls the Envoy block out of `docs/discovery.md` and
 changes only ports and the bind address, printing the diff into its log.
 
-**Open decision, not yet taken:** `.github/workflows/sync-upstream.yml` on
-`main` advances the submodule to upstream `main` daily. That is its intended
-job, but it will undo this pin when `docs/technical-plan-v2` merges. Before
-merging, either retarget the workflow to follow release tags or exclude the
-submodule from it.
+**Decision taken 2026-10-08: the upstream workflow follows releases and
+proposes, never pushes.** `.github/workflows/sync-upstream.yml` used to
+fast-forward `llm-d-ref` to upstream `main` daily and push it to our `main`,
+which is what had drifted the submodule away from the build. It now runs
+weekly, compares the latest stable release tag with **both** pins (the
+submodule and `router-plugin/go.mod`), and when there is a newer release
+opens a pull request that moves both together. That pull request carries its
+own `go build`/`vet`/`test` results against the new release, plus a manual
+checklist: rebuild and record the hash, re-pin the cluster clone, update the
+v0.11.0 assertions in the job scripts, rerun the smoke test, and never mix
+results across router versions. Its own checks were also wrong before: they
+looked for a `scorer.go` that does not exist, and now look at the real
+interface locations.
+
+**CI repaired at the same time** (`.github/workflows/ci.yml`, `Dockerfile`).
+On a pull request into `main` it would have failed three ways: it still ran
+`./pkg/simulation/` and grepped `upstream-port/`, both moved to `legacy/` on
+2026-10-03, and it pinned Go 1.25 while `go.mod` requires 1.26.0. Go
+versions now come from `go.mod`, the simulation step is gone, and a new job
+asserts that the two router pins agree, builds and tests `router-plugin`, and
+builds the EPP twice to prove the hash is reproducible. Every step except the
+Docker build was run locally and passes. Docker is untested locally (Docker
+Desktop is broken on this machine), so the Docker job's first real run is the
+pull request.
+
+**README and QUICKSTART rewritten (2026-10-08).** Both presented the
+1,000-cycle simulation's figures (H100 against Qualcomm Cloud AI 100 win
+rates, energy and carbon ratios, SCI scores) as results. They now report only
+measured numbers, each tied to a job id, say plainly what is not done yet,
+credit the 2024 prior art, and keep a "What was withdrawn" section pointing to
+the old versions in git history. The QUICKSTART leads with rerunning the gate
+from the committed records, which reproduces both verdicts offline.
 
 **End-to-end smoke test:** `experiments/scripts/router_smoke.sbatch` runs
 curl, then Envoy, then the EPP with the probe, then two vLLM servers, and counts
