@@ -72,6 +72,13 @@ mkdir -p "$SAMPLES"
 
 MODEL="${MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 DURATION="${DURATION:-60}"
+# HEADROOMS (2026-10-09 audit): comma list of packing headrooms h; packing
+# policies admit an endpoint only while projected latency <= (1 - h) * SLO.
+# Default "0" is Stage 2 exactly and keeps the legacy file name
+# policies-rate<r>.json; any other h writes policies-h<h>-rate<r>.json, so a
+# calibration sweep can never be mistaken for, or overwrite, a Stage 2 cell.
+HEADROOMS="${HEADROOMS:-0}"
+IFS=',' read -ra HEADROOM_ARR <<< "$HEADROOMS"
 SEED="${SEED:-7}"
 WORKERS="${WORKERS:-6}"
 SAMPLE_INTERVAL="${SAMPLE_INTERVAL:-0.25}"
@@ -562,10 +569,12 @@ echo "endpoints: $EP_CSV"
 echo "types:     $TY_CSV"
 
 IFS=',' read -ra RATE_ARR <<< "$RATES"
+for h in "${HEADROOM_ARR[@]}"; do
+if [ "$h" = "0" ]; then TAG=""; else TAG="h${h}-"; fi
 for rate in "${RATE_ARR[@]}"; do
   n_req="$(python3 -c "import math;print(max(100, math.ceil($rate * $DURATION)))")"
   echo
-  echo "=========== offered load ${rate} req/s, ${DURATION}s, ${n_req} requests ==========="
+  echo "=========== headroom ${h}, offered load ${rate} req/s, ${DURATION}s, ${n_req} requests ==========="
   env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3 \
     "$ROOT/scripts/policy_harness.py" \
       --endpoints "$EP_CSV" \
@@ -573,10 +582,11 @@ for rate in "${RATE_ARR[@]}"; do
       --endpoint-types "$TY_CSV" \
       $CURVE_ARGS \
       --policies "$POLICIES" \
-      --rate "$rate" --requests "$n_req" --slo "$SLO" \
+      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" \
       --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
       --energy-mode multinode --sample-dir "$SAMPLES" --clock-skew "$SKEW" \
-      --out "$RUN/policies-rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
+      --out "$RUN/policies-${TAG}rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
+done
 done
 
 echo

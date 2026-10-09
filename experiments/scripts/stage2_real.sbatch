@@ -72,6 +72,13 @@ export HF_HOME="${HF_HOME:-$ROOT/.hf}"
 MODEL="${MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 # Cell length in seconds. Defined here, before anything echoes it.
 DURATION="${DURATION:-60}"
+# HEADROOMS (2026-10-09 audit): comma list of packing headrooms h; packing
+# policies admit an endpoint only while projected latency <= (1 - h) * SLO.
+# Default "0" is Stage 2 exactly and keeps the legacy file name
+# policies-rate<r>.json; any other h writes policies-h<h>-rate<r>.json, so a
+# calibration sweep can never be mistaken for, or overwrite, a Stage 2 cell.
+HEADROOMS="${HEADROOMS:-0}"
+IFS=',' read -ra HEADROOM_ARR <<< "$HEADROOMS"
 # Arrival-process seed. The rejected verdict from job 12303355 rested on a
 # sub-percent latency difference with one trial per cell and no confidence
 # interval, so repeat trials under different seeds are mandatory before any
@@ -440,9 +447,11 @@ echo "curves passed to the router: $CURVE_ARGS"
 # far above the measured counter floor (1.0 s on A30, 0.5 s on RTX 6000) and
 # comparable to the 75 s windows used in Stage 1.
 IFS=',' read -ra RATE_ARR <<< "$RATES"
+for h in "${HEADROOM_ARR[@]}"; do
+if [ "$h" = "0" ]; then TAG=""; else TAG="h${h}-"; fi
 for rate in "${RATE_ARR[@]}"; do
   n_req="$(python3 -c "import math;print(max(100, math.ceil($rate * $DURATION)))")"
-  echo "=========== offered load ${rate} req/s, ${DURATION}s window, ${n_req} requests ==========="
+  echo "=========== headroom ${h}, offered load ${rate} req/s, ${DURATION}s window, ${n_req} requests ==========="
   env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3 \
     "$ROOT/scripts/policy_harness.py" \
       --endpoints "$(IFS=,; echo "${PORTS[*]}")" \
@@ -450,8 +459,9 @@ for rate in "${RATE_ARR[@]}"; do
       --endpoint-types "$TYPES" \
       $CURVE_ARGS \
       --policies "$POLICIES" \
-      --rate "$rate" --requests "$n_req" --slo "$SLO" --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
-      --out "$RUN/policies-rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
+      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
+      --out "$RUN/policies-${TAG}rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
+done
 done
 
 # ------------------------------- Pass A-control: prove telemetry costs nothing
@@ -481,7 +491,7 @@ if [ -n "${CALIBRATE:-}" ]; then
   exit 0
 fi
 echo "=========== Pass A-control: counter-only at ${CTRL_RATE} req/s ==========="
-env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO"     --workers "$WORKERS" --scratch "$RUN" --seed "$SEED"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
+env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO" --headroom "${HEADROOM_ARR[0]}"     --workers "$WORKERS" --scratch "$RUN" --seed "$SEED"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
 
 echo "--- perturbation check: full telemetry vs counter-only ---"
 python3 "$ROOT/scripts/perturbation_check.py"   "$RUN/policies-rate${CTRL_RATE}.json" "$RUN/control-counteronly.json"   2>&1 | tee -a "$RUN/harness.log"

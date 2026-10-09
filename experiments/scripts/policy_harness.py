@@ -459,11 +459,23 @@ class Router:
     hundred per second: irrelevant next to a ~1 s service time.
     """
 
-    def __init__(self, n, types, curves, slo_s, shared=False):
+    def __init__(self, n, types, curves, slo_s, shared=False, headroom=0.0):
         self.n = n
         self.types = types
         self.curves = curves
         self.slo = slo_s
+        # The packing policies admit an endpoint while its projected latency is
+        # at most pack_limit. With headroom 0 that is the SLO itself, and the
+        # policies pack until latency sits ON the boundary: job 12321478 ran
+        # every packer at p50 1.98-2.01 s against a 2.0 s SLO, so 17-70% of
+        # requests missed it even at 12.5 req/s per GPU. The projection was
+        # accurate (within 0.02 s of measured latency up to c=96); aiming at the
+        # line was the defect. Headroom h packs to (1 - h) * SLO, applied
+        # identically to every packing policy. Default 0 reproduces Stage 2.
+        if not 0.0 <= headroom < 1.0:
+            raise SystemExit("headroom must be in [0, 1): %r" % headroom)
+        self.headroom = headroom
+        self.pack_limit = slo_s * (1.0 - headroom)
         self.shared = shared
         if shared:
             ctx = mp.get_context("fork")
@@ -627,7 +639,7 @@ class Router:
         elif policy == "least_loaded":
             i = min(range(self.n), key=lambda k: self.inflight[k])
         elif policy == "slo_packing":
-            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
+            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.pack_limit]
             if feas:
                 i = max(feas, key=lambda k: self._inflight[k])
             else:
@@ -637,7 +649,7 @@ class Router:
                 self._no_feasible()
                 i = min(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_greedy":
-            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
+            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.pack_limit]
             if feas:
                 i = min(feas, key=self._jtok)
             else:
@@ -653,7 +665,7 @@ class Router:
         elif policy == "energy_consolidate":
             # prefer an already-busy endpoint of the most efficient type, and
             # only wake an idle one when no busy endpoint is SLO-feasible
-            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.slo]
+            feas = [k for k in range(self.n) if self._proj_latency(k) <= self.pack_limit]
             busy = [k for k in feas if self._inflight[k] > 0]
             pool = busy or feas
             if pool:
@@ -817,8 +829,9 @@ def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
                      scratch="/tmp", energy_mode="local", sample_dir=None,
-                     clock_skew=0.0):
-    router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1))
+                     clock_skew=0.0, headroom=0.0):
+    router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1),
+                    headroom=headroom)
     meter = EnergyMeter(gpus, poll_interval=poll_interval)
 
     # The arrival process is generated once, in the parent, from the seed. It
@@ -1001,6 +1014,8 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "completed": completed,
         "errors": errors,
         "slo_s": slo_s,
+        "headroom": router.headroom,
+        "pack_limit_s": router.pack_limit,
         "slo_met": met,
         "slo_rate": met / completed if completed else 0.0,
         # How close the latency distribution sits to the SLO boundary.
@@ -1096,6 +1111,9 @@ def main():
     ap.add_argument("--rate", type=float, required=True)
     ap.add_argument("--requests", type=int, default=600)
     ap.add_argument("--slo", type=float, required=True)
+    ap.add_argument("--headroom", type=float, default=0.0,
+                    help="packing policies admit an endpoint only while its "
+                         "projected latency <= (1 - headroom) * SLO; 0 = Stage 2")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--workers", type=int, default=0,
                     help="load-generator processes; 0 = auto. One asyncio "
@@ -1158,7 +1176,8 @@ def main():
                                    workers=n_workers, scratch=args.scratch,
                                    energy_mode=args.energy_mode,
                                    sample_dir=args.sample_dir,
-                                   clock_skew=args.clock_skew))
+                                   clock_skew=args.clock_skew,
+                                   headroom=args.headroom))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")
