@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **DRAFT, 2026-10-08. Not yet frozen.** Section 14 lists the decisions that need the author's sign-off. |
+| **Status** | **FROZEN 2026-10-09.** Drafted 2026-10-08; the author signed off all six decisions in section 14, each as recommended, on 2026-10-09. |
 | **Freezing** | On sign-off, the commit containing this file, `experiments/scripts/prereg_analysis.py` and `experiments/scripts/power_analysis.py` is tagged `prereg-stage5-v1` and pushed. The tag's commit hash and date are the registration record. |
 | **Data rule** | No Stage 5 trial may run before the tag exists. Stage 2 data (jobs 12305232, 12319685, 12321476, 12321478) informed every choice below, so it is **pilot data and can never be confirmatory**. |
 | **Authority** | Where this conflicts with `FINAL-PLAN-2026-10.md`, this document governs Stage 5. Section 13 records each conflict and its resolution. |
@@ -262,9 +262,12 @@ Stated now so they cannot be discovered later as excuses:
 | "Open-loop Poisson from the trace" | Poisson with the Stage 2 prompt generator; trace deferred | no trace is specified or implemented, and the variance was measured on this workload (decision D1) |
 | SLO stated as TTFT/TPOT targets (section 5) | end-to-end 2.0 s | what every Stage 2 result used; TTFT and TPOT reported as secondary |
 
-## 14. Decisions needing the author's sign-off before freezing
+## 14. Decisions, signed off by the author on 2026-10-09
 
-| | Decision | Recommended |
+Every decision was accepted as recommended. The design above already reflected
+the recommendations, so signing off changed no other part of this document.
+
+| | Decision | Adopted |
 |---|---|---|
 | D1 | Workload: the Stage 2 generator (as drafted), or specify and build trace replay first | **Stage 2 generator.** The variance and n rest on it. Trace replay as a separately registered follow-up. |
 | D2 | H2 trials: 6 (all must reverse) or 9 (tolerates one) | **6.** The observed reversal is total: the energy arms were infeasible. |
