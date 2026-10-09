@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────
+# Example: Full energy-aware configuration with disaggregated P/D
+#
+# For clusters using Prefill/Decode disaggregation with heterogeneous
+# GPUs. Uses the disagg profile handler to route prefill to H100s
+# (latency-optimized) and decode to L4s (energy-optimized).
+#
+# Use case: Production deployment with NVIDIA H100 + L4 cluster,
+# disaggregated serving, and real-time carbon awareness.
+# ─────────────────────────────────────────────────────────────────────
+apiVersion: config.llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+
+plugins:
+  # ─── Filters ─────────────────────────────────────────────────
+  - type: prefill-filter
+  - type: decode-filter
+  - type: label-selector-filter
+    name: prefill-role-filter
+    config:
+      labels:
+        llm-d.ai/role: prefill
+  - type: label-selector-filter
+    name: decode-role-filter
+    config:
+      labels:
+        llm-d.ai/role: decode
+
+  # ─── Scorers ─────────────────────────────────────────────────
+  - type: kv-cache-utilization-scorer
+  - type: load-aware-scorer
+    config:
+      threshold: 64
+
+  - type: energy-aware-scorer
+    name: prefill-energy-scorer
+    config:
+      prefillLatencyWeight: 0.70
+      prefillEnergyWeight: 0.20
+      prefillCarbonWeight: 0.10
+      decodeLatencyWeight: 0.15
+      decodeEnergyWeight: 0.65
+      decodeCarbonWeight: 0.20
+      fallbackCarbonIntensity: 390
+      latencySloMs: 500
+
+  - type: energy-aware-scorer
+    name: decode-energy-scorer
+    config:
+      prefillLatencyWeight: 0.70
+      prefillEnergyWeight: 0.20
+      prefillCarbonWeight: 0.10
+      decodeLatencyWeight: 0.10
+      decodeEnergyWeight: 0.70
+      decodeCarbonWeight: 0.20
+      fallbackCarbonIntensity: 390
+      latencySloMs: 2000
+
+  # ─── Picker ──────────────────────────────────────────────────
+  - type: max-score-picker
+
+  # ─── Profile Handler ─────────────────────────────────────────
+  - type: disagg-profile-handler
+    config:
+      deciders:
+        prefill: prefix-based-pd-decider
+
+  - type: prefix-based-pd-decider
+    config:
+      nonCachedTokens: 8
+
+# ─── Scheduling Profiles ────────────────────────────────────────
+schedulingProfiles:
+  # Prefill profile: latency-dominant scoring
+  - name: prefill
+    plugins:
+      - pluginRef: prefill-role-filter
+      - pluginRef: kv-cache-utilization-scorer
+        weight: 5
+      - pluginRef: load-aware-scorer
+        weight: 3
+      - pluginRef: prefill-energy-scorer
+        weight: 2          # Lower weight — TTFT matters more for prefill
+      - pluginRef: max-score-picker
+
+  # Decode profile: energy-dominant scoring
+  - name: decode
+    plugins:
+      - pluginRef: decode-role-filter
+      - pluginRef: load-aware-scorer
+        weight: 2
+      - pluginRef: decode-energy-scorer
+        weight: 8          # High weight — energy savings are largest for decode
+      - pluginRef: max-score-picker

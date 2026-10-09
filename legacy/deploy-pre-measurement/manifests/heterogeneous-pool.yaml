@@ -1,0 +1,190 @@
+# Heterogeneous InferencePool with Mixed Hardware
+#
+# This manifest deploys a heterogeneous inference pool containing:
+#   - 2x GPU High-Performance pods (for Prefill)
+#   - 1x GPU Medium-Performance pod (for Decode, power-capped)
+#   - 2x ASIC Low-Power pods (for Decode, energy-efficient)
+#
+# Custom labels used by the energy-aware plugins:
+#   llm-d.ai/hardware-class: GPU_HIGH_PERF | GPU_MED_PERF | ASIC_LOW_POWER
+#   llm-d.ai/tdp-watts: "700" | "200" | "75"
+#
+# These labels are read by:
+#   - EnergyAwareScorer: to apply hardware-class heuristics when real-time metrics are unavailable
+#   - EnergyBudgetFilter: to compute per-pod TDP utilization ratios
+
+---
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferencePool
+metadata:
+  name: llm-heterogeneous-pool
+  namespace: llm-d
+  labels:
+    app.kubernetes.io/name: energy-aware-epp
+    app.kubernetes.io/component: inference-pool
+spec:
+  targetPortNumber: 8000
+  selector:
+    matchLabels:
+      app: vllm-server
+      pool: heterogeneous
+
+---
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferenceModel
+metadata:
+  name: llama-7b
+  namespace: llm-d
+spec:
+  modelName: meta-llama/Llama-2-7b-hf
+  targetModel: meta-llama/Llama-2-7b-hf
+  pool:
+    name: llm-heterogeneous-pool
+
+---
+# ─── Prefill Pods: GPU High-Performance (H100-like) ──────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill-gpu-high
+  namespace: llm-d
+  labels:
+    app.kubernetes.io/name: energy-aware-epp
+    app.kubernetes.io/component: prefill
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vllm-server
+      pool: heterogeneous
+      llm-d.ai/role: prefill
+  template:
+    metadata:
+      labels:
+        app: vllm-server
+        pool: heterogeneous
+        llm-d.ai/role: prefill
+        llm-d.ai/hardware-class: GPU_HIGH_PERF
+        llm-d.ai/tdp-watts: "700"
+        llm-d.ai/context-length-range: "0-32768"
+    spec:
+      containers:
+      - name: vllm-sim
+        # Use llm-d-inference-sim for development; replace with vLLM for production
+        image: ghcr.io/llm-d/llm-d-inference-sim:latest
+        args:
+        - "--port=8000"
+        - "--model=meta-llama/Llama-2-7b-hf"
+        - "--mode=random"
+        - "--time-to-first-token=45"
+        - "--inter-token-latency=12"
+        - "--max-running-requests=256"
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+            # nvidia.com/gpu: "1"  # Uncomment for real GPU deployment
+
+---
+# ─── Decode Pods: GPU Medium-Performance (A100 power-capped) ─────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-decode-gpu-med
+  namespace: llm-d
+  labels:
+    app.kubernetes.io/name: energy-aware-epp
+    app.kubernetes.io/component: decode-gpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-server
+      pool: heterogeneous
+      llm-d.ai/role: decode
+      llm-d.ai/hardware-class: GPU_MED_PERF
+  template:
+    metadata:
+      labels:
+        app: vllm-server
+        pool: heterogeneous
+        llm-d.ai/role: decode
+        llm-d.ai/hardware-class: GPU_MED_PERF
+        llm-d.ai/tdp-watts: "200"
+        llm-d.ai/context-length-range: "0-16384"
+    spec:
+      containers:
+      - name: vllm-sim
+        image: ghcr.io/llm-d/llm-d-inference-sim:latest
+        args:
+        - "--port=8000"
+        - "--model=meta-llama/Llama-2-7b-hf"
+        - "--mode=random"
+        - "--time-to-first-token=120"
+        - "--inter-token-latency=16"
+        - "--max-running-requests=128"
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+
+---
+# ─── Decode Pods: ASIC Low-Power (Qualcomm Cloud AI 100-like) ────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-decode-asic-lp
+  namespace: llm-d
+  labels:
+    app.kubernetes.io/name: energy-aware-epp
+    app.kubernetes.io/component: decode-asic
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vllm-server
+      pool: heterogeneous
+      llm-d.ai/role: decode
+      llm-d.ai/hardware-class: ASIC_LOW_POWER
+  template:
+    metadata:
+      labels:
+        app: vllm-server
+        pool: heterogeneous
+        llm-d.ai/role: decode
+        llm-d.ai/hardware-class: ASIC_LOW_POWER
+        llm-d.ai/tdp-watts: "75"
+        llm-d.ai/context-length-range: "0-8192"
+    spec:
+      containers:
+      - name: vllm-sim
+        image: ghcr.io/llm-d/llm-d-inference-sim:latest
+        args:
+        - "--port=8000"
+        - "--model=meta-llama/Llama-2-7b-hf"
+        - "--mode=random"
+        - "--time-to-first-token=200"
+        - "--inter-token-latency=25"
+        - "--max-running-requests=32"
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"

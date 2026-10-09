@@ -1,0 +1,220 @@
+{
+  "annotations": { "list": [] },
+  "description": "Energy-Aware EPP — Phase-Aware LLM Inference Routing",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Cluster Power Budget",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "epp_cluster_total_power_watts",
+          "legendFormat": "Total Power"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1200 },
+              { "color": "red", "value": 1700 }
+            ]
+          },
+          "max": 2000,
+          "unit": "watt"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Grid Carbon Intensity",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "epp_grid_carbon_intensity_gco2_kwh",
+          "legendFormat": "{{region}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "max": 800,
+          "unit": "gCO2/kWh"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Pod Count",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 3, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "epp_cluster_pod_count", "legendFormat": "Pods" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Routing Decisions",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 3, "x": 15, "y": 0 },
+      "targets": [
+        { "expr": "epp_routing_decisions_count", "legendFormat": "Total" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Avg Energy per Token",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "epp_cluster_avg_energy_per_token_mj", "legendFormat": "mJ/token" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "mJ" } }
+    },
+    {
+      "id": 10,
+      "title": "Per-Pod Power Draw (W)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "epp_pod_power_watts",
+          "legendFormat": "{{pod}} ({{hardware_class}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "watt" }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Per-Pod Energy per Token (mJ)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "epp_pod_energy_per_token_mj",
+          "legendFormat": "{{pod}} ({{hardware_class}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "mJ" }
+      }
+    },
+    {
+      "id": 12,
+      "title": "TDP Utilization (%)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "epp_pod_tdp_utilization_ratio * 100",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Tokens per Second",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "targets": [
+        {
+          "expr": "epp_pod_tokens_per_second",
+          "legendFormat": "{{pod}} ({{hardware_class}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "tok/s" }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Routing Decisions by Phase",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "targets": [
+        {
+          "expr": "epp_routing_decisions_total",
+          "legendFormat": "{{phase}} → {{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Token Economics — Energy per 1M Tokens (kWh)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "epp_pod_energy_per_1m_tokens_kwh",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "kWh" } }
+    },
+    {
+      "id": 21,
+      "title": "Token Economics — Carbon per 1M Tokens (gCO2eq)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
+      "targets": [
+        {
+          "expr": "epp_pod_carbon_per_1m_tokens_gco2",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "gCO2" } }
+    },
+    {
+      "id": 22,
+      "title": "Token Economics — Cost per 1M Tokens ($)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 22 },
+      "targets": [
+        {
+          "expr": "epp_pod_cost_per_1m_tokens_usd",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["energy", "llm", "epp", "carbon"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Energy-Aware EPP Dashboard",
+  "uid": "energy-epp-main",
+  "version": 1
+}

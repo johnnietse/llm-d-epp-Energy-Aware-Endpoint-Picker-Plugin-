@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: energy-epp
+  labels:
+    app.kubernetes.io/name: energy-epp
+    app.kubernetes.io/part-of: llm-d
+---
+# ConfigMap with shared EPP configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: energy-epp-config
+  namespace: energy-epp
+data:
+  mode: "sidecar"
+  health-port: "8080"
+  carbon-api-zone: "US-CAL-CISO"
+---
+# ─────────────────────────────────────────────────────────
+# Pod 1: GPU H100 Prefill Node (high-perf, high-TDP)
+# ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epp-gpu-h100
+  namespace: energy-epp
+  labels:
+    app: energy-epp
+    llm-d.ai/hardware-class: GPU_HIGH_PERF
+    llm-d.ai/role: prefill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: energy-epp
+      llm-d.ai/hardware-class: GPU_HIGH_PERF
+  template:
+    metadata:
+      labels:
+        app: energy-epp
+        llm-d.ai/hardware-class: GPU_HIGH_PERF
+        llm-d.ai/role: prefill
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics/prometheus"
+    spec:
+      containers:
+        - name: energy-epp
+          image: energy-epp:dev
+          imagePullPolicy: Never
+          args: ["--mode", "sidecar", "--health-port", "8080"]
+          ports:
+            - name: health
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: HARDWARE_CLASS
+              value: "GPU_HIGH_PERF"
+            - name: TDP_WATTS
+              value: "700"
+            - name: ROLE
+              value: "prefill"
+            - name: CO2_API_ZONE
+              value: "US-CAL-CISO"
+---
+# ─────────────────────────────────────────────────────────
+# Pod 2: GPU A100 Decode Node (med-perf, power-capped)
+# ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epp-gpu-a100
+  namespace: energy-epp
+  labels:
+    app: energy-epp
+    llm-d.ai/hardware-class: GPU_MED_PERF
+    llm-d.ai/role: decode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: energy-epp
+      llm-d.ai/hardware-class: GPU_MED_PERF
+  template:
+    metadata:
+      labels:
+        app: energy-epp
+        llm-d.ai/hardware-class: GPU_MED_PERF
+        llm-d.ai/role: decode
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: energy-epp
+          image: energy-epp:dev
+          imagePullPolicy: Never
+          args: ["--mode", "sidecar", "--health-port", "8080"]
+          ports:
+            - name: health
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: HARDWARE_CLASS
+              value: "GPU_MED_PERF"
+            - name: TDP_WATTS
+              value: "200"
+            - name: ROLE
+              value: "decode"
+            - name: CO2_API_ZONE
+              value: "US-CAL-CISO"
+---
+# ─────────────────────────────────────────────────────────
+# Pod 3: Qualcomm Cloud AI 100 ASIC (low-power decode)
+# ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epp-asic-qc100
+  namespace: energy-epp
+  labels:
+    app: energy-epp
+    llm-d.ai/hardware-class: ASIC_LOW_POWER
+    llm-d.ai/role: decode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: energy-epp
+      llm-d.ai/hardware-class: ASIC_LOW_POWER
+  template:
+    metadata:
+      labels:
+        app: energy-epp
+        llm-d.ai/hardware-class: ASIC_LOW_POWER
+        llm-d.ai/role: decode
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: energy-epp
+          image: energy-epp:dev
+          imagePullPolicy: Never
+          args: ["--mode", "sidecar", "--health-port", "8080"]
+          ports:
+            - name: health
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: HARDWARE_CLASS
+              value: "ASIC_LOW_POWER"
+            - name: TDP_WATTS
+              value: "75"
+            - name: ROLE
+              value: "decode"
+            - name: CO2_API_ZONE
+              value: "US-CAL-CISO"
+---
+# Service to aggregate all EPP pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: energy-epp
+  namespace: energy-epp
+  labels:
+    app: energy-epp
+spec:
+  type: ClusterIP
+  selector:
+    app: energy-epp
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health

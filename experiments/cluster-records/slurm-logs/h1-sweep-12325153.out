@@ -1,0 +1,256 @@
+no host python can read the NVML energy counter; trying the container
+energy-counter python: env -u SSL_CERT_FILE /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer exec --nv /global/home/hpc6081/energy-epp/images/vllm-v0.30.0.sif python3
+node=frnt154.frontenac.local job=12325153
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128,160,192,256,320,384,512 seconds=75 trials=6
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+1, GPU-9a1505a8-a594-38ae-65fd-036b04e65060, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+2, GPU-8bf6d5b6-8bab-5473-8cf7-5ee6c46d50ca, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+3, GPU-b5f15c18-13d5-8be6-f7ec-59eabda961b7, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+4, GPU-7c50a536-e5f1-c6c7-bc51-1d7e24dc02e6, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+5, GPU-c153ee3d-b52c-a9ab-3ac8-4777e19c4f46, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+6, GPU-fab56f52-a825-4834-2282-5dda6b19c23a, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+7, GPU-4cf47ff6-6119-8546-3537-16f4289b2e6e, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=ingenuity,amd
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=38.03
+vllm up after 100s
+idle(model loaded): 40.06 W
+trial1 c=1   prefix=0 220.19 W    229.3 tok/s  J/tok=0.9605  p95=0.56s err=0
+trial1 c=2   prefix=0 224.12 W    471.3 tok/s  J/tok=0.4756  p95=0.545s err=0
+trial1 c=4   prefix=0 229.26 W    954.6 tok/s  J/tok=0.2402  p95=0.537s err=0
+trial1 c=8   prefix=0 242.59 W   1898.8 tok/s  J/tok=0.1278  p95=0.541s err=0
+trial1 c=8   prefix=1  242.3 W   1841.9 tok/s  J/tok=0.1316  p95=0.553s err=0
+trial1 c=16  prefix=0  247.6 W   3589.2 tok/s  J/tok=0.069  p95=0.571s err=0
+trial1 c=32  prefix=0 247.95 W   6697.4 tok/s  J/tok=0.037  p95=0.619s err=0
+trial1 c=48  prefix=0 247.78 W   9641.2 tok/s  J/tok=0.0257  p95=0.644s err=0
+trial1 c=64  prefix=0  246.8 W  11841.1 tok/s  J/tok=0.0208  p95=0.703s err=0
+trial1 c=96  prefix=0  247.8 W  15626.6 tok/s  J/tok=0.0159  p95=0.81s err=0
+trial1 c=128 prefix=0 247.67 W  18857.1 tok/s  J/tok=0.0131  p95=0.891s err=0
+trial1 c=160 prefix=0 247.58 W  18321.1 tok/s  J/tok=0.0135  p95=1.147s err=0
+trial1 c=192 prefix=0 247.81 W  20600.5 tok/s  J/tok=0.012  p95=1.23s err=0
+trial1 c=256 prefix=0 247.67 W  23425.6 tok/s  J/tok=0.0106  p95=1.451s err=0
+trial1 c=320 prefix=0 248.01 W  24271.8 tok/s  J/tok=0.0102  p95=2.406s err=0
+trial1 c=384 prefix=0 247.94 W  24659.9 tok/s  J/tok=0.0101  p95=2.532s err=0
+trial1 c=512 prefix=0 247.67 W  24277.4 tok/s  J/tok=0.0102  p95=2.764s err=0
+trial2 c=1   prefix=0  238.9 W    229.3 tok/s  J/tok=1.0416  p95=0.559s err=0
+trial2 c=2   prefix=0 224.58 W    469.7 tok/s  J/tok=0.4782  p95=0.545s err=0
+trial2 c=4   prefix=0 227.62 W    956.3 tok/s  J/tok=0.238  p95=0.536s err=0
+trial2 c=8   prefix=0 239.68 W   1894.2 tok/s  J/tok=0.1265  p95=0.542s err=0
+trial2 c=8   prefix=1 240.62 W   1853.3 tok/s  J/tok=0.1298  p95=0.552s err=0
+trial2 c=16  prefix=0 247.65 W   3597.4 tok/s  J/tok=0.0688  p95=0.57s err=0
+trial2 c=32  prefix=0 247.74 W   6612.1 tok/s  J/tok=0.0375  p95=0.624s err=0
+trial2 c=48  prefix=0 247.59 W   9663.4 tok/s  J/tok=0.0256  p95=0.644s err=0
+trial2 c=64  prefix=0 246.36 W  11901.2 tok/s  J/tok=0.0207  p95=0.701s err=0
+trial2 c=96  prefix=0 247.51 W  15694.6 tok/s  J/tok=0.0158  p95=0.804s err=0
+trial2 c=128 prefix=0  247.3 W  18963.5 tok/s  J/tok=0.013  p95=0.885s err=0
+trial2 c=160 prefix=0 247.17 W  18278.7 tok/s  J/tok=0.0135  p95=1.153s err=0
+trial2 c=192 prefix=0 247.34 W  20671.5 tok/s  J/tok=0.012  p95=1.224s err=0
+trial2 c=256 prefix=0 248.02 W  23550.2 tok/s  J/tok=0.0105  p95=1.445s err=0
+trial2 c=320 prefix=0 247.83 W  24238.2 tok/s  J/tok=0.0102  p95=2.389s err=0
+trial2 c=384 prefix=0 247.71 W  24552.1 tok/s  J/tok=0.0101  p95=2.523s err=0
+trial2 c=512 prefix=0 248.06 W  24962.1 tok/s  J/tok=0.0099  p95=2.685s err=0
+trial3 c=1   prefix=0 233.83 W    229.2 tok/s  J/tok=1.02  p95=0.56s err=0
+trial3 c=2   prefix=0 218.59 W    469.7 tok/s  J/tok=0.4654  p95=0.545s err=0
+trial3 c=4   prefix=0 223.87 W    955.2 tok/s  J/tok=0.2344  p95=0.537s err=0
+trial3 c=8   prefix=0 237.19 W   1899.5 tok/s  J/tok=0.1249  p95=0.542s err=0
+trial3 c=8   prefix=1 237.66 W   1849.3 tok/s  J/tok=0.1285  p95=0.553s err=0
+trial3 c=16  prefix=0 245.16 W   3594.0 tok/s  J/tok=0.0682  p95=0.571s err=0
+trial3 c=32  prefix=0 247.74 W   6632.7 tok/s  J/tok=0.0374  p95=0.626s err=0
+trial3 c=48  prefix=0 247.49 W   9633.3 tok/s  J/tok=0.0257  p95=0.646s err=0
+trial3 c=64  prefix=0 246.49 W  11846.4 tok/s  J/tok=0.0208  p95=0.709s err=0
+trial3 c=96  prefix=0  247.8 W  15517.9 tok/s  J/tok=0.016  p95=0.821s err=0
+trial3 c=128 prefix=0 247.96 W  18735.6 tok/s  J/tok=0.0132  p95=0.902s err=0
+trial3 c=160 prefix=0 247.05 W  18251.6 tok/s  J/tok=0.0135  p95=1.153s err=0
+trial3 c=192 prefix=0 247.78 W  20514.2 tok/s  J/tok=0.0121  p95=1.235s err=0
+trial3 c=256 prefix=0 247.85 W  23380.1 tok/s  J/tok=0.0106  p95=1.454s err=0
+trial3 c=320 prefix=0 247.63 W  23983.7 tok/s  J/tok=0.0103  p95=2.379s err=0
+trial3 c=384 prefix=0 247.56 W  24644.3 tok/s  J/tok=0.01  p95=2.536s err=0
+trial3 c=512 prefix=0 247.95 W  24683.4 tok/s  J/tok=0.01  p95=2.705s err=0
+trial4 c=1   prefix=0 239.68 W    229.3 tok/s  J/tok=1.0454  p95=0.559s err=0
+trial4 c=2   prefix=0 225.14 W    469.7 tok/s  J/tok=0.4794  p95=0.545s err=0
+trial4 c=4   prefix=0  228.7 W    955.2 tok/s  J/tok=0.2394  p95=0.537s err=0
+trial4 c=8   prefix=0 239.55 W   1885.6 tok/s  J/tok=0.127  p95=0.545s err=0
+trial4 c=8   prefix=1 241.02 W   1856.1 tok/s  J/tok=0.1299  p95=0.552s err=0
+trial4 c=16  prefix=0  247.9 W   3607.2 tok/s  J/tok=0.0687  p95=0.57s err=0
+trial4 c=32  prefix=0 248.23 W   6686.1 tok/s  J/tok=0.0371  p95=0.617s err=0
+trial4 c=48  prefix=0 246.92 W   9432.0 tok/s  J/tok=0.0262  p95=0.664s err=0
+trial4 c=64  prefix=0  246.6 W  11813.7 tok/s  J/tok=0.0209  p95=0.707s err=0
+trial4 c=96  prefix=0 247.74 W  15648.8 tok/s  J/tok=0.0158  p95=0.802s err=0
+trial4 c=128 prefix=0 247.72 W  18819.3 tok/s  J/tok=0.0132  p95=0.893s err=0
+trial4 c=160 prefix=0 247.29 W  18236.8 tok/s  J/tok=0.0136  p95=1.153s err=0
+trial4 c=192 prefix=0 247.64 W  20536.1 tok/s  J/tok=0.0121  p95=1.232s err=0
+trial4 c=256 prefix=0 247.58 W  23492.5 tok/s  J/tok=0.0105  p95=1.448s err=0
+trial4 c=320 prefix=0 247.53 W  24143.3 tok/s  J/tok=0.0103  p95=2.416s err=0
+trial4 c=384 prefix=0 247.69 W  24513.8 tok/s  J/tok=0.0101  p95=2.541s err=0
+trial4 c=512 prefix=0 247.88 W  24738.2 tok/s  J/tok=0.01  p95=2.696s err=0
+trial5 c=1   prefix=0  239.0 W    229.3 tok/s  J/tok=1.0425  p95=0.56s err=0
+trial5 c=2   prefix=0 224.31 W    469.6 tok/s  J/tok=0.4776  p95=0.545s err=0
+trial5 c=4   prefix=0 227.62 W    955.3 tok/s  J/tok=0.2383  p95=0.537s err=0
+trial5 c=8   prefix=0 239.38 W   1891.8 tok/s  J/tok=0.1265  p95=0.544s err=0
+trial5 c=8   prefix=1 240.33 W   1853.9 tok/s  J/tok=0.1296  p95=0.552s err=0
+trial5 c=16  prefix=0 247.13 W   3610.3 tok/s  J/tok=0.0685  p95=0.573s err=0
+trial5 c=32  prefix=0 247.65 W   6609.8 tok/s  J/tok=0.0375  p95=0.626s err=0
+trial5 c=48  prefix=0 247.67 W   9621.8 tok/s  J/tok=0.0257  p95=0.648s err=0
+trial5 c=64  prefix=0 247.41 W  11802.5 tok/s  J/tok=0.021  p95=0.709s err=0
+trial5 c=96  prefix=0 247.56 W  15571.4 tok/s  J/tok=0.0159  p95=0.809s err=0
+trial5 c=128 prefix=0 248.05 W  18672.0 tok/s  J/tok=0.0133  p95=0.906s err=0
+trial5 c=160 prefix=0 247.49 W  18192.9 tok/s  J/tok=0.0136  p95=1.154s err=0
+trial5 c=192 prefix=0  247.8 W  20587.9 tok/s  J/tok=0.012  p95=1.227s err=0
+trial5 c=256 prefix=0 247.65 W  23419.2 tok/s  J/tok=0.0106  p95=1.457s err=0
+trial5 c=320 prefix=0 247.69 W  23976.3 tok/s  J/tok=0.0103  p95=2.422s err=0
+trial5 c=384 prefix=0 248.12 W  24579.2 tok/s  J/tok=0.0101  p95=2.524s err=0
+trial5 c=512 prefix=0 247.95 W  24618.5 tok/s  J/tok=0.0101  p95=2.722s err=0
+trial6 c=1   prefix=0 234.53 W    229.3 tok/s  J/tok=1.0229  p95=0.559s err=0
+trial6 c=2   prefix=0 218.58 W    469.7 tok/s  J/tok=0.4653  p95=0.545s err=0
+trial6 c=4   prefix=0  223.7 W    955.6 tok/s  J/tok=0.2341  p95=0.536s err=0
+trial6 c=8   prefix=0 235.26 W   1885.8 tok/s  J/tok=0.1248  p95=0.545s err=0
+trial6 c=8   prefix=1 237.46 W   1852.3 tok/s  J/tok=0.1282  p95=0.553s err=0
+trial6 c=16  prefix=0 244.99 W   3594.1 tok/s  J/tok=0.0682  p95=0.574s err=0
+trial6 c=32  prefix=0 247.63 W   6616.3 tok/s  J/tok=0.0374  p95=0.63s err=0
+trial6 c=48  prefix=0 247.51 W   9571.3 tok/s  J/tok=0.0259  p95=0.65s err=0
+trial6 c=64  prefix=0 246.48 W  11863.9 tok/s  J/tok=0.0208  p95=0.706s err=0
+trial6 c=96  prefix=0 247.64 W  15752.4 tok/s  J/tok=0.0157  p95=0.797s err=0
+trial6 c=128 prefix=0 247.92 W  18759.1 tok/s  J/tok=0.0132  p95=0.9s err=0
+trial6 c=160 prefix=0 247.06 W  18340.5 tok/s  J/tok=0.0135  p95=1.148s err=0
+trial6 c=192 prefix=0  247.6 W  20616.1 tok/s  J/tok=0.012  p95=1.227s err=0
+trial6 c=256 prefix=0 247.47 W  23458.6 tok/s  J/tok=0.0105  p95=1.455s err=0
+trial6 c=320 prefix=0 247.87 W  24039.6 tok/s  J/tok=0.0103  p95=2.409s err=0
+trial6 c=384 prefix=0 247.97 W  24266.1 tok/s  J/tok=0.0102  p95=2.551s err=0
+trial6 c=512 prefix=0 248.09 W  24809.6 tok/s  J/tok=0.01  p95=2.696s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12325153/h1.csv (103 rows) gpu=NVIDIA A100-PCIE-40GB
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 40.06 W
+fitted P_idle = 239.7 W
+fitted k_b    = 0.03 W per concurrent request
+R^2           = 0.2319
+max |residual| = 21.14 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   220.19    229.3   0.9605    0.56
+    1    238.9    229.3   1.0416   0.559
+    1   233.83    229.2     1.02    0.56
+    1   239.68    229.3   1.0454   0.559
+    1    239.0    229.3   1.0425    0.56
+    1   234.53    229.3   1.0229   0.559
+    2   224.12    471.3   0.4756   0.545
+    2   224.58    469.7   0.4782   0.545
+    2   218.59    469.7   0.4654   0.545
+    2   225.14    469.7   0.4794   0.545
+    2   224.31    469.6   0.4776   0.545
+    2   218.58    469.7   0.4653   0.545
+    4   229.26    954.6   0.2402   0.537
+    4   227.62    956.3    0.238   0.536
+    4   223.87    955.2   0.2344   0.537
+    4    228.7    955.2   0.2394   0.537
+    4   227.62    955.3   0.2383   0.537
+    4    223.7    955.6   0.2341   0.536
+    8   242.59   1898.8   0.1278   0.541
+    8   239.68   1894.2   0.1265   0.542
+    8   237.19   1899.5   0.1249   0.542
+    8   239.55   1885.6    0.127   0.545
+    8   239.38   1891.8   0.1265   0.544
+    8   235.26   1885.8   0.1248   0.545
+   16    247.6   3589.2    0.069   0.571
+   16   247.65   3597.4   0.0688    0.57
+   16   245.16   3594.0   0.0682   0.571
+   16    247.9   3607.2   0.0687    0.57
+   16   247.13   3610.3   0.0685   0.573
+   16   244.99   3594.1   0.0682   0.574
+   32   247.95   6697.4    0.037   0.619
+   32   247.74   6612.1   0.0375   0.624
+   32   247.74   6632.7   0.0374   0.626
+   32   248.23   6686.1   0.0371   0.617
+   32   247.65   6609.8   0.0375   0.626
+   32   247.63   6616.3   0.0374    0.63
+   48   247.78   9641.2   0.0257   0.644
+   48   247.59   9663.4   0.0256   0.644
+   48   247.49   9633.3   0.0257   0.646
+   48   246.92   9432.0   0.0262   0.664
+   48   247.67   9621.8   0.0257   0.648
+   48   247.51   9571.3   0.0259    0.65
+   64    246.8  11841.1   0.0208   0.703
+   64   246.36  11901.2   0.0207   0.701
+   64   246.49  11846.4   0.0208   0.709
+   64    246.6  11813.7   0.0209   0.707
+   64   247.41  11802.5    0.021   0.709
+   64   246.48  11863.9   0.0208   0.706
+   96    247.8  15626.6   0.0159    0.81
+   96   247.51  15694.6   0.0158   0.804
+   96    247.8  15517.9    0.016   0.821
+   96   247.74  15648.8   0.0158   0.802
+   96   247.56  15571.4   0.0159   0.809
+   96   247.64  15752.4   0.0157   0.797
+  128   247.67  18857.1   0.0131   0.891
+  128    247.3  18963.5    0.013   0.885
+  128   247.96  18735.6   0.0132   0.902
+  128   247.72  18819.3   0.0132   0.893
+  128   248.05  18672.0   0.0133   0.906
+  128   247.92  18759.1   0.0132     0.9
+  160   247.58  18321.1   0.0135   1.147
+  160   247.17  18278.7   0.0135   1.153
+  160   247.05  18251.6   0.0135   1.153
+  160   247.29  18236.8   0.0136   1.153
+  160   247.49  18192.9   0.0136   1.154
+  160   247.06  18340.5   0.0135   1.148
+  192   247.81  20600.5    0.012    1.23
+  192   247.34  20671.5    0.012   1.224
+  192   247.78  20514.2   0.0121   1.235
+  192   247.64  20536.1   0.0121   1.232
+  192    247.8  20587.9    0.012   1.227
+  192    247.6  20616.1    0.012   1.227
+  256   247.67  23425.6   0.0106   1.451
+  256   248.02  23550.2   0.0105   1.445
+  256   247.85  23380.1   0.0106   1.454
+  256   247.58  23492.5   0.0105   1.448
+  256   247.65  23419.2   0.0106   1.457
+  256   247.47  23458.6   0.0105   1.455
+  320   248.01  24271.8   0.0102   2.406
+  320   247.83  24238.2   0.0102   2.389
+  320   247.63  23983.7   0.0103   2.379
+  320   247.53  24143.3   0.0103   2.416
+  320   247.69  23976.3   0.0103   2.422
+  320   247.87  24039.6   0.0103   2.409
+  384   247.94  24659.9   0.0101   2.532
+  384   247.71  24552.1   0.0101   2.523
+  384   247.56  24644.3     0.01   2.536
+  384   247.69  24513.8   0.0101   2.541
+  384   248.12  24579.2   0.0101   2.524
+  384   247.97  24266.1   0.0102   2.551
+  512   247.67  24277.4   0.0102   2.764
+  512   248.06  24962.1   0.0099   2.685
+  512   247.95  24683.4     0.01   2.705
+  512   247.88  24738.2     0.01   2.696
+  512   247.95  24618.5   0.0101   2.722
+  512   248.09  24809.6     0.01   2.696
+
+J/token range: 1.0454 at c=1 -> 0.0099 at c=512  (105.60x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +180.1 W
+marginal cost per extra concurrent request:  +0.03 W
+ratio: waking an idle GPU costs 6860x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 40.1 W = 16% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1278 shared J/tok=0.1316  unique tok/s=1898.8 shared tok/s=1841.9
+c=8: unique J/tok=0.1278 shared J/tok=0.1298  unique tok/s=1898.8 shared tok/s=1853.3
+c=8: unique J/tok=0.1278 shared J/tok=0.1285  unique tok/s=1898.8 shared tok/s=1849.3
+c=8: unique J/tok=0.1278 shared J/tok=0.1299  unique tok/s=1898.8 shared tok/s=1856.1
+c=8: unique J/tok=0.1278 shared J/tok=0.1296  unique tok/s=1898.8 shared tok/s=1853.9
+c=8: unique J/tok=0.1278 shared J/tok=0.1282  unique tok/s=1898.8 shared tok/s=1852.3
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.2319 WEAK - revisit model form
+/var/spool/slurm/d/job12325153/slurm_script: line 132: 2699249 Terminated              $PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12325153

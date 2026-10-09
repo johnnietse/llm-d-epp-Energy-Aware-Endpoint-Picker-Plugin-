@@ -79,3 +79,16 @@ directories are from jobs that were **discarded**, not published: job 12303327
 completed cleanly and every cell was client-limited (112.5 req/s offered, 26.7
 achieved). See `docs/plan/FINAL-PLAN-2026-10.md` section 13 for which job ids
 are load-bearing and which are kept only as evidence of a failure mode.
+
+Added 2026-10-09, complete, logs over 1 MiB gzipped by `prepare_records.sh`
+(the uncompressed originals are in commit `5d6a327`):
+
+- `results/h1-12324871` - A100 curve on frnt154, grid 1-256, TRIALS=3. An
+  intermediate record. It showed that the A100 is only at 1.41 s at 256, which
+  led to the final 512-level curve.
+- `results/h1-12324872` - RTX 6000 curve on frnt149, grid 1-256, TRIALS=3.
+  Intermediate.
+
+Expected next: the final six-trial curves `h1-12325153` (A100, to 512) and
+`h1-12325154` (RTX 6000), and the headroom calibration runs, seeds 901-903 on
+each fleet (plan 12.14d).
