@@ -1,0 +1,136 @@
+no host python can read the NVML energy counter; trying the container
+energy-counter python: env -u SSL_CERT_FILE /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v3/Core/apptainer/1.4.5/bin/apptainer exec --nv /global/home/hpc6081/energy-epp/images/vllm-v0.30.0.sif python3
+node=frnt154.frontenac.local job=12324871
+model=Qwen/Qwen2.5-1.5B-Instruct levels=1,2,4,8,16,32,48,64,96,128,160,192,256 seconds=75 trials=3
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+1, GPU-9a1505a8-a594-38ae-65fd-036b04e65060, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+2, GPU-8bf6d5b6-8bab-5473-8cf7-5ee6c46d50ca, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+3, GPU-b5f15c18-13d5-8be6-f7ec-59eabda961b7, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+4, GPU-7c50a536-e5f1-c6c7-bc51-1d7e24dc02e6, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+5, GPU-c153ee3d-b52c-a9ab-3ac8-4777e19c4f46, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+6, GPU-fab56f52-a825-4834-2282-5dda6b19c23a, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+7, GPU-4cf47ff6-6119-8546-3537-16f4289b2e6e, NVIDIA A100-PCIE-40GB, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 40960 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node
+node_features=ActiveFeatures=ingenuity,amd
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm_image=8006664192
+vllm 0.30.0 torch 2.13.0+cu130
+idle_bare_w=38.07
+vllm up after 140s
+idle(model loaded): 40.56 W
+trial1 c=1   prefix=0 221.14 W    229.4 tok/s  J/tok=0.964  p95=0.559s err=0
+trial1 c=2   prefix=0 223.76 W    471.3 tok/s  J/tok=0.4748  p95=0.545s err=0
+trial1 c=4   prefix=0 228.97 W    955.2 tok/s  J/tok=0.2397  p95=0.537s err=0
+trial1 c=8   prefix=0 241.84 W   1894.4 tok/s  J/tok=0.1277  p95=0.542s err=0
+trial1 c=8   prefix=1 243.14 W   1852.6 tok/s  J/tok=0.1312  p95=0.553s err=0
+trial1 c=16  prefix=0 247.47 W   3595.6 tok/s  J/tok=0.0688  p95=0.571s err=0
+trial1 c=32  prefix=0  248.2 W   6631.5 tok/s  J/tok=0.0374  p95=0.623s err=0
+trial1 c=48  prefix=0 247.33 W   9496.1 tok/s  J/tok=0.026  p95=0.655s err=0
+trial1 c=64  prefix=0 246.88 W  11894.8 tok/s  J/tok=0.0208  p95=0.701s err=0
+trial1 c=96  prefix=0 247.95 W  15655.3 tok/s  J/tok=0.0158  p95=0.805s err=0
+trial1 c=128 prefix=0 248.17 W  18860.9 tok/s  J/tok=0.0132  p95=0.891s err=0
+trial1 c=160 prefix=0 247.21 W  18250.3 tok/s  J/tok=0.0135  p95=1.152s err=0
+trial1 c=192 prefix=0 247.57 W  20513.6 tok/s  J/tok=0.0121  p95=1.231s err=0
+trial1 c=256 prefix=0 247.69 W  23564.4 tok/s  J/tok=0.0105  p95=1.444s err=0
+trial2 c=1   prefix=0 239.43 W    229.4 tok/s  J/tok=1.0438  p95=0.559s err=0
+trial2 c=2   prefix=0 224.82 W    469.6 tok/s  J/tok=0.4788  p95=0.546s err=0
+trial2 c=4   prefix=0 228.15 W    955.0 tok/s  J/tok=0.2389  p95=0.537s err=0
+trial2 c=8   prefix=0  238.9 W   1890.9 tok/s  J/tok=0.1263  p95=0.543s err=0
+trial2 c=8   prefix=1 238.71 W   1848.0 tok/s  J/tok=0.1292  p95=0.554s err=0
+trial2 c=16  prefix=0 245.58 W   3624.0 tok/s  J/tok=0.0678  p95=0.568s err=0
+trial2 c=32  prefix=0 247.26 W   6668.6 tok/s  J/tok=0.0371  p95=0.617s err=0
+trial2 c=48  prefix=0 247.89 W   9687.9 tok/s  J/tok=0.0256  p95=0.646s err=0
+trial2 c=64  prefix=0 246.02 W  11903.8 tok/s  J/tok=0.0207  p95=0.701s err=0
+trial2 c=96  prefix=0 247.38 W  15530.7 tok/s  J/tok=0.0159  p95=0.81s err=0
+trial2 c=128 prefix=0 247.33 W  18820.4 tok/s  J/tok=0.0131  p95=0.895s err=0
+trial2 c=160 prefix=0 247.44 W  18353.9 tok/s  J/tok=0.0135  p95=1.148s err=0
+trial2 c=192 prefix=0 247.37 W  20507.4 tok/s  J/tok=0.0121  p95=1.238s err=0
+trial2 c=256 prefix=0 247.74 W  23634.5 tok/s  J/tok=0.0105  p95=1.444s err=0
+trial3 c=1   prefix=0 233.64 W    229.4 tok/s  J/tok=1.0186  p95=0.559s err=0
+trial3 c=2   prefix=0 217.82 W    469.6 tok/s  J/tok=0.4638  p95=0.545s err=0
+trial3 c=4   prefix=0 222.37 W    954.4 tok/s  J/tok=0.233  p95=0.537s err=0
+trial3 c=8   prefix=0 233.89 W   1886.8 tok/s  J/tok=0.124  p95=0.545s err=0
+trial3 c=8   prefix=1 235.89 W   1849.4 tok/s  J/tok=0.1275  p95=0.553s err=0
+trial3 c=16  prefix=0 243.32 W   3591.8 tok/s  J/tok=0.0677  p95=0.573s err=0
+trial3 c=32  prefix=0 247.69 W   6676.8 tok/s  J/tok=0.0371  p95=0.617s err=0
+trial3 c=48  prefix=0 246.63 W   9458.0 tok/s  J/tok=0.0261  p95=0.659s err=0
+trial3 c=64  prefix=0 246.64 W  11710.7 tok/s  J/tok=0.0211  p95=0.718s err=0
+trial3 c=96  prefix=0 247.91 W  15477.8 tok/s  J/tok=0.016  p95=0.816s err=0
+trial3 c=128 prefix=0 247.89 W  18889.7 tok/s  J/tok=0.0131  p95=0.892s err=0
+trial3 c=160 prefix=0 247.15 W  18229.7 tok/s  J/tok=0.0136  p95=1.154s err=0
+trial3 c=192 prefix=0 247.78 W  20644.0 tok/s  J/tok=0.012  p95=1.23s err=0
+trial3 c=256 prefix=0 247.62 W  23341.3 tok/s  J/tok=0.0106  p95=1.457s err=0
+
+wrote /global/home/hpc6081/energy-epp/results/h1-12324871/h1.csv (43 rows) gpu=NVIDIA A100-PCIE-40GB
+=== H1: P(b) = P_idle + k_b * b ===
+measured idle (model resident): 40.56 W
+fitted P_idle = 236.7 W
+fitted k_b    = 0.07 W per concurrent request
+R^2           = 0.3303
+max |residual| = 18.98 W
+
+=== energy per token vs load (the batching effect) ===
+ conc  power_W    tok/s    J/tok   p95_s
+    1   221.14    229.4    0.964   0.559
+    1   239.43    229.4   1.0438   0.559
+    1   233.64    229.4   1.0186   0.559
+    2   223.76    471.3   0.4748   0.545
+    2   224.82    469.6   0.4788   0.546
+    2   217.82    469.6   0.4638   0.545
+    4   228.97    955.2   0.2397   0.537
+    4   228.15    955.0   0.2389   0.537
+    4   222.37    954.4    0.233   0.537
+    8   241.84   1894.4   0.1277   0.542
+    8    238.9   1890.9   0.1263   0.543
+    8   233.89   1886.8    0.124   0.545
+   16   247.47   3595.6   0.0688   0.571
+   16   245.58   3624.0   0.0678   0.568
+   16   243.32   3591.8   0.0677   0.573
+   32    248.2   6631.5   0.0374   0.623
+   32   247.26   6668.6   0.0371   0.617
+   32   247.69   6676.8   0.0371   0.617
+   48   247.33   9496.1    0.026   0.655
+   48   247.89   9687.9   0.0256   0.646
+   48   246.63   9458.0   0.0261   0.659
+   64   246.88  11894.8   0.0208   0.701
+   64   246.02  11903.8   0.0207   0.701
+   64   246.64  11710.7   0.0211   0.718
+   96   247.95  15655.3   0.0158   0.805
+   96   247.38  15530.7   0.0159    0.81
+   96   247.91  15477.8    0.016   0.816
+  128   248.17  18860.9   0.0132   0.891
+  128   247.33  18820.4   0.0131   0.895
+  128   247.89  18889.7   0.0131   0.892
+  160   247.21  18250.3   0.0135   1.152
+  160   247.44  18353.9   0.0135   1.148
+  160   247.15  18229.7   0.0136   1.154
+  192   247.57  20513.6   0.0121   1.231
+  192   247.37  20507.4   0.0121   1.238
+  192   247.78  20644.0    0.012    1.23
+  256   247.69  23564.4   0.0105   1.444
+  256   247.74  23634.5   0.0105   1.444
+  256   247.62  23341.3   0.0106   1.457
+
+J/token range: 1.0438 at c=1 -> 0.0105 at c=256  (99.41x)
+
+=== marginal energy (what the scorer needs) ===
+activation cost (idle -> c=1): +180.6 W
+marginal cost per extra concurrent request:  +0.07 W
+ratio: waking an idle GPU costs 2732x one extra request on an already-active GPU
+routing implication: consolidate onto active endpoints; the per-request increment is small next to the activation step.
+idle floor 40.6 W = 16% of power at the highest load measured
+
+=== prefix-cache effect (same concurrency, shared vs unique prompts) ===
+c=8: unique J/tok=0.1277 shared J/tok=0.1312  unique tok/s=1894.4 shared tok/s=1852.6
+c=8: unique J/tok=0.1277 shared J/tok=0.1292  unique tok/s=1894.4 shared tok/s=1848.0
+c=8: unique J/tok=0.1277 shared J/tok=0.1275  unique tok/s=1894.4 shared tok/s=1849.4
+
+=== gate ===
+H1 holds if R^2 is high and residuals are small relative to k_b.
+verdict: R^2=0.3303 WEAK - revisit model form
+/var/spool/slurm/d/job12324871/slurm_script: line 132: 2680918 Terminated              $PY $ROOT/scripts/energy_exporter.py --interval 1 --out "$RUN/trace.jsonl"
+results in /global/home/hpc6081/energy-epp/results/h1-12324871
