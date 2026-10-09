@@ -90,8 +90,13 @@ jobs:
           echo "Image size: **$SIZE**" >> $GITHUB_STEP_SUMMARY
 
   # ─── Infrastructure Diagnostics Validation ──────────────────────────
+  # Smoke test of scripts/baremetal_diagnostics.py only. A GitHub runner has
+  # no GPU, RDMA or Kubernetes, so the script's GPU and network checks just
+  # warn here. This job validates nothing about Frontenac or any measured
+  # result. (Until 2026-10-09 its summary claimed GPU and network validation
+  # "completed successfully", which a GPU-less runner cannot do.)
   infra-validation:
-    name: AI Infra Diagnostics
+    name: Diagnostics script runs (no GPU on runner)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -101,12 +106,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run Bare-Metal Hardware & Network Validation
+      - name: Diagnostics script executes without crashing
         run: |
           chmod +x scripts/baremetal_diagnostics.py
           python scripts/baremetal_diagnostics.py
-          echo "## 🔧 Infrastructure Diagnostics Run" >> $GITHUB_STEP_SUMMARY
-          echo "Validation of Linux systems, GPU infrastructure, and networking layers completed successfully." >> $GITHUB_STEP_SUMMARY
+          echo "## Diagnostics script" >> $GITHUB_STEP_SUMMARY
+          echo "The script ran to completion on a GPU-less runner. Its GPU, RDMA and Kubernetes checks only warn here; nothing about real hardware was validated." >> $GITHUB_STEP_SUMMARY
 
   # ─── llm-d-router plugin, against its pinned release ─────────────
   router-plugin:

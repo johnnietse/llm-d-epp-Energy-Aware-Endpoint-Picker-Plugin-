@@ -1,3 +1,8 @@
+> **Superseded (note added 2026-10-09).** This is the first design's upstream
+> port. It never built against llm-d-router (see [`../README.md`](../README.md)).
+> The hardware table below (H100, A100 and L4 energy per token) and its
+> prefill/decode weights were **assumed, not measured**. Do not quote them.
+
 # Energy-Aware Scorer Plugin
 
 The **energy-aware scorer** adds energy efficiency as a routing dimension for the llm-d Router's Endpoint Picker. It enables operators to minimize energy consumption and carbon emissions across heterogeneous GPU clusters while respecting latency SLOs.

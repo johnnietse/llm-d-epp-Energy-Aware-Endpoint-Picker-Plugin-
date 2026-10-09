@@ -13,6 +13,20 @@ last state where everything built and passed tests together is tagged
 Full reasoning: `docs/plan/FINAL-PLAN-2026-10.md` section 2, and
 `docs/plan/draft-assessment-2026-10.md`.
 
+## Added 2026-10-09: documents and tooling from before any measurement
+
+The audit of 2026-10-09 (plan 12.14d) moved these here with `git mv`, so
+nothing was deleted and each file keeps its history. Tag
+`archive-2026-10-09-pre-amendment` holds the layout before the move. Each
+folder has its own README saying what it is and why it is not a result.
+
+| Path | Was | Why moved |
+|---|---|---|
+| [`thesis-proposal-2026-05/`](thesis-proposal-2026-05/) | The May 2026 thesis PDF, at the repository root | A proposal written before any measurement; its chapter 5 is synthetic |
+| [`docs-pre-measurement-2026-06/`](docs-pre-measurement-2026-06/) | 25 April-June documents at the root, the old contributing guide, PR template, Makefile and `validate-setup.sh` | They describe and tool the first design; the old PR template claimed a simulated "17.4%" result |
+| [`benchmarks-pre-measurement/`](benchmarks-pre-measurement/) | `benchmarks/` | Its "Frontenac" results directory is synthetic telemetry, and it generates the synthetic thesis figures |
+| [`deploy-pre-measurement/`](deploy-pre-measurement/) | `deploy/` | Kubernetes manifests for a simulated H100/A100/ASIC pool; no result used them |
+
 ## Why each piece is here
 
 | Path | Was | Why withdrawn |

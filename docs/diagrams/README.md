@@ -12,7 +12,7 @@ Examples: `architecture.png`, `scheduling_pipeline.png`,
 `adaptive_controller_fsm.png`, `gie_integration.png`, `ebpf_datapath.png`.
 
 **Data-style plots: not measurements.** Every generator that writes to this
-folder (`benchmarks/scripts/generate_advanced_diagrams.py`,
+folder (`legacy/benchmarks-pre-measurement/scripts/generate_advanced_diagrams.py`,
 `generate_new_diagrams.py`, `generate_extra_diagrams.py`,
 `generate_dvfs_plot.py`, `generate_edp_plot.py`, `generate_arch_diagrams.py`)
 reads no data file at all: its numbers are written into the code, or, in

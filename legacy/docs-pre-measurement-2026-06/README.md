@@ -1,7 +1,7 @@
 # Documents from before any measurement (April to June 2026)
 
-These 25 documents stood at the repository root (one in `docs/design/`, one in `.github/`) until
-2026-10-09. They were moved here unchanged with `git mv`, so each file's
+These files stood at the repository root (one in `docs/design/`, one in
+`.github/`, one in `scripts/`) until 2026-10-09. They were moved here unchanged with `git mv`, so each file's
 history follows it. The pre-move layout is preserved by the tag
 `archive-2026-10-09-pre-amendment`.
 
@@ -19,8 +19,16 @@ how the project began, **not as results**.
 | `data_verification_report.md`, `TESTING_REPORT.md`, `project_update_audit.md`, `project_additions_summary.md` | Status reports on the first design's code |
 | `benchmark_plan.md`, `cluster_benchmark_setup_guide.md`, `frontenac_benchmark_guide.md` | Benchmark plans written before the cluster was used |
 | `deployment_walkthrough.md`, `production_deployment_guide.md`, `gke_setup_walkthrough.md`, `github_actions_setup.md` | Deployment guides for the Kubernetes-based first design |
+| `Makefile-first-design`, `validate-setup-first-design.sh` | The first design's Makefile (Kind cluster, simulated pool, a target that regenerated the synthetic thesis figures) and its setup checker. Replaced 2026-10-09 |
 | `CONTRIBUTING-first-design.md`, `PULL_REQUEST_TEMPLATE-upstream-draft.md` | The first design's contributing guide, and an upstream PR description whose "17.4%" key result was simulated. Both were replaced 2026-10-09 |
 | `llm_d_integration_plan.md`, `upstream_integration_walkthrough.md`, `upstream_interface_mapping.md`, `action_plan_and_integration.md`, `energy-aware-scorer-proposal.md` | Upstream integration plans against an older llm-d API, with a TDP proxy the measurements later refuted |
+
+## Links inside these documents
+
+They are kept byte-for-byte, so their relative links (for example
+`docs/diagrams/architecture.png`) still assume the repository root and no
+longer resolve from here. To read one with working links, check out the tag
+from before the move: `git checkout archive-2026-10-09-pre-amendment -- thesis.md`.
 
 ## Current documents
 

@@ -215,7 +215,7 @@ project's rule since 2026-10-03 is that simulated numbers are never presented
 as results.
 
 **The older figures are synthetic too.** `docs/figures/fig1` to `fig16` are
-drawn from `benchmarks/results/frontenac/heterogeneous_realistic/`, which is
+drawn from `legacy/benchmarks-pre-measurement/results/frontenac/heterogeneous_realistic/`, which is
 written by `generate_realistic_telemetry.py`. By its own description, that
 script produces "Production-Grade Synthetic Telemetry" with imperfections added
 "to make the data credible". The `frontenac` in the path does not make it a

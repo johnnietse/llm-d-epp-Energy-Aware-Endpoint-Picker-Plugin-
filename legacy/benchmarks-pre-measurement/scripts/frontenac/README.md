@@ -1,3 +1,11 @@
+> **Superseded, never executed for any result (note added 2026-10-09).** This
+> June 2026 plan predates any use of Frontenac. Several of its facts were
+> wrong when checked: DCGM energy and power fields **do** work without
+> privilege (plan section 4), and the account and node list differ from those
+> actually used. The approach it describes, "simulation-validated", is the one
+> the project abandoned. See [`../../README.md`](../../README.md) and
+> `docs/plan/FINAL-PLAN-2026-10.md`.
+
 # Frontenac 2.0 Benchmark Plan
 ## Energy-Aware EPP on Queen's CAC HPC (SLURM, No K8s)
 
