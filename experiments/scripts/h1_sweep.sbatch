@@ -108,6 +108,7 @@ env -u SSL_CERT_FILE -u REQUESTS_CA_BUNDLE -u CURL_CA_BUNDLE -u SSL_CERT_DIR \
   "$ROOT/images/vllm-v0.30.0.sif" \
   vllm serve "$MODEL" --port 8100 --host 127.0.0.1 \
     --gpu-memory-utilization 0.85 --max-model-len 4096 \
+    --max-num-seqs 256 --max-num-batched-tokens 2048 \
     > "$RUN/vllm.log" 2>&1 &
 
 for t in $(seq 1 90); do

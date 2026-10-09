@@ -36,7 +36,7 @@ for Stage 5, are under `cluster-records/results/h1-<job>/`.
 
 | Purpose | Scripts |
 |---|---|
-| Stage 1 curves | `h1_sweep.sbatch`, `h1_sweep.py`, `h1_fit.py`, `energy_exporter.py`; submitted by `curves256_submit.sh` and `curves6_submit.sh` |
+| Stage 1 curves | Closed loop (fixed concurrency): `h1_sweep.sbatch`, `h1_sweep.py`, `h1_fit.py`, `energy_exporter.py`, submitted by `curves256_submit.sh` and `curves6_submit.sh`. **Open loop** (Poisson arrivals, used from approach A on): `openloop_curve.sbatch`, `openloop_build.py`, `select_openloop_curves.py`, submitted by `olc_submit.sh` |
 | Stage 2 policy runs | `policy_harness.py` (load generator plus routing rules, `--headroom`), `stage2_het.sbatch` (mixed fleet), `stage2_real.sbatch` (one GPU type), `het_submit.sh`, `real_submit.sh`, `calib_submit.sh` |
 | Router path | `router_smoke.sbatch`, `router_overhead.sbatch`, `smoke_test.sbatch` |
 | Analysis | `stage2_analyse.py` (the gate), `prereg_analysis.py` (the frozen Stage 5 analysis), `power_analysis.py`, `headroom_calibrate.py`, `make_figures.py`, `compare_runs.py` (descriptive only) |

@@ -119,6 +119,7 @@ for port in "$VLLM_PORT0" "$VLLM_PORT1"; do
     vllm serve "$MODEL" --served-model-name served \
       --host 127.0.0.1 --port "$port" \
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
+      --max-num-seqs 256 --max-num-batched-tokens 2048 \
       > "$RUN/vllm-$i.log" 2>&1 &
   PIDS+=($!)
   i=$((i + 1))

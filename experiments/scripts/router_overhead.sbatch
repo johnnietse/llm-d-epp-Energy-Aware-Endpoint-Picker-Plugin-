@@ -102,7 +102,8 @@ echo "staged $(du -sm "$STAGE_DIR" | cut -f1) MiB"
 
 env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$VLLM_IMG" \
   vllm serve "$MODEL" --served-model-name served --host 127.0.0.1 --port "$VLLM_PORT" \
-    --gpu-memory-utilization 0.85 --max-model-len 2048 > "$RUN/vllm.log" 2>&1 &
+    --gpu-memory-utilization 0.85 --max-model-len 2048 \
+    --max-num-seqs 256 --max-num-batched-tokens 2048 > "$RUN/vllm.log" 2>&1 &
 PIDS+=($!)
 deadline=$(( $(date +%s) + 900 ))
 until curl -fsS --max-time 3 "http://127.0.0.1:$VLLM_PORT/health" >/dev/null 2>&1; do
