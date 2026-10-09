@@ -1796,6 +1796,37 @@ its chapter 5 numbers (H100, L4, "17.4%", carbon regions) are synthetic. It is
 kept, moved to `legacy/thesis-proposal-2026-05/` with a notice. It is not a
 results document and must not be cited as one.
 
+**Calibration result, 2026-10-09 (records 0ad7dee): no h qualified.** The
+pre-committed rule (`headroom_calibrate.py` at b0e5356) returned exit 2. Out
+of 36 combinations per h, h = 0, 0.1, 0.2 and 0.3 failed 36, 18, 18 and 9. By
+the rule nothing is chosen and the grid is not extended without a new rule.
+
+- **Homogeneous: solved from h = 0.1.** Every policy, cell and seed meets the
+  SLO for 100% of requests at h >= 0.1, against 40-92% at h = 0. The old
+  "reversal" was the zero-margin aim, now confirmed with three seeds.
+- **Mixed fleet: fails at every h; 84-99% at h = 0.3.** With the A100 curve
+  extended to 512, the packers sent all load to three A100s and never
+  touched an RTX 6000. The curve says an A100 holds about 380 in flight
+  within 2.0 s.
+- **Why the curve misleads above 256.** vLLM runs at most **256** requests
+  per server and queues the rest: `h1-12325153` shows 256 running and 256
+  waiting at c = 512. Curve points above 256 therefore measure vLLM's
+  internal queue under a closed loop, not serving capacity.
+- **Where the time goes.** Under open-loop Poisson arrivals near that limit,
+  the time goes to **TTFT**: median TTFT 1.44 s at h = 0 and 0.55 s at
+  h = 0.3, against 0.05 s in Stage 2. The decode rate per token rose only from
+  6.5 to 9.8 ms. A closed-loop curve holds concurrency fixed, so it never
+  sees the queueing that random arrivals cause near the batch limit.
+- **Ruled out:** the load generator. It used about 4 cores and dispatched on
+  schedule (send-delay p99 1 ms), so threat N9 does not explain this. The
+  CPU-contention guess in the 0ad7dee commit message is withdrawn.
+- **Consequence for the design.** A single fleet-wide h cannot fit both
+  types. The RTX 6000 needs little headroom (its latency floor is about
+  1.0 s). The A100 needs to stay well below its batch limit, which the
+  closed-loop curve does not reveal. The next rule must address the A100's
+  batch limit directly. **That is the author's decision, taken before any new
+  calibration data.**
+
 ### 12.14e Literature re-check, 2026-10-09
 
 **All 20 arXiv identifiers cited in this plan and the README were re-fetched
