@@ -19,7 +19,8 @@ import re
 import sys
 
 COLS = ["trial", "rate", "achieved_rps", "rate_fidelity", "client_limited",
-        "server_saturated", "completed", "errors", "inflight_mean",
+        "server_saturated", "completed", "errors", "arrival_span_s",
+        "realized_rate_rps", "keepup", "inflight_mean",
         "latency_mean", "lat_p50", "lat_p95", "lat_p99", "ttft_p50", "ttft_p95",
         "tpot_mean", "tok_s", "power_w", "energy_j", "window_s",
         "running_end", "waiting_end", "idle_power_w"]
@@ -56,6 +57,8 @@ def main():
             "achieved_rps": r["achieved_rate_rps"], "rate_fidelity": r["rate_fidelity"],
             "client_limited": r["client_limited"], "server_saturated": r["server_saturated"],
             "completed": r["completed"], "errors": r["errors"],
+            "arrival_span_s": r.get("arrival_span_s"),
+            "realized_rate_rps": r.get("realized_rate_rps"), "keepup": r.get("keepup"),
             "inflight_mean": r["inflight_mean"], "latency_mean": r["latency_mean"],
             "lat_p50": r["latency_p50"], "lat_p95": r["latency_p95"], "lat_p99": r["latency_p99"],
             "ttft_p50": r["ttft_p50"], "ttft_p95": r["ttft_p95"], "tpot_mean": r["tpot_mean"],

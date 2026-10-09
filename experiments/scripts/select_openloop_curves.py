@@ -22,6 +22,12 @@ TYPES = (r"NVIDIA A100[^,\s]*|NVIDIA L40S|Quadro RTX 8000|Quadro RTX 6000"
 MIN_FIDELITY = 0.95
 
 
+def keepup(row):
+    # Same test as policy_harness.keepup: realised-rate keep-up when present.
+    k = row.get("keepup")
+    return float(k) if k not in (None, "", "None") else float(row["rate_fidelity"])
+
+
 def stationary_rates(path):
     rows = defaultdict(list)
     with open(path, newline="") as fh:
@@ -30,7 +36,7 @@ def stationary_rates(path):
                 rows[float(r["rate"])].append(r)
     n = 0
     for rate in sorted(rows):
-        if any(float(x["rate_fidelity"]) < MIN_FIDELITY
+        if any(keepup(x) < MIN_FIDELITY
                or x["client_limited"] in ("True", "1") for x in rows[rate]):
             break
         n += 1

@@ -383,6 +383,13 @@ def server_vs_client_latency(before, after, client_ttft_mean, client_itl_mean):
 OPENLOOP_MIN_FIDELITY = 0.95
 
 
+def keepup(row):
+    """Keep-up ratio of one curve row: achieved over REALISED rate when the
+    row has it, else the nominal rate fidelity (older rows)."""
+    k = row.get("keepup")
+    return float(k) if k not in (None, "", "None") else float(row["rate_fidelity"])
+
+
 def load_openloop_curve(path):
     """Curve from an OPEN-LOOP sweep (openloop_build.py output), trials 2+.
 
@@ -409,7 +416,7 @@ def load_openloop_curve(path):
     pts = []
     for rate in sorted(rows):
         g = rows[rate]
-        if any(float(x["rate_fidelity"]) < OPENLOOP_MIN_FIDELITY
+        if any(keepup(x) < OPENLOOP_MIN_FIDELITY
                or x["client_limited"] in ("True", "1") for x in g):
             break
         pts.append((st.mean(float(x["inflight_mean"]) for x in g),
@@ -1104,9 +1111,21 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                               for c in curves.values()}),
         # Mean latency, and the mean number in flight by Little's law
         # (arrival rate x mean time in system). An open-loop curve uses this
-        # as its level; it is exact for a stationary cell.
+        # as its level; it is exact for a stationary cell. The rate used is
+        # the REALISED one, n / span of the scheduled arrivals, not the
+        # nominal one: a Poisson schedule of 100 requests ends up to ~10%
+        # early or late by chance (smoke job 12325343).
+        "arrival_span_s": arrivals[-1] if arrivals else None,
+        "realized_rate_rps": (len(arrivals) / arrivals[-1]) if arrivals and arrivals[-1] > 0 else None,
+        # Did the server keep up with what was actually scheduled? Achieved
+        # over realised rate, about span / (span + mean latency) when it did.
+        # Nominal rate_fidelity mixes in the schedule's own randomness: the
+        # smoke run scored 0.94 and 1.06 for two trials at 4 req/s.
+        "keepup": ((completed + errors) / elapsed) / (len(arrivals) / arrivals[-1])
+                  if arrivals and arrivals[-1] > 0 else None,
         "latency_mean": (sum(latencies) / len(latencies)) if latencies else None,
-        "inflight_mean": (rate * sum(latencies) / len(latencies)) if latencies else None,
+        "inflight_mean": ((len(arrivals) / arrivals[-1]) * sum(latencies) / len(latencies))
+                         if latencies and arrivals and arrivals[-1] > 0 else None,
         "slo_met": met,
         "slo_rate": met / completed if completed else 0.0,
         # How close the latency distribution sits to the SLO boundary.
