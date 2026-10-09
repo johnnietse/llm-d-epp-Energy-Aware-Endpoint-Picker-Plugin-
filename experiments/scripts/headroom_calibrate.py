@@ -10,8 +10,17 @@ the evidence. Changing it after seeing calibration output is a deviation.
 
 Revision history, both before any calibration data existed:
   a21651b  first version, one seed per fleet
-  (this)   three seeds per fleet, every seed must pass (author decision
-           2026-10-09: one lucky seed could otherwise pick too small an h)
+  b0e5356  three seeds per fleet, every seed must pass (author decision
+           2026-10-09: one lucky seed could otherwise pick too small an h).
+           Result on the closed-loop curves: no h qualified (plan 12.14d).
+  (this)   v3, approach A (author decision 2026-10-09), committed before its
+           data. The router now uses OPEN-LOOP curves (p95 latency against
+           mean in-flight under Poisson arrivals) and a hard cap of 256 in
+           flight per endpoint, vLLM's pinned --max-num-seqs. New seeds
+           911-913. A cell that did not use open-loop curves and the cap is
+           INVALID, so the closed-loop runs cannot be mixed in by mistake.
+           Grid, cells, policies, threshold and the smallest-h choice are
+           unchanged.
 
 Why calibrate at all. With h = 0 the three packing policies admit work until
 projected latency equals the SLO, so on the homogeneous fleet they ran at
@@ -27,10 +36,12 @@ THE RULE
              and 400 req/s. Both are loads where round_robin met the SLO for
              100% (homog) or >= 86% (mixed) of requests in Stage 2, so a cell
              failing here is the packing aim, not the fleet's capacity.
-  Seeds:     exactly 3 distinct seeds per fleet (901, 902, 903), one run
+  Seeds:     exactly 3 distinct seeds per fleet (911, 912, 913), one run
              directory each.
+  Router:    open-loop curves and a per-endpoint cap of 256 (v3).
   A cell is VALID if it is not client-limited, has at most 2% ungrounded
-  router picks, and has an energy measurement (stage2_analyse criteria).
+  router picks, has an energy measurement (stage2_analyse criteria), and
+  ran with open-loop curves and max_inflight 256 (v3).
   h QUALIFIES if every one of the 36 (policy x cell x seed) combinations is
   valid and meets the SLO for at least 95% of requests.
   CHOSEN h = the smallest qualifying h.
@@ -53,7 +64,8 @@ import sys
 GRID = (0.0, 0.1, 0.2, 0.3)
 POLICIES = ("slo_packing", "energy_greedy", "energy_consolidate")
 CELLS = {"homog": (100.0, 150.0), "het": (300.0, 400.0)}
-SEEDS = (901, 902, 903)
+SEEDS = (911, 912, 913)
+MAX_INFLIGHT = 256
 ATTAIN = 0.95
 UNGROUNDED_MAX = 0.02
 
@@ -79,6 +91,10 @@ def invalid(r):
         return "ungrounded %.1f%%" % (100 * r["router_ungrounded_frac"])
     if r.get("goodput_per_joule") is None:
         return "no energy"
+    if r.get("curve_kind") != ["openloop"]:
+        return "not open-loop curves: %s" % r.get("curve_kind")
+    if r.get("max_inflight") != MAX_INFLIGHT:
+        return "max_inflight %s, not %d" % (r.get("max_inflight"), MAX_INFLIGHT)
     return None
 
 

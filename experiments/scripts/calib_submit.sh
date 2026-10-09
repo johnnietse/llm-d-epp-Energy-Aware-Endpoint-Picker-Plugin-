@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Cluster-side. Submits the 2026-10-09 headroom calibration pilot.
 #
-#   bash calib_submit.sh <a100_curve_job>:<rtx_curve_job>
+#   bash calib_submit.sh <a100_olc_job>:<rtx_olc_job>
 #
-# Six jobs: three seeds (901, 902, 903) on each fleet, one job per seed, so
-# each seed gets its own run directory. All are held until BOTH final curve
-# jobs (curves6_submit.sh) completed successfully, because the router must
+# Six jobs: three seeds (911, 912, 913) on each fleet, one job per seed, so
+# each seed gets its own run directory. All are held until BOTH open-loop
+# curve jobs (olc_submit.sh) completed successfully, because the router must
 # use those curves. Curve jobs are ordinary jobs, so afterok works for them.
 # Heterogeneous jobs are never used as a dependency (plan N16); the three
 # jobs per fleet share pinned nodes, so Slurm runs them one after another.
@@ -17,9 +17,13 @@
 # Seeds are disjoint from the Stage 2 pilot and from the Stage 5 seeds.
 # The decision rule is headroom_calibrate.py, committed before this ran.
 #
-# History: the first version (a21651b) submitted one seed per fleet; those
-# jobs (12324890, 12324891) were held and cancelled before they ran, when the
-# author chose three seeds.
+# History:
+#   a21651b  one seed per fleet. Jobs 12324890/1 were held and cancelled unrun.
+#   b0e5356  seeds 901-903 on the closed-loop curves. Ran 2026-10-09; no h
+#            qualified (plan 12.14d).
+#   (this)   v3, approach A: open-loop curves (CURVE_SOURCE=openloop) and a
+#            cap of 256 in flight per endpoint (MAX_INFLIGHT=256, vLLM's
+#            pinned --max-num-seqs). Seeds 911-913.
 set -u
 cd "$HOME/energy-epp/scripts" || exit 1
 CURVE_JOBS="${CURVE_JOBS:-${1:?usage: calib_submit.sh <a100_job>:<rtx_job>}}"
@@ -41,10 +45,15 @@ export SLO=2.0
 export DURATION=60
 export WORKERS=16
 export MAX_GPUS_PER_NODE=4
+export CURVE_SOURCE=openloop
+export MAX_INFLIGHT=256
+test -f select_openloop_curves.py || { echo "FATAL: select_openloop_curves.py missing"; exit 1; }
+grep -q 'MAXINF_ARG' stage2_real.sbatch && grep -q 'MAXINF_ARG' stage2_het.sbatch \
+  || { echo "FATAL: batch scripts do not pass --max-inflight"; exit 1; }
 DEP="--dependency=afterok:$CURVE_JOBS"
 echo "headrooms=$HEADROOMS policies=$POLICIES slo=$SLO dep=$CURVE_JOBS"
 
-for SEED in 901 902 903; do
+for SEED in 911 912 913; do
   export SEED
   J1=$(RATES=100,150 sbatch --parsable --export=ALL $DEP --job-name=calib-real \
          -w frnt155 --nodes=1 --exclusive --mem=0 --gres=gpu:rtx6000:8 \

@@ -380,8 +380,74 @@ def server_vs_client_latency(before, after, client_ttft_mean, client_itl_mean):
 
 # ------------------------------------------------------------- measured curves
 
+OPENLOOP_MIN_FIDELITY = 0.95
+
+
+def load_openloop_curve(path):
+    """Curve from an OPEN-LOOP sweep (openloop_build.py output), trials 2+.
+
+    Why it exists (audit 2026-10-09, plan 12.14d). The closed-loop sweep holds
+    concurrency fixed, so it cannot see queueing. On the mixed fleet the
+    packers loaded A100s toward vLLM's 256-request batch limit, and under
+    Poisson arrivals the excess waited for a slot: TTFT p50 1.44 s against
+    0.05 s, while the closed-loop curve predicted about 1.4 s end to end.
+    Here every point is a fixed Poisson ARRIVAL RATE, and its level is the
+    mean number in flight (Little's law: rate x mean latency). It carries
+    the measured p95 latency, which is what a 95%-attainment target needs.
+
+    A rate is used only if every trial at it kept up (rate fidelity >= 0.95)
+    and was not client-limited. Above the first rate that fails, the system
+    is not stationary, so mean in-flight is not a meaningful level. The
+    curve ends there, and interp() returns None beyond it.
+    """
+    rows = defaultdict(list)
+    with open(path, newline="") as fh:
+        for r in csv.DictReader(fh):
+            if int(float(r["trial"])) == 1:
+                continue
+            rows[float(r["rate"])].append(r)
+    pts = []
+    for rate in sorted(rows):
+        g = rows[rate]
+        if any(float(x["rate_fidelity"]) < OPENLOOP_MIN_FIDELITY
+               or x["client_limited"] in ("True", "1") for x in g):
+            break
+        pts.append((st.mean(float(x["inflight_mean"]) for x in g),
+                    st.mean(float(x["power_w"]) for x in g),
+                    st.mean(float(x["tok_s"]) for x in g),
+                    st.mean(float(x["lat_p95"]) for x in g)))
+    # Levels must increase for interp(); mean in-flight rises with rate in a
+    # stationary system, so a non-increase means noise at the low end. Keep
+    # the first point at each level and drop later ones that do not rise.
+    levels, power, tok_s, lat_p95, last = [], {}, {}, {}, -1.0
+    for L, p, t, l95 in pts:
+        if L <= last:
+            continue
+        levels.append(L)
+        power[L], tok_s[L], lat_p95[L], last = p, t, l95, L
+    if len(levels) < 3:
+        raise SystemExit("open-loop curve %s: fewer than 3 stationary rates" % path)
+    idle = [float(r["idle_power_w"]) for g in rows.values() for r in g
+            if r.get("idle_power_w") not in (None, "", "nan")]
+    return {
+        "levels": levels,
+        "power": power,
+        "tok_s": tok_s,
+        "lat_p95": lat_p95,
+        "idle_resident": st.mean(idle) if idle else min(power.values()),
+        "openloop": True,
+    }
+
+
 def load_curve(path):
-    """Mean power and throughput per concurrency from a sweep CSV (trials 2+)."""
+    """Mean power and throughput per concurrency from a sweep CSV (trials 2+).
+
+    An open-loop curve (header contains inflight_mean) goes to
+    load_openloop_curve instead."""
+    with open(path, newline="") as fh:
+        header = fh.readline()
+    if "inflight_mean" in header:
+        return load_openloop_curve(path)
     pw, tk, idle = defaultdict(list), defaultdict(list), []
     with open(path, newline="") as fh:
         for r in csv.DictReader(fh):
@@ -459,11 +525,17 @@ class Router:
     hundred per second: irrelevant next to a ~1 s service time.
     """
 
-    def __init__(self, n, types, curves, slo_s, shared=False, headroom=0.0):
+    def __init__(self, n, types, curves, slo_s, shared=False, headroom=0.0,
+                 max_inflight=None):
         self.n = n
         self.types = types
         self.curves = curves
         self.slo = slo_s
+        # Hard per-endpoint cap, normally vLLM's max_num_seqs (256, pinned
+        # with --max-num-seqs in every launch). vLLM runs at most that many
+        # at once and queues the rest, so a packing policy must never count
+        # on more. None reproduces Stage 2, which had no cap.
+        self.max_inflight = max_inflight
         # The packing policies admit an endpoint while its projected latency is
         # at most pack_limit. With headroom 0 that is the SLO itself, and the
         # policies pack until latency sits ON the boundary: job 12321478 ran
@@ -589,9 +661,20 @@ class Router:
         while the model predicted 1.99 s.
         """
         c = self.inflight[i] + 1
+        if self.max_inflight is not None and c > self.max_inflight:
+            return math.inf
         cur = self.curves.get(self.types[i])
         if not cur:
             return 0.0
+        if cur.get("openloop"):
+            # Measured p95 latency at this mean in-flight level, under
+            # Poisson arrivals: the queueing and the tail are in the data.
+            p95 = interp(cur, c, "lat_p95")
+            if p95 is None:
+                self._note_out_of_range()
+                self._nodata += 1
+                return math.inf
+            return p95
         thr = interp(cur, c, "tok_s")
         if thr is None:
             self._note_out_of_range()
@@ -829,9 +912,9 @@ def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
                      scratch="/tmp", energy_mode="local", sample_dir=None,
-                     clock_skew=0.0, headroom=0.0):
+                     clock_skew=0.0, headroom=0.0, max_inflight=None):
     router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1),
-                    headroom=headroom)
+                    headroom=headroom, max_inflight=max_inflight)
     meter = EnergyMeter(gpus, poll_interval=poll_interval)
 
     # The arrival process is generated once, in the parent, from the seed. It
@@ -1016,6 +1099,14 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "slo_s": slo_s,
         "headroom": router.headroom,
         "pack_limit_s": router.pack_limit,
+        "max_inflight": router.max_inflight,
+        "curve_kind": sorted({"openloop" if c.get("openloop") else "closedloop"
+                              for c in curves.values()}),
+        # Mean latency, and the mean number in flight by Little's law
+        # (arrival rate x mean time in system). An open-loop curve uses this
+        # as its level; it is exact for a stationary cell.
+        "latency_mean": (sum(latencies) / len(latencies)) if latencies else None,
+        "inflight_mean": (rate * sum(latencies) / len(latencies)) if latencies else None,
         "slo_met": met,
         "slo_rate": met / completed if completed else 0.0,
         # How close the latency distribution sits to the SLO boundary.
@@ -1111,6 +1202,9 @@ def main():
     ap.add_argument("--rate", type=float, required=True)
     ap.add_argument("--requests", type=int, default=600)
     ap.add_argument("--slo", type=float, required=True)
+    ap.add_argument("--max-inflight", type=int, default=None,
+                    help="hard per-endpoint cap for the latency projection, "
+                         "normally vLLM's --max-num-seqs; default none = Stage 2")
     ap.add_argument("--headroom", type=float, default=0.0,
                     help="packing policies admit an endpoint only while its "
                          "projected latency <= (1 - headroom) * SLO; 0 = Stage 2")
@@ -1177,7 +1271,8 @@ def main():
                                    energy_mode=args.energy_mode,
                                    sample_dir=args.sample_dir,
                                    clock_skew=args.clock_skew,
-                                   headroom=args.headroom))
+                                   headroom=args.headroom,
+                                   max_inflight=args.max_inflight))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")

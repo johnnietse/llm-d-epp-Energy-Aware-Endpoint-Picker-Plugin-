@@ -314,6 +314,7 @@ for g in $(seq 0 $((SLURM_HET_SIZE - 1))); do
         vllm serve "$MODEL" --served-model-name served \
           --host 0.0.0.0 --port "$port" \
           --gpu-memory-utilization 0.85 --max-model-len 2048 \
+          --max-num-seqs 256 --max-num-batched-tokens 2048 \
           > "$RUN/vllm-${HOSTS[$g]}-gpu$i.log" 2>&1 &
     SERVER_PIDS+=($!)
     PORTS+=("${HOSTS[$g]}:$port")
@@ -559,7 +560,18 @@ if args:
     print("--curves " + " ".join(args))
 PYSEL
 )"
-echo "curves: $CURVE_ARGS"
+# CURVE_SOURCE=openloop (approach A, 2026-10-09): use the open-loop curves
+# instead, newest per GPU type. The selector exits nonzero if none exists,
+# so this cannot silently fall back to the closed-loop curves above.
+if [ "${CURVE_SOURCE:-closedloop}" = "openloop" ]; then
+  CURVE_ARGS="$(python3 "$ROOT/scripts/select_openloop_curves.py" "$ROOT" "$MODEL")" \
+    || { echo "FATAL: CURVE_SOURCE=openloop but no usable open-loop curve"; exit 1; }
+fi
+# MAX_INFLIGHT: hard per-endpoint cap for the packing policies, normally
+# vLLM's pinned --max-num-seqs. Empty reproduces Stage 2 (no cap).
+MAXINF_ARG=""
+[ -n "${MAX_INFLIGHT:-}" ] && MAXINF_ARG="--max-inflight $MAX_INFLIGHT"
+echo "curves: $CURVE_ARGS ${MAXINF_ARG}"
 
 # ----------------------------------------------------------------- Pass A
 EP_CSV="$(IFS=,; echo "${PORTS[*]}")"
@@ -582,7 +594,7 @@ for rate in "${RATE_ARR[@]}"; do
       --endpoint-types "$TY_CSV" \
       $CURVE_ARGS \
       --policies "$POLICIES" \
-      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" \
+      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" $MAXINF_ARG \
       --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
       --energy-mode multinode --sample-dir "$SAMPLES" --clock-skew "$SKEW" \
       --out "$RUN/policies-${TAG}rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"

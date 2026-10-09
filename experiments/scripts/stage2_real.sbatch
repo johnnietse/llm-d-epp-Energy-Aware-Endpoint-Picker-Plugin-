@@ -209,6 +209,7 @@ for ((i=0; i<NGPU; i++)); do
     vllm serve "$MODEL" --served-model-name served \
       --host 127.0.0.1 --port "$port" \
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
+      --max-num-seqs 256 --max-num-batched-tokens 2048 \
       > "$RUN/vllm-gpu$i.log" 2>&1 &
   PIDS+=($!)
   # Stagger. All servers read the SAME 2.88 GiB checkpoint, now from the
@@ -436,7 +437,18 @@ if args:
     print("--curves " + " ".join(args))
 PYSEL
 )"
-echo "curves passed to the router: $CURVE_ARGS"
+# CURVE_SOURCE=openloop (approach A, 2026-10-09): use the open-loop curves
+# instead, newest per GPU type. The selector exits nonzero if none exists,
+# so this cannot silently fall back to the closed-loop curves above.
+if [ "${CURVE_SOURCE:-closedloop}" = "openloop" ]; then
+  CURVE_ARGS="$(python3 "$ROOT/scripts/select_openloop_curves.py" "$ROOT" "$MODEL")" \
+    || { echo "FATAL: CURVE_SOURCE=openloop but no usable open-loop curve"; exit 1; }
+fi
+# MAX_INFLIGHT: hard per-endpoint cap for the packing policies, normally
+# vLLM's pinned --max-num-seqs. Empty reproduces Stage 2 (no cap).
+MAXINF_ARG=""
+[ -n "${MAX_INFLIGHT:-}" ] && MAXINF_ARG="--max-inflight $MAX_INFLIGHT"
+echo "curves passed to the router: $CURVE_ARGS ${MAXINF_ARG}"
 
 # ------------------------------------------------------------------- the runs
 # Cell length is set by DURATION, not by a fixed request count. With a fixed
@@ -459,7 +471,7 @@ for rate in "${RATE_ARR[@]}"; do
       --endpoint-types "$TYPES" \
       $CURVE_ARGS \
       --policies "$POLICIES" \
-      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
+      --rate "$rate" --requests "$n_req" --slo "$SLO" --headroom "$h" $MAXINF_ARG --workers "$WORKERS" --scratch "$RUN" --seed "$SEED" \
       --out "$RUN/policies-${TAG}rate${rate}.json" 2>&1 | tee -a "$RUN/harness.log"
 done
 done
@@ -491,7 +503,7 @@ if [ -n "${CALIBRATE:-}" ]; then
   exit 0
 fi
 echo "=========== Pass A-control: counter-only at ${CTRL_RATE} req/s ==========="
-env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO" --headroom "${HEADROOM_ARR[0]}"     --workers "$WORKERS" --scratch "$RUN" --seed "$SEED"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
+env -u SSL_CERT_FILE "$APPTAINER" exec --nv "$IMG" python3   "$ROOT/scripts/policy_harness.py"     --endpoints "$(IFS=,; echo "${PORTS[*]}")"     --gpus "$(seq -s, 0 $((NGPU-1)))"     --endpoint-types "$TYPES"     $CURVE_ARGS     --policies slo_packing     --rate "$CTRL_RATE" --requests "$CTRL_REQ" --slo "$SLO" --headroom "${HEADROOM_ARR[0]}" $MAXINF_ARG     --workers "$WORKERS" --scratch "$RUN" --seed "$SEED"     --poll-interval 0     --out "$RUN/control-counteronly.json" 2>&1 | tee -a "$RUN/harness.log"
 
 echo "--- perturbation check: full telemetry vs counter-only ---"
 python3 "$ROOT/scripts/perturbation_check.py"   "$RUN/policies-rate${CTRL_RATE}.json" "$RUN/control-counteronly.json"   2>&1 | tee -a "$RUN/harness.log"
