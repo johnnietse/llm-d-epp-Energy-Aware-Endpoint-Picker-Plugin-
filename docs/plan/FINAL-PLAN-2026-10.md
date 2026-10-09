@@ -1845,9 +1845,24 @@ The gap holds. Its honest width is **routing's own share of energy, with
 clocks untouched**, which VoltanaLLM's lack of a routing-only ablation leaves
 unmeasured.
 
-**Still to fetch before any bibliography is final:** DynamoLLM (cited inside
-EnerTune as prior energy management for LLM clusters) and the full Festina
-text, to confirm its SLO margin and baseline set.
+**Two follow-ups, fetched the same day:**
+
+- **DynamoLLM**, arXiv 2408.00741 (Stojkovic, Zhang, Goiri, Torrellas,
+  Choukse; HPCA 2025). Reconfigures instance count, model parallelism and
+  **GPU frequency** at cluster level; about 52-53% energy at the service
+  level. It needs privileged control and is not replica routing. Contrast.
+- **Festina, full text** (2606.30391). Its knobs are request placement,
+  consolidation with GPU deactivation, **MPS** SM partitioning, and **GPU
+  frequency** via pyNVML. Real testbed: 8x H100. SLOs are taken from
+  DynamoLLM (TBT 100 ms; TTFT 250/400/2000 ms); attainment is kept within 2%.
+  Its ablation is **cumulative**, with no frequency-fixed, no-MPS placement-only
+  configuration: frequency-aware dispatching adds about 12%, and SLO-aware
+  placement adds **about 2%** on top of earlier stages. That 2% is the closest
+  published magnitude to ours (+1.4%). It sits inside a privileged stack, so it
+  does not isolate routing either. **We must cite it as such and not overstate
+  novelty**: SLO-aware placement saving a few percent is known in a privileged
+  setting. What is open is the same lever, alone, unprivileged, inside a
+  production router.
 
 ### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 

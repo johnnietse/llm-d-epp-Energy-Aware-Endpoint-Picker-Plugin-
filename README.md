@@ -180,7 +180,9 @@ What this project adds is narrower: a **measured, online** test of
 energy-objective replica selection inside a production router's plugin API,
 at a fixed latency target, by an **unprivileged** tenant, with clocks
 untouched. VoltanaLLM routes for energy but reports no routing-only result
-with frequency fixed, so routing's own share is what remains unmeasured. All
+with frequency fixed. Festina's cumulative ablation credits SLO-aware
+placement with about 2%, but only on top of its frequency and MPS stages. So
+routing's own share, isolated, is what remains unmeasured. All
 of these were fetched from arXiv, Crossref or the paper on 2026-10-09; the
 full positioning is in plan sections 12.2 and 12.14e.
 
