@@ -71,7 +71,7 @@ selection, autoscaling as a headline, and anything resting on simulation.
 |---|---|---|
 | **Feasible** | Yes, with one caveat | Hardware, telemetry and harness are all proven on Frontenac. The caveat is effect size: if Stage 2 shows the achievable saving is within noise, the comparative question becomes unanswerable on this cluster and the project pivots to measurement. |
 | **Interesting** | To a systems-integration audience | A reviewer who values deployable artifacts will care. One who wants a new mechanism will not, because we deliberately claim no new mechanism. Venue choice must match. |
-| **Novel** | Narrowly, and the window is closing; **narrower than first stated** | The idea that heterogeneity-aware placement saves inference energy is **not new**: Wilkins, Keshav and Mortier proposed it in 2024 (2407.00010, 7.5% CPU+GPU energy against a workload-unaware baseline) from offline workload energy models (2407.04014, HotCarbon 2024). Found 2026-10-07; see 12.2. What remains open is narrower and still real: a **measured, online** test inside a **production router's plugin API**, at matched SLO, by an **unprivileged** tenant, with a **matched homogeneous control** showing the sign reverses. Two agenda papers name that gap without filling it (2609.05565, 2603.21354) and vLLM semantic-router #2332 is building the telemetry contract for it. |
+| **Novel** | Narrowly, and the window is closing; **narrower than first stated** | The idea that heterogeneity-aware placement saves inference energy is **not new**: Wilkins, Keshav and Mortier proposed it in 2024 (2407.00010, 7.5% CPU+GPU energy against a workload-unaware baseline) from offline workload energy models (2407.04014, HotCarbon 2024). Found 2026-10-07; see 12.2. What remains open is narrower and still real: a **measured, online** test inside a **production router's plugin API**, at matched SLO, by an **unprivileged** tenant, with a **matched homogeneous control** (**CORRECTED 2026-10-09:** the observed "sign reversal" compared two different binding constraints, a curve edge on one fleet and a zero-margin SLO aim on the other, not fleet composition; see 12.14d. The control is re-run with a calibrated headroom). Two agenda papers name that gap without filling it (2609.05565, 2603.21354) and vLLM semantic-router #2332 is building the telemetry contract for it. |
 | **Ethical** | Yes | No human subjects, no dual use. AI assistance disclosed. |
 | **Relevant** | Yes | Inference energy is the dominant and growing share of LLM energy use, and the unprivileged tenant case is the common one. |
 
@@ -450,7 +450,7 @@ model at temperature 0.
 | **0. Rescope the code** | **DONE 2026-10-03** (commit `baef80d`). Tagged `pre-rescope-2026-10-03`; moved nine components to `legacy/` with its own go.mod; root build clean, all tests pass. The out-of-tree llm-d module is deferred to Stage 4, because Stage 2 no longer needs it. | met | done |
 | **1. Characterise** | **DONE 2026-10-03** (commit `f49a179`). Four configurations: RTX 6000 / A30 / L4 at 1.5B, plus 7B on the same RTX 6000 die. All pinned, exclusive, 5 trials, sub-percent CIs. See `experiments/STAGE1-SUMMARY.md`. A100, L40S, RTX 8000, V100 remain available and unmeasured. | met | done |
 | **2. GATE: MEASURED, not modelled** | One vLLM server per GPU on a single exclusive multi-GPU node; real open-loop arrivals; the **policy lives in the load generator**, not in a plugin. Five policies measured with NVML per-device energy. Load swept through saturation of the dominant type. Scripts: `experiments/scripts/{policy_harness.py,stage2_real.sbatch}`. See 6.2. | **some policy beats SLO-aware packing on energy per SLO-satisfied request, measured, at matched SLO attainment, in the saturated regime - or STOP** and write the measurement/negative-result paper | 1 job + analysis |
-| **3. Pre-register** | Commit hypotheses, primary metric, policies, trial count from a power analysis on measured variance, and the analysis script, timestamped in-repo before any comparative run. **DRAFTED 2026-10-08:** [`PREREGISTRATION-STAGE5.md`](PREREGISTRATION-STAGE5.md), with `prereg_analysis.py` and `power_analysis.py`. Three hypotheses (H1 primary: consolidate beats slo_packing on a mixed fleet; H2 reversal on one type; H3 activation term), n = 16 mixed + 6 homogeneous from the measured variance sized on its 80% upper bound, every arm through llm-d-router. **DONE 2026-10-09:** the author signed off all six decisions as recommended; frozen by tag `prereg-stage5-v1`. Stage 4 next; its materials are committed as an addendum tagged `prereg-stage5-v1-materials` before trial 1. | met | done |
+| **3. Pre-register** | Commit hypotheses, primary metric, policies, trial count from a power analysis on measured variance, and the analysis script, timestamped in-repo before any comparative run. **DRAFTED 2026-10-08:** [`PREREGISTRATION-STAGE5.md`](PREREGISTRATION-STAGE5.md), with `prereg_analysis.py` and `power_analysis.py`. Three hypotheses (H1 primary: consolidate beats slo_packing on a mixed fleet; H2 reversal on one type; H3 activation term), n = 16 mixed + 6 homogeneous from the measured variance sized on its 80% upper bound, every arm through llm-d-router. **DONE 2026-10-09:** the author signed off all six decisions as recommended; frozen by tag `prereg-stage5-v1`. **REOPENED the same day by the audit (12.14d):** H2 and the operating regime of H1 rested on unequal binding constraints. The amendment, with a calibrated packing headroom, matched 256-level curves and llm-d's own `latency-scorer` as a baseline, will be tagged `prereg-stage5-v2` before trial 1. Stage 4 next; its materials are committed as an addendum tagged `prereg-stage5-v1-materials` before trial 1. | met | done |
 | **4. Build the scorer** | Out-of-tree module against llm-d-router, plus `pkg/scorer/` and tests behind the SLO filter. **Implement ONLY a rule Stage 2 measured as a winner** - not `energy_greedy` as originally specified, which the modelled gate already showed is indistinguishable from packing. | module registers against current llm-d-router; unit tests pass against recorded fixtures; p99 scorer CPU time recorded | 2 wk |
 | **5. The real experiment** | One node, exclusive, open-loop Poisson from the trace, >=5 trials, 5 arms: stock llm-d, round-robin, SLO-aware packing, ours, ours-without-activation-term, plus random control | all metrics in section 5 with 95% CIs | 2-3 wk |
 | **6. Secondary results** | Per-die heterogeneity (section 13.5 design); matched-prompt-length cache experiment if time allows | either a measured effect or a clean null with the within-die control | 1 wk |
@@ -1267,6 +1267,12 @@ curve-using policies beat SLO-only packing by a small, consistent margin
 (gate, three trials pooled: **+1.4%**, see 12.13a) and round-robin by far more
 on a heterogeneous fleet. It is not "consolidate is the best policy".
 
+> **CORRECTED 2026-10-09 (12.14d).** The "reversal" below is real as a
+> measurement but not as an explanation: on the homogeneous fleet the packing
+> policies aimed at the SLO boundary, on the mixed fleet they were stopped by
+> the edge of the A100 curve. Read this subsection as the record of what was
+> observed, not as evidence that fleet composition decides the outcome.
+
 **Matched homogeneous control (job 12319815): a sign reversal.** At
 200 req/s, the one load level where both fleets have slack:
 
@@ -1365,7 +1371,7 @@ and now a load ladder the fleet can actually serve. A descriptive table showed
 energy policies ahead at 100 req/s; those cells miss the SLO and the gate
 correctly discards them, which is why the descriptive table is never quoted.
 
-**What this supports.** The policy ranking reverses with fleet composition,
+**What this supports.** *(Superseded 2026-10-09 by 12.14d: the ranking change is explained by different binding constraints, not shown to follow fleet composition.)* The policy ranking reverses with fleet composition,
 measured by one instrument: on a heterogeneous fleet the energy-curve policies
 are the best feasible policies, and on a homogeneous fleet they are not
 feasible at all. That is the result Stage 4 is built on.
@@ -1728,6 +1734,120 @@ and then failed to write: the README became 0 bytes. It was restored from git
 with no loss. Space was recovered by clearing Go's build cache (4.2 GB,
 regenerable) and three test binaries; 6.6 GB was free afterwards. Edits now
 write to a temporary file and rename it into place, which is atomic.
+
+### 12.14d Audit of 2026-10-09: the reversal was two different binding constraints
+
+Asked "are we doing everything right?", we re-read the records rather than the
+documents. One finding changes what the project can claim.
+
+**The packing policies were stopped by different things on the two fleets.**
+
+| Fleet | What stopped packing | Packers' median latency | SLO attainment |
+|---|---|---|---|
+| Mixed (12305232, 12319685, 12321476) | the **edge of the measured A100 curve**, c = 128: above it `interp` returns None and the router treats the endpoint as full | about 0.90 s, far below 2.0 s | about 100% |
+| 8x RTX 6000 (12321478) | the **2.0 s SLO itself**: that curve reaches c = 256, so it never runs out | 1.98 to 2.01 s, on the boundary | 30 to 83% |
+
+- The latency projection is **accurate**: on the RTX 6000 curve it is within
+  0.02 s of measured latency up to c = 96. The defect is the **aim**: the three
+  packing policies admit work until projected latency equals the SLO, with no
+  margin, so about half of requests land just over the line.
+- It is not the energy logic. `slo_packing`, which never consults energy, fails
+  worst: 63% attainment at 12.5 req/s per GPU.
+- On the mixed fleet the router logged up to 88,000 out-of-range lookups per
+  cell. Stage 1 happened to stop the A100 sweep at 128, which acted as an
+  undeclared per-endpoint concurrency cap.
+- Both curves also rested on **one usable trial**: they were run with
+  TRIALS=2, and trial 1 is dropped as warm-up.
+
+**Consequences.** The README's "the fleet's composition decides whether
+energy-aware routing helps" is not supported. It compared two binding
+constraints, not two fleet compositions. Registered H2 tests a zero-margin
+packing artifact. H1's +1.4% was measured in a regime set by an arbitrary
+measurement range, so its size under a principled design is unknown.
+
+**What was done, in order, nothing deleted:**
+1. Tag `archive-2026-10-09-pre-amendment`, pushed, freezes every record and
+   document as they stood. All 57 cluster result directories were confirmed
+   present in the repo, none cluster-only.
+2. `policy_harness.py --headroom h`: the three packing policies admit an
+   endpoint only while projected latency is at most (1 - h) x SLO. Default 0
+   reproduces Stage 2 exactly. Both batch scripts gained a `HEADROOMS` sweep
+   that writes `policies-h<h>-rate<r>.json`, so calibration cells cannot
+   overwrite Stage 2 cells. `verify_fixes.sh` on the cluster: 53 pass, 0 fail.
+3. Matched curves: A100 (job 12324871, frnt154) and RTX 6000 (job 12324872,
+   frnt149), the same grid to 256, TRIALS=3, nodes pinned to where the old
+   curves came from.
+4. The calibration **rule** (`headroom_calibrate.py`, commit a21651b) was
+   committed **before** any calibration data existed:
+   - grid h in {0, 0.1, 0.2, 0.3};
+   - cells: homogeneous at 100 and 150 req/s, mixed at 300 and 400 req/s;
+   - choose the smallest h at which all three packing policies are valid and
+     meet the SLO for at least 95% of requests in every cell;
+   - if none qualifies, stop; the grid is not extended without a new rule.
+   Calibration jobs 12324890 (homogeneous, frnt155) and 12324891 (mixed,
+   frnt154 + frnt149) run on `afterok` of the curve jobs, with seed 901.
+5. The pre-registration is amended once calibration has chosen h, and re-tagged
+   `prereg-stage5-v2`. The v1 tag is never moved. This is legitimate: no
+   Stage 5 trial has run.
+
+**The May 2026 thesis report** at the repository root is reclassified as a
+**proposal**, which is what it was: it was written before any measurement, and
+its chapter 5 numbers (H100, L4, "17.4%", carbon regions) are synthetic. It is
+kept, moved to `legacy/thesis-proposal-2026-05/` with a notice. It is not a
+results document and must not be cited as one.
+
+### 12.14e Literature re-check, 2026-10-09
+
+**All 20 arXiv identifiers cited in this plan and the README were re-fetched
+from the arXiv API on 2026-10-09.** Every one resolves, and title, first
+author and date match what the plan records. No correction needed this time.
+
+**Ten works not previously in the plan**, each fetched (arXiv API, Crossref or
+the paper itself), not taken from search snippets:
+
+| Work | What it does | Energy objective? | Replica selection of one model? | Privileged control? | Bearing on us |
+|---|---|---|---|---|---|
+| Solyx AI Grid, arXiv 2606.15050 (Bernhard, Katla, 2026-06-13) | Per-request routing across geo-distributed sites from 10 signals: vLLM queue, P95 TTFT, errors, KV fill; DCGM utilisation, VRAM, SM occupancy, memory bandwidth; RTT, jitter. Real H100/H200 and RTX PRO 6000 | **No.** "Neither campaign evaluates cost impact or energy efficiency" | **Yes**, one model (Llama 3.1 70B AWQ) | No | Closest **mechanism**: telemetry-driven replica routing, measured, with a homogeneous comparison. It has no energy term. Must be cited; it shows replica routing on real hardware is publishable, and that the energy objective is the open part |
+| Lodestar, arXiv 2606.00946 (Lim et al., 2026-05-31) | Online-learned per-request router, works with vLLM, public-cloud GPUs | No, TTFT | Yes, instances | No | Latency-only learned replica routing. Related work |
+| TokenPowerSandbox, arXiv 2608.18149 (Niu, 2026-08-11) | CPU-first projector plus short GPU probes to screen serving configurations, one H100; energy MAPE 6-7% | Predicts it; no routing | No | No | Supports our position: its predeclared TTFT gate shows "energy accuracy cannot certify latency". That is our 12.14d finding in another setting: accurate curve, wrong aim |
+| VoltanaLLM, arXiv 2509.04827 (Yu et al., v3) | Per-iteration GPU frequency plus "state-space routing" of decode requests, built on SGLang, A100 and GH200, energy measured with pyNVML | **Yes** | Yes, decode instances | **Yes**, locked clocks via NVML | Nearest **energy-routing** work. It reports no routing-only ablation with frequency fixed, so routing's own share is unmeasured. That is exactly our clause |
+| DualScale, arXiv 2602.18755 (Basit et al., 2026-02-21) | Phase-aware placement plus DVFS for disaggregated serving | Yes | Placement | **Yes**, DVFS | Requires privileged control; contrast |
+| EnerTune, SOSP '26, doi 10.1145/3830418.3843913 (Sinha et al.) | Energy-aware bin-packing of models onto shared GPUs, with frequency and batch tuning; 1.4-2.3x energy | Yes | No: model placement and co-location | **Yes**, frequency; MIG/MPS sharing | Different lever (placement and sharing). Cite as the strongest 2026 venue result on energy-conscious serving |
+| TAPAS, ASPLOS '25, arXiv 2501.02600 (Stojkovic et al.) | Thermal- and power-aware VM placement, request routing and reconfiguration in Azure | Thermal and power limits, not energy minimisation | Partly: routes across SaaS VMs | Provider-level | Prior **power-aware routing** at datacenter scale. Cite it; its objective is oversubscription safety, not joules |
+| Joint allocation, arXiv 2604.07472 (Cheng et al., 2026-04-08) | MILP plus heuristic for model choice, provisioning, parallelism and routing in heterogeneous GPU clouds, under SLO and budget | Cost and budget | Mixed | No | Offline planning, not online replica selection |
+| Token Arena, arXiv 2605.00300 (Gao et al., 2026-05-01) | Endpoint-level benchmark with modelled joules per correct answer | Modelled | n/a | n/a | Measurement framing only |
+| EcoInfer, Electronics 2026, doi 10.3390/electronics15102139 (Hu et al.) | Iteration-level frequency control in one vLLM server | Yes | No | **Yes**, DVFS | Single-server DVFS; contrast |
+
+**The production baseline we were missing.** llm-d-router v0.11.0 ships
+`latency-scorer` (with `slo-headroom-tier-filter` and an XGBoost
+latency-predictor sidecar). Its **default strategy `least` "prefers endpoints
+closest to SLO (bin-packing to preserve capacity)"**. That is upstream's own SLO
+packing, and it aims at the boundary, the design that failed in our
+homogeneous control. Two consequences:
+1. A reviewer will ask why the baseline is our `slo_packing` and not
+   upstream's. The amendment adds it as an arm (`llmd_latency_least`) if
+   Stage 4 can run the predictor sidecar on Frontenac. If it cannot, that is
+   recorded before trial 1 as a stated limitation, not discovered after.
+2. Whether upstream's boundary-seeking packing shows the same tail behaviour
+   is now a measurable question. It is noted here and **not claimed**.
+
+**The gap, restated after the re-check.** Nobody has published measured,
+**energy-objective replica selection** for one model inside a **production
+router**, by an **unprivileged tenant**:
+- Solyx and Lodestar route replicas without energy.
+- VoltanaLLM, DualScale, EcoInfer, EnerTune and Festina reach energy only
+  with frequency, MPS or sharing control.
+- Wilkins 2024 is offline and heterogeneity-level.
+- llm-d's own scorers have no energy term; no KEP or issue proposes one
+  (search 2026-10-09).
+
+The gap holds. Its honest width is **routing's own share of energy, with
+clocks untouched**, which VoltanaLLM's lack of a routing-only ablation leaves
+unmeasured.
+
+**Still to fetch before any bibliography is final:** DynamoLLM (cited inside
+EnerTune as prior energy management for LLM clusters) and the full Festina
+text, to confirm its SLO margin and baseline set.
 
 ### 12.15 Engineering defect log, 2026-10-04 to 2026-10-07
 

@@ -1,98 +1,67 @@
-# Contributing to the Energy-Aware EPP
+# Contributing
 
-Thank you for your interest in contributing! This guide covers how to work with the codebase and how to submit changes.
+This repository is a measured research study as well as code. Most of the
+rules below protect the measurements, not the code style.
 
-## Development Setup
+## Where things are
 
-### Prerequisites
+| Path | What it is |
+|---|---|
+| `router-plugin/` | Out-of-tree llm-d-router (v0.11.0) plugin module and the EPP binary. Stage 4's scorers go here |
+| `experiments/scripts/` | The load generator and policy harness (`policy_harness.py`), Slurm jobs, analysis (`stage2_analyse.py`, `prereg_analysis.py`, `power_analysis.py`, `headroom_calibrate.py`), figures (`make_figures.py`), and the verification suite (`verify_fixes.sh`) |
+| `experiments/cluster-records/` | Every raw record fetched from the cluster |
+| `docs/plan/` | The plan (`FINAL-PLAN-2026-10.md`) and the pre-registration |
+| `tools/cluster-helpers/` | Local scripts that drive the cluster |
+| `pkg/`, `cmd/energy-epp/` | Pre-measurement code, being rewritten in Stage 4 |
+| `legacy/` | Superseded code and documents, kept for history |
 
-- Go 1.25+
-- Docker 24+
-- kubectl 1.25+
-- Kind 0.20+ (for local cluster testing)
-- Python 3.10+ (optional, for diagram generation)
+## Rules that protect the results
 
-### Getting Started
+1. **No simulated or synthetic number is ever presented as a result.** Every
+   number in the README, the plan, a figure or a paper traces to a cluster
+   job id and a committed record under `experiments/cluster-records/`.
+2. **Never delete a record.** Superseded files move to `legacy/` with
+   `git mv` and a note saying why. Records are fetched with
+   `tools/cluster-helpers/fr-fetchall.sh` and committed.
+3. **The pre-registration is not edited after its tag.** Changes before the
+   first Stage 5 trial are an amendment with a new tag. Changes after it are
+   appended to the document's "Deviations" section. A tag is never moved.
+4. **Decision rules are committed before their data.** A calibration or
+   analysis rule that chooses anything is committed, and so timestamped,
+   before the job it judges runs.
+5. **Check the full data, not a printout.** Extremes, worst cases and
+   agreement figures are computed over every cell, not over what a summary
+   script happened to print.
+6. **Fetch before citing.** Every reference is checked against arXiv,
+   Crossref or the paper itself before it is cited, never taken from memory,
+   a search snippet or a draft.
 
-```bash
-# Clone the repository
-git clone https://github.com/johnnietse/llm-d-epp-Energy-Aware-Endpoint-Picker-Plugin-.git
-cd llm-d-epp-Energy-Aware-Endpoint-Picker-Plugin-
-
-# Verify your setup
-./scripts/validate-setup.sh --quick
-
-# Run all tests
-go test -v ./pkg/...
-```
-
-## Project Structure
-
-```
-pkg/
-├── adaptive/        # FSM controller (Normal/Carbon-High/Load-Shed/Green modes)
-├── config/          # GIE-compatible plugin configuration
-├── metrics/         # Prometheus metrics (17 families)
-├── plugins/
-│   ├── filter/      # SLO + energy budget filters
-│   ├── scorer/      # Multi-objective energy scorer (core algorithm)
-│   └── scraper/     # DCGM/RAPL telemetry scraper
-├── signals/         # EnergyStore, SCI calculator, types
-└── simulation/      # 1000-cycle E2E simulation test
-upstream-port/       # Bridge file for official llm-d-router integration
-```
-
-## Making Changes
-
-### 1. Fork and branch
+## Making a change
 
 ```bash
-git checkout -b feature/your-change
+go test ./pkg/... && (cd router-plugin && go test ./...)
+python experiments/scripts/make_figures.py
+git diff --exit-code -- 'docs/figures/measured/*.csv'
 ```
 
-### 2. Run tests before committing
+The last command is what CI checks: if a figure's plotted data changes on
+regeneration, it no longer matches its records. Before submitting any cluster
+job, run `bash fr-sync.sh run verify_fixes.sh`, which must report no failures.
 
-```bash
-go test -v -race ./pkg/...
-go vet ./pkg/...
-```
+Cluster commands go in a script file under `experiments/scripts/` and run
+through `fr-sync.sh run`. Never build them inline through `wsl.exe` and `ssh`:
+that corrupted five runs (plan section 3.4).
 
-### 3. Commit with conventional commit messages
+Commit messages say what changed, why, and what was verified.
 
-```
-feat: add DVFS frequency scaling to scorer
-fix: correct carbon intensity calculation for EU regions
-docs: update deployment guide with AKS instructions
-test: add edge case for zero-power endpoints
-```
+## Upstreaming
 
-### 4. Submit a pull request
-
-Push your branch and open a PR against `main`. CI will automatically run tests.
-
-## Code Guidelines
-
-- **Follow existing patterns**: The scorer plugin follows the same structure as llm-d-router's built-in scorers. Maintain consistency.
-- **Keep the upstream-port clean**: The `upstream-port/` directory should only contain code that directly implements the `scheduling.Scorer` interface. All supporting logic stays in `pkg/`.
-- **Test everything**: Every new function should have a corresponding test. Target >80% coverage.
-- **Document changes**: Update relevant documentation if behavior changes.
-
-## Upstream Contribution
-
-If you want to help get the energy-aware scorer merged into the official [llm-d-router](https://github.com/llm-d/llm-d-router):
-
-1. Read the [llm-d contributing guide](https://github.com/llm-d/llm-d/blob/main/CONTRIBUTING.md)
-2. Review the [upstream integration walkthrough](upstream_integration_walkthrough.md)
-3. The PR template is at `.github/PULL_REQUEST_TEMPLATE.md`
-4. Join the `#sig-router` channel on [llm-d Slack](https://llm-d.slack.com)
-
-## Reporting Issues
-
-Use GitHub Issues for:
-- Bug reports (include `go version`, OS, and error output)
-- Feature requests (describe the use case)
-- Questions (or use Discussions)
+The scorer will be proposed to [llm-d-router](https://github.com/llm-d/llm-d-router)
+after the Stage 5 study, whatever its outcome, following llm-d's own
+[contributing guide](https://github.com/llm-d/llm-d/blob/main/CONTRIBUTING.md).
+Any figure in that proposal comes from `docs/figures/measured/`.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+Apache License 2.0. By contributing, you agree that your contributions are
+licensed under it.

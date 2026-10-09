@@ -50,6 +50,36 @@ Expected:
 GATE FAILED, informatively: the best policy is round_robin, which uses no energy information at all.
 ```
 
+Read that verdict with the 2026-10-09 audit in mind (plan section 12.14d). On
+this fleet every packing policy aims at the 2.0 s target with no margin and
+misses it, `slo_packing` included. So the failure says nothing about energy
+awareness, and nothing about fleet composition.
+
+**The figures, the pre-registered analysis and the sample size:**
+
+```bash
+python experiments/scripts/make_figures.py
+```
+
+```bash
+python experiments/scripts/prereg_analysis.py --pilot --het experiments/cluster-records/results/stage2het-12305232 experiments/cluster-records/results/stage2het-12319685 experiments/cluster-records/results/stage2het-12321476 --homog experiments/cluster-records/results/stage2-12321478
+```
+
+```bash
+python experiments/scripts/power_analysis.py
+```
+
+The first writes `docs/figures/measured/`, with a CSV of the plotted numbers
+beside each PNG. The second runs the frozen Stage 5 analysis on the Stage 2
+data, labelled as a non-confirmatory pilot. The third derives the trial count
+from the measured trial-to-trial spread.
+
+Once the calibration jobs are fetched, the packing headroom is chosen by:
+
+```bash
+python experiments/scripts/headroom_calibrate.py experiments/cluster-records/results/stage2-<homog_jobid> experiments/cluster-records/results/stage2het-<het_jobid>
+```
+
 `stage2_analyse.py` is the pre-registered gate: each policy is judged at its own
 best load level where at least 95% of requests meet the latency target.
 `experiments/scripts/compare_runs.py` also prints averages across load levels,
@@ -173,6 +203,9 @@ unchanged.
 - [`README.md`](README.md): what has been measured, and what was withdrawn.
 - [`docs/plan/FINAL-PLAN-2026-10.md`](docs/plan/FINAL-PLAN-2026-10.md): the plan,
   every result with its job id, the threats to validity and the defect log.
+- [`docs/plan/PREREGISTRATION-STAGE5.md`](docs/plan/PREREGISTRATION-STAGE5.md):
+  the comparative study's hypotheses, analysis and sample size, fixed before
+  its data.
 - [`router-plugin/README.md`](router-plugin/README.md): pinned versions, the
   build and the EPP flags.
 

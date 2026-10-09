@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cluster-side. Submits the 2026-10-09 headroom calibration pilot.
 #
-#   CURVE_JOBS=<a100_job>:<rtx_job> bash calib_submit.sh
+#   bash calib_submit.sh <a100_job>:<rtx_job>     (or CURVE_JOBS=... env)
 #
 # Two jobs, both held until BOTH matched curve jobs (curves256_submit.sh) have
 # completed successfully, because the router must use those curves. Curve jobs
@@ -17,7 +17,7 @@
 # The decision rule is headroom_calibrate.py, committed before this ran.
 set -u
 cd "$HOME/energy-epp/scripts" || exit 1
-CURVE_JOBS="${CURVE_JOBS:?set CURVE_JOBS=<a100_job>:<rtx_job>}"
+CURVE_JOBS="${CURVE_JOBS:-${1:?usage: calib_submit.sh <a100_job>:<rtx_job>}}"
 case "$CURVE_JOBS" in
   *[!0-9:]*|:*|*:) echo "FATAL: CURVE_JOBS must look like 123:456"; exit 1 ;;
 esac

@@ -405,7 +405,7 @@ def main():
                      "Jobs 12305232, 12319685, 12321476 (3 seeds); 4x A100 + 4x RTX 6000. "
                      "Lines: mean of trials; whiskers: min to max.")
     fig_policy_sweep(HOMOG, "stage2_homogeneous_control",
-                     "Same-size single-type fleet: the ranking reverses",
+                     "Single-type fleet: packing to the 2.0 s target fails",
                      "Job 12321478; 8x RTX 6000, one trial, load inside the fleet's "
                      "capacity. Energy-curve policies never reach 95% attainment.")
     fig_gate()

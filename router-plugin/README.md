@@ -22,7 +22,10 @@ a configuration explicitly selects.
 | `energy-epp-plumbing-probe` | Alpha, **inert** | Gives every endpoint a score of 1.0 and counts its calls in `energy_epp_probe_score_calls_total`. It proves the plugin is wired in. It is not a policy, takes no parameters, and must never be a measured arm. |
 
 The real scorer is Stage 4 of the plan. It ports only the rule Stage 2 measured
-as a winner, after Stage 3 pre-registration.
+as a winner, with the packing headroom the calibration chooses, under the
+amended pre-registration (tag `prereg-stage5-v2`). Stage 4 also ports
+`slo_packing`, `energy_greedy` and `round_robin`, so every arm of the study
+goes through the same router path.
 
 ## Build
 

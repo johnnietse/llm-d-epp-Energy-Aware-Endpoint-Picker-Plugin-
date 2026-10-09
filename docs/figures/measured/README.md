@@ -18,7 +18,7 @@ compared.
 |---|---|---|
 | `stage1_energy_per_token` | GPU energy per generated token against concurrency, for the six GPU types whose curves the routing policies loaded | h1-12304125 (A100), h1-12304133 (RTX 6000), h1-12304126/27/28/29 |
 | `stage2_mixed_fleet` | SLO-goodput per joule and SLO attainment against offered load, five policies, mixed fleet, mean of three seeds with min-max whiskers | 12305232, 12319685, 12321476 |
-| `stage2_homogeneous_control` | The same on 8x RTX 6000, load inside that fleet's capacity: the ranking reverses | 12321478 |
+| `stage2_homogeneous_control` | The same on 8x RTX 6000, load inside that fleet's capacity: every packing policy, energy-aware or not, aims at the 2.0 s target and misses it (plan 12.14d) | 12321478 |
 | `stage2_gate_margins` | Per-trial margin over `slo_packing` at each policy's best feasible point, computed by `stage2_analyse.py`'s own functions | 12305232, 12319685, 12321476 |
 | `stage2_energy_by_gpu_type` | GPU energy split by type at 300 req/s, mean of three trials | 12305232, 12319685, 12321476 |
 | `generator_itl_crosscheck` | The load generator's inter-token latency against vLLM's own histogram, 50 cells | 12319685, 12321476 |
