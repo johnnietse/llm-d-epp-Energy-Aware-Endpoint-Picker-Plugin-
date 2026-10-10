@@ -1900,6 +1900,39 @@ running. Calibration v3 is queued behind them: seeds 911-913, homogeneous
    carry traffic, were not calibrated. This is recorded as a limitation; the
    pre-committed rule's verdict stands.
 
+**Fixes for both findings, approved by the author ("go"), commit d4029c3, before
+any of their data.**
+- **Random tie-break.** Every policy's min/max pick now goes through
+  `Router._best`. With `--tiebreak random` it chooses uniformly among tied
+  endpoints, from a stream seeded per trial and per worker. Offline on the
+  real curves, over 200 seeds: `slo_packing` and `least_loaded` first picked
+  A100 107 times and RTX 93 (index mode: A100 200/200), while both energy
+  policies still picked A100 200/200, because they choose by energy. `index`
+  (the default) reproduces Stage 2. The Stage 2 +1.4% stays pilot data,
+  measured against a baseline the list order helped, so likely an
+  underestimate.
+- **Validation of h = 0** (`validate_h0.py`) under the final router (open-loop
+  curves, cap 256, h = 0, random tie-break):
+  - loads: every Stage 5 load, mixed 200-600 and one-type 100-300 req/s, all
+    below measured open-loop capacity (about 756 and 488 req/s);
+  - seeds 921-923;
+  - PASS needs all 90 combinations valid and >= 95% within the SLO;
+  - on FAIL, stop and report.
+
+  It also tests, on the real fleets, the two assumptions calibration only
+  partly checked: one server per node during curve measurement, and a live
+  count compared with a mean-indexed curve. It reads only attainment and
+  validity, not energy. Jobs: one-type 12329238/41/44 (frnt155), mixed
+  12329239/42/45 (frnt154 + frnt149).
+- **Trial counts, as asked by the author.** 25 + 25 trials apply to Stage 5,
+  the confirmatory comparison, where the quantity is a 1-2% margin between
+  policies. The curves (6 trials, 5 used) are measurements, not tests. Where
+  routing decisions are made, their 95% confidence half-widths are: power
+  under 1%, energy per token 1-3%, p95 latency 1-8%. Wider intervals appear
+  only at the lowest rates, where a 60 s window holds 60-240 arrivals.
+  Calibration and validation are pass/fail checks, with every one of 3
+  seeds required to pass.
+
 **Diagrams and checkpoints, 2026-10-09 (author's request).**
 - Seven design diagrams of the current system are in `docs/diagrams/current/`
   (`make_diagrams.py`).
