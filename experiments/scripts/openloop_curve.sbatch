@@ -80,9 +80,9 @@ for t in $(seq 1 90); do
 done
 curl -sf http://127.0.0.1:8100/v1/models >/dev/null || { echo "FATAL: vllm never came up"; tail -20 "$RUN/vllm.log"; exit 1; }
 # The pinned limits must be what vLLM actually uses, not just what we asked.
-grep -qE "max_num_seqs.{0,4}${MAX_NUM_SEQS}" "$RUN/vllm.log" && grep -qE "max_num_batched_tokens.{0,4}${MAX_BATCHED}" "$RUN/vllm.log" \
+grep -qE "max_num_seqs.{0,4}${MAX_NUM_SEQS}\b" "$RUN/vllm.log" && grep -qE "max_num_batched_tokens.{0,4}${MAX_BATCHED}\b" "$RUN/vllm.log" \
   && echo "vllm limits confirmed in its own log" \
-  || { echo "FATAL: vllm log does not confirm max_num_seqs=256 and max_num_batched_tokens=2048"; exit 1; }
+  || { echo "FATAL: vllm log does not confirm max_num_seqs=$MAX_NUM_SEQS and max_num_batched_tokens=$MAX_BATCHED"; exit 1; }
 
 # Idle power with the model resident, read from the energy counter.
 $CPY - <<'PY' | tee "$RUN/idle.txt"

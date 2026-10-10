@@ -79,6 +79,18 @@ DURATION="${DURATION:-60}"
 # calibration sweep can never be mistaken for, or overwrite, a Stage 2 cell.
 HEADROOMS="${HEADROOMS:-0}"
 IFS=',' read -ra HEADROOM_ARR <<< "$HEADROOMS"
+# vLLM batch limits: ONE definition feeds every vLLM launch, the curve
+# selection (select_openloop_curves.py reads these from the environment) and
+# the check against vLLM's own log after start-up (2026-10-10). Defaults are
+# vLLM 0.30.0's own for GPUs under 70 GB, the Stage 5 configuration.
+export MAX_NUM_SEQS="${MAX_NUM_SEQS:-256}"
+export MAX_BATCHED="${MAX_BATCHED:-2048}"
+case "$MAX_NUM_SEQS$MAX_BATCHED" in *[!0-9]*) echo "FATAL: MAX_NUM_SEQS/MAX_BATCHED must be integers"; exit 1 ;; esac
+# The router's per-endpoint cap may be lower than vLLM's limit (the router-cap
+# study sets it so) but never higher: vLLM would queue the excess.
+if [ -n "${MAX_INFLIGHT:-}" ] && [ "$MAX_INFLIGHT" -gt "$MAX_NUM_SEQS" ]; then
+  echo "FATAL: MAX_INFLIGHT=$MAX_INFLIGHT exceeds vLLM's --max-num-seqs $MAX_NUM_SEQS"; exit 1
+fi
 # Arrival-process seed. The rejected verdict from job 12303355 rested on a
 # sub-percent latency difference with one trial per cell and no confidence
 # interval, so repeat trials under different seeds are mandatory before any
@@ -209,7 +221,7 @@ for ((i=0; i<NGPU; i++)); do
     vllm serve "$MODEL" --served-model-name served \
       --host 127.0.0.1 --port "$port" \
       --gpu-memory-utilization 0.85 --max-model-len 2048 \
-      --max-num-seqs 256 --max-num-batched-tokens 2048 \
+      --max-num-seqs "$MAX_NUM_SEQS" --max-num-batched-tokens "$MAX_BATCHED" \
       > "$RUN/vllm-gpu$i.log" 2>&1 &
   PIDS+=($!)
   # Stagger. All servers read the SAME 2.88 GiB checkpoint, now from the
@@ -287,6 +299,13 @@ if [ "$ready" -ne "$NGPU" ]; then
   tail -20 "$RUN"/vllm-gpu0.log
   exit 1
 fi
+
+# vLLM's own log must report the limits we set: the values in force, not the
+# ones requested. A mismatch aborts the job.
+for f in "$RUN"/vllm-*.log; do
+  grep -qE "max_num_seqs.{0,4}${MAX_NUM_SEQS}\b" "$f" && grep -qE "max_num_batched_tokens.{0,4}${MAX_BATCHED}\b" "$f"     || { echo "FATAL: $(basename "$f") does not confirm max_num_seqs=$MAX_NUM_SEQS / max_num_batched_tokens=$MAX_BATCHED"; exit 1; }
+done
+echo "vLLM limits confirmed in every server log: $MAX_NUM_SEQS / $MAX_BATCHED"
 
 # ------------------------------------------------- single-endpoint calibration
 # The per-endpoint SLO must come from this hardware, not from another node.
