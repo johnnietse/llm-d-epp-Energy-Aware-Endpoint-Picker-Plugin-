@@ -24,6 +24,19 @@ compared.
 | `generator_itl_crosscheck` | The load generator's inter-token latency against vLLM's own histogram, 50 cells | 12319685, 12321476 |
 | `router_overhead` | Median time to first token and end-to-end latency: direct, via the router with metrics polling, and with polling off | 12321497 |
 
+### `checkpoints/`: superseded data, kept as a record
+
+Measured, but gathered under a design a later finding showed to be flawed.
+Each title starts with "CHECKPOINT" and states the problem and the decision.
+They are evidence for those decisions, not results. Index:
+`docs/plan/CHECKPOINT-2026-10-09.md`.
+
+| Figure | Shows | Source jobs |
+|---|---|---|
+| `c1_calibration_v1_closedloop` | SLO attainment against headroom h, both fleets, mean and worst of 3 seeds: no h qualified | 12325155/58/61, 12325156/59/62 |
+| `c2_closedloop_projection_a100` | A100 closed-loop latency and the router's projection to c=512, with vLLM's 256 limit marked | h1-12325153 |
+| `c3_ttft_by_headroom_mixed` | Mixed-fleet median TTFT against h, against the Stage 2 level | 12325156/59/62; Stage 2 reference 12305232, 12319685, 12321476 |
+
 How the Stage 1 curves are aggregated mirrors `policy_harness.py`'s
 `load_curve`: unique-prompt rows only, trial 1 dropped as warm-up, and J/token
 taken as mean power divided by mean token rate. So the figure shows the same

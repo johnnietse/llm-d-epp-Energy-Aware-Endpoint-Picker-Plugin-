@@ -133,6 +133,11 @@ flowchart LR
   G -. per-request timings .-> M
 ```
 
+Design diagrams of the current system, how a packing policy decides, why the
+latency model changed, and a timeline of every checkpoint are in
+[`docs/diagrams/current/`](docs/diagrams/current/). Superseded data is kept
+and indexed in [`docs/plan/CHECKPOINT-2026-10-09.md`](docs/plan/CHECKPOINT-2026-10-09.md).
+
 This is the Stage 5 path. In Stage 2 the routing rule lived inside the load
 generator, which sent each request straight to the chosen vLLM server; Envoy
 and the EPP were not involved. Stage 4 moves the rule into the EPP, so the

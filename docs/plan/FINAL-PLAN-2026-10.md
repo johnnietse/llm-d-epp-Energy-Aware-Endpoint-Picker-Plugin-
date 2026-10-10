@@ -1852,6 +1852,29 @@ of its data).** The router's latency model is replaced, not patched.
 - **Smoke test** 12325343 (two rates, two short trials, A100) runs before the
   full curves.
 
+**Smoke test and a fix, 2026-10-09.** Smoke job 12325343 confirmed the
+open-loop job end to end: vLLM's own log confirms the pinned limits, idle
+power was read and `curve.csv` was written. It also exposed a defect.
+Nominal rate fidelity read 0.94 and 1.06 for one rate, which is the
+randomness of a short Poisson schedule. Since a curve ends at the first rate
+below 0.95, that could have cut a curve at its first rate. Keep-up is now
+judged against the **realised** schedule (commit 7017881); recomputed, it was
+0.970-0.979 in every smoke cell.
+
+Full open-loop curves `olc-12325349` (A100) and `olc-12325350` (RTX 6000) are
+running. Calibration v3 is queued behind them: seeds 911-913, homogeneous
+12325359/62/65 and mixed 12325360/63/66.
+
+**Diagrams and checkpoints, 2026-10-09 (author's request).**
+- Seven design diagrams of the current system are in `docs/diagrams/current/`
+  (`make_diagrams.py`).
+- Three checkpoint figures of superseded data are in
+  `docs/figures/measured/checkpoints/`.
+- Every superseded dataset, its problem and the decision it caused are
+  indexed in `CHECKPOINT-2026-10-09.md`.
+- All cluster records to date are in the repository. The running jobs will be
+  fetched when they finish.
+
 ### 12.14e Literature re-check, 2026-10-09
 
 **All 20 arXiv identifiers cited in this plan and the README were re-fetched

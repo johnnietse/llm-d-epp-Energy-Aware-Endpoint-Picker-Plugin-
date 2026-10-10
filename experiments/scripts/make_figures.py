@@ -81,14 +81,14 @@ plt.rcParams.update({
 
 
 def save(fig, name):
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.join(OUT, name)), exist_ok=True)
     fig.savefig(os.path.join(OUT, name + ".png"), dpi=200, bbox_inches="tight",
                 metadata={"Software": None})
     plt.close(fig)
 
 
 def write_csv(name, header, rows):
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.join(OUT, name)), exist_ok=True)
     with open(os.path.join(OUT, name + ".csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, lineterminator="\n")
         w.writerow(header)
@@ -398,6 +398,123 @@ def fig_overhead():
                                   "p50_ttft_ms", "p50_e2el_ms", "note"], rows)
 
 
+# ------------------------------------------------------------ checkpoints
+# Superseded data, kept as a record (author's instruction 2026-10-09). Each
+# figure says in its own title that it is a checkpoint, what was wrong, and
+# where the decision that followed is recorded. They are not results.
+CAL_V1 = {"homog": ["stage2-12325155", "stage2-12325158", "stage2-12325161"],
+          "het": ["stage2het-12325156", "stage2het-12325159", "stage2het-12325162"]}
+CAL_CELLS = {"homog": (100.0, 150.0), "het": (300.0, 400.0)}
+PACKERS = ["slo_packing", "energy_greedy", "energy_consolidate"]
+
+
+def cal_rows(fleet):
+    """Every calibration-v1 cell: (seed, h, rate, policy, row)."""
+    out = []
+    for d in CAL_V1[fleet]:
+        for p in sorted(glob.glob(os.path.join(REC, d, "policies-*rate*.json"))):
+            for r in json.load(open(p, encoding="utf-8"))["results"]:
+                if float(r["offered_rate_rps"]) in CAL_CELLS[fleet]:
+                    out.append((r["seed"], round(float(r.get("headroom", 0.0)), 3),
+                                float(r["offered_rate_rps"]), r["policy"], r))
+    return out
+
+
+def fig_checkpoint_calibration_v1():
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2), sharey=True)
+    rows = []
+    for ax, fleet, ttl in ((axes[0], "homog", "8x RTX 6000 (100 and 150 req/s)"),
+                           (axes[1], "het", "4x A100 + 4x RTX 6000 (300 and 400 req/s)")):
+        data = cal_rows(fleet)
+        for pol in PACKERS:
+            hs = sorted({h for _, h, _, p, _ in data if p == pol})
+            sel = [[r["slo_rate"] for _, h2, _, p, r in data if p == pol and h2 == h] for h in hs]
+            mean = [100 * st.mean(v) for v in sel]
+            low = [100 * min(v) for v in sel]
+            ax.plot(hs, mean, color=COLOR[pol], marker=MARKER[pol], label=label(pol))
+            ax.plot(hs, low, color=COLOR[pol], lw=0.8, ls=":")
+            rows += [[fleet, pol, h, m, w] for h, m, w in zip(hs, mean, low)]
+        ax.axhline(95, color=INK2, lw=0.8)
+        ax.set_title(ttl, fontsize=9.5, loc="left")
+        ax.set_xlabel("headroom h (packers aim at (1 - h) x 2.0 s)")
+        ax.set_xticks([0, 0.1, 0.2, 0.3])
+    axes[0].set_ylabel("requests meeting the 2.0 s SLO (%)\nsolid: mean of cells and seeds; dotted: worst")
+    axes[0].legend(fontsize=8, loc="lower right")
+    fig.suptitle("CHECKPOINT, superseded: headroom calibration v1 on closed-loop curves "
+                 "- no h qualified", x=0.01, ha="left", fontsize=11)
+    fig.text(0.01, -0.06, "Jobs 12325155/58/61 and 12325156/59/62, seeds 901-903. The one-type "
+             "fleet passes from h = 0.1; the mixed fleet fails at every h, because closed-loop "
+             "curves cannot see queueing at vLLM's 256 limit.\nDecision: approach A, open-loop "
+             "curves with p95 and a 256 cap; rule v3 (plan 12.14d, "
+             "docs/plan/CHECKPOINT-2026-10-09.md).", fontsize=7.5, color=INK2)
+    save(fig, "checkpoints/c1_calibration_v1_closedloop")
+    write_csv("checkpoints/c1_calibration_v1_closedloop",
+              ["fleet", "policy", "headroom", "slo_met_pct_mean", "slo_met_pct_worst"], rows)
+
+
+def fig_checkpoint_closedloop_projection():
+    path = os.path.join(REC, "h1-12325153", "h1.csv")
+    by = defaultdict(list)
+    for r in csv.DictReader(open(path, newline="", encoding="utf-8")):
+        if r["note"] == "unique_prompts" and r["trial"] not in ("0", "1"):
+            by[int(r["concurrency"])].append(r)
+    cs = sorted(by)
+    p50 = [st.mean(float(x["lat_p50_s"]) for x in by[c]) for c in cs]
+    p95 = [st.mean(float(x["lat_p95_s"]) for x in by[c]) for c in cs]
+    proj = [st.mean(128 * c / float(x["gen_tok_per_s"]) for x in by[c]) for c in cs]
+    col = GPU_COLOR["NVIDIA_A100-PCIE-40GB"]
+    fig, ax = plt.subplots(figsize=(7.4, 4.2))
+    ax.plot(cs, p50, color=col, marker="o", label="measured p50")
+    ax.plot(cs, p95, color=col, marker="^", ls="--", label="measured p95")
+    ax.plot(cs, proj, color=MUTED, marker="s", label="router's projection: 128 c / tokens per s")
+    ax.axvline(256, color=INK2, lw=0.8)
+    ax.text(270, 0.35, "vLLM runs at most 256\n(--max-num-seqs default);\nthe rest wait",
+            fontsize=7.5, color=INK2)
+    ax.axhline(2.0, color=INK2, lw=0.6, ls=":")
+    ax.set_xscale("log", base=2)
+    ax.set_xlabel("concurrent requests, held fixed (closed loop)")
+    ax.set_ylabel("end-to-end latency (s)")
+    ax.legend(fontsize=8, loc="upper left")
+    ax.set_title("CHECKPOINT: a closed-loop curve cannot see queueing (A100, h1-12325153)",
+                 loc="left", fontsize=10.5)
+    fig.text(0.01, -0.07, "Six trials, five used. With concurrency held fixed there are no "
+             "arrival bursts, so p50 ~ p95. Superseded for routing by open-loop curves "
+             "(approach A, plan 12.14d).", fontsize=7.5, color=INK2)
+    save(fig, "checkpoints/c2_closedloop_projection_a100")
+    write_csv("checkpoints/c2_closedloop_projection_a100",
+              ["concurrency", "lat_p50_s", "lat_p95_s", "projection_s"],
+              [[c, a, b, d] for c, a, b, d in zip(cs, p50, p95, proj)])
+
+
+def fig_checkpoint_ttft():
+    data = cal_rows("het")
+    hs = sorted({h for _, h, _, _, _ in data})
+    ref = [r for (pol, rate), lst in cells(HET).items()
+           if pol in PACKERS and rate in (300.0, 400.0) for r in lst]
+    ref_ttft = st.mean(r["ttft_p50"] for r in ref)
+    fig, ax = plt.subplots(figsize=(7.4, 4.0))
+    rows = []
+    for pol in PACKERS:
+        ys = [st.mean(r["ttft_p50"] for _, h2, _, p, r in data if p == pol and h2 == h) for h in hs]
+        ax.plot(hs, ys, color=COLOR[pol], marker=MARKER[pol], label=label(pol))
+        rows += [[pol, h, y] for h, y in zip(hs, ys)]
+    ax.axhline(ref_ttft, color=INK2, lw=0.8, ls="--")
+    ax.text(0.3, ref_ttft + 0.04, "Stage 2, A100 curve ending at 128: %.2f s" % ref_ttft,
+            fontsize=7.5, color=INK2, ha="right")
+    ax.set_xticks([0, 0.1, 0.2, 0.3])
+    ax.set_xlabel("headroom h")
+    ax.set_ylabel("median time to first token (s)")
+    ax.legend(fontsize=8)
+    ax.set_title("CHECKPOINT: mixed-fleet requests waiting for a vLLM slot (calibration v1)",
+                 loc="left", fontsize=10.5)
+    fig.text(0.01, -0.08, "Mean over 300 and 400 req/s and seeds 901-903. The generator was "
+             "ruled out (about 4 cores, send-delay p99 1 ms). Decision: open-loop curves and "
+             "a 256 cap (plan 12.14d).", fontsize=7.5, color=INK2)
+    save(fig, "checkpoints/c3_ttft_by_headroom_mixed")
+    rows.append(["stage2_reference", "", ref_ttft])
+    write_csv("checkpoints/c3_ttft_by_headroom_mixed", ["policy", "headroom", "ttft_p50_s"], rows)
+
+
 def main():
     fig_stage1()
     fig_policy_sweep(HET, "stage2_mixed_fleet",
@@ -407,11 +524,15 @@ def main():
     fig_policy_sweep(HOMOG, "stage2_homogeneous_control",
                      "Single-type fleet: packing to the 2.0 s target fails",
                      "Job 12321478; 8x RTX 6000, one trial, load inside the fleet's "
-                     "capacity. Energy-curve policies never reach 95% attainment.")
+                     "capacity. The three packing policies never reach 95% attainment "
+                     "(they aimed at 2.0 s with no margin; plan 12.14d).")
     fig_gate()
     fig_node_split()
     fig_itl()
     fig_overhead()
+    fig_checkpoint_calibration_v1()
+    fig_checkpoint_closedloop_projection()
+    fig_checkpoint_ttft()
     print("figures and tables written to", os.path.relpath(OUT, REPO))
 
 
