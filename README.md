@@ -35,6 +35,18 @@ target, per joule of GPU energy. Each policy is compared at its own best load
 level among those where at least 95% of requests meet the target, so a
 policy cannot win by saving energy on requests that missed it.
 
+Every figure on this page is drawn by `experiments/scripts/make_figures.py`
+(data) or `make_diagrams.py` (design drawings) from committed records, and each
+data figure has a CSV of exactly the plotted numbers beside it in
+[`docs/figures/measured/`](docs/figures/measured/).
+
+![GPU energy per generated token against concurrency for six GPU types](docs/figures/measured/stage1_energy_per_token.png)
+
+*Stage 1, closed loop (fixed concurrency): the per-GPU-type curves the Stage 2
+policies used. A100 h1-12304125, RTX 6000 h1-12304133, others
+h1-12304126/27/28/29. Since 2026-10-09 the router uses open-loop curves
+instead (finding 2).*
+
 ### 1. On a mixed fleet, energy-aware placement wins narrowly but consistently
 
 4x A100 + 4x RTX 6000, three trials at seeds 7, 11 and 13 (jobs 12305232,
@@ -47,6 +59,12 @@ policy cannot win by saving energy on requests that missed it.
 | `slo_packing` (baseline) | 0.3526 | | |
 | `least_loaded` | 0.2323 | -34.1% | |
 | `round_robin` | 0.1096 | -68.9% | |
+
+![SLO-goodput per joule and SLO attainment against offered load, five policies, mixed fleet](docs/figures/measured/stage2_mixed_fleet.png)
+
+![Per-trial margin over slo_packing at each policy's best feasible point](docs/figures/measured/stage2_gate_margins.png)
+
+*Jobs 12305232, 12319685, 12321476. Both caveats below apply to these figures.*
 
 The pre-registered gate passes: `energy_consolidate` beats the baseline in
 every trial. The margin is small. Three positive trials out of three is weak
@@ -90,12 +108,39 @@ What the records show is a **packing aim**, not an energy effect:
   stopped it first. The two fleets were limited by **different things**, so
   comparing them does not isolate fleet composition.
 
+![SLO-goodput per joule and SLO attainment, 8x RTX 6000](docs/figures/measured/stage2_homogeneous_control.png)
+
+*Job 12321478.*
+
 An earlier version of this page read the contrast as "the fleet's
 composition decides whether energy-aware routing helps". The records do not
-support that. The fix is a declared **headroom**: packers aim at
-(1 - h) x 2.0 s, with h chosen by a calibration rule committed before its
-data existed. Both GPU types are also being re-measured to 256 concurrent
-requests, so that the target binds on both fleets. See plan section 12.14d.
+support that.
+
+**What was done about it** (2026-10-09, each rule committed before its data;
+full record in [`CHECKPOINT-2026-10-09.md`](docs/plan/CHECKPOINT-2026-10-09.md)):
+
+1. **A declared headroom h, calibration v1:** packers aimed at
+   (1 - h) x 2.0 s, with both GPU types re-measured to the same range. No h
+   qualified. The single-type fleet was fixed from h = 0.1, but on the mixed
+   fleet requests queued behind vLLM's 256-request batch limit, which a
+   fixed-concurrency curve cannot see.
+2. **Approach A, the author's choice:**
+   - each GPU type is re-measured under random (Poisson) arrivals;
+   - the router predicts 95th-percentile latency from those measurements;
+   - it never puts more than 256 requests on a server;
+   - vLLM's limits are written explicitly into every launch.
+
+   Calibration v3 then passed at **h = 0**: every policy, cell and seed met
+   the target for 100% of requests, with no fallback.
+3. **Random tie-break:** the energy-blind baseline is now blind to list order
+   (finding 1, second caveat).
+4. **Validation now running:** h = 0 is being checked on the real fleets at
+   every Stage 5 load (jobs 12329238 to 12329245) before the pre-registration
+   amendment is frozen.
+
+![Checkpoint: calibration v1 on closed-loop curves, no h qualified](docs/figures/measured/checkpoints/c1_calibration_v1_closedloop.png)
+
+![Closed-loop versus open-loop measurement and why the latency model changed](docs/diagrams/current/d4_curve_measurement_closed_vs_open.png)
 
 ### 3. The router path costs about one millisecond
 
@@ -108,6 +153,8 @@ Job 12321497, using vLLM's own benchmark client. Measured, not estimated:
 | The EPP's routing decision | about 0.2 ms |
 | The EPP polling each vLLM's metrics every 50 ms, median time to first token | under +1 ms |
 
+![Median time to first token and end-to-end latency: direct, via the router with polling, and with polling off](docs/figures/measured/router_overhead.png)
+
 There is no Prometheus server in this system. The EPP reads each vLLM
 server's metrics page directly, off the request path, and that can be turned
 off entirely.
@@ -118,8 +165,9 @@ A Python generator's inter-token timings agree with vLLM's own histogram:
 across 50 cells (jobs 12319685 and 12321476), the median gap is **0.6-0.9%**
 and the worst is **2.3%**, about 0.15 ms on a 7 ms gap. The generator reads
 slightly high, by about 0.8% on average, most at the highest load. The two
-come from independent sources. See
-[`docs/figures/measured/`](docs/figures/measured/).
+come from independent sources.
+
+![The load generator's inter-token latency against vLLM's own histogram, 50 cells](docs/figures/measured/generator_itl_crosscheck.png)
 
 ## The llm-d router runs here without Kubernetes
 
@@ -132,7 +180,7 @@ Kubernetes, and why the scorer does not, is set out in plan section 12.14a.
 
 ```mermaid
 flowchart LR
-  C1["Stage 1<br/>per-GPU-type curves:<br/>power, tokens/s, latency<br/>at 1 to 256 concurrent"] -->|loaded at start| P
+  C1["Open-loop curves per GPU type:<br/>power, tokens/s, p95 latency<br/>against mean in-flight"] -->|loaded at start| P
   G["Load generator<br/>open-loop Poisson arrivals"] --> E["Envoy 1.39.2"]
   E <-->|"ext-proc: which endpoint?"| P["llm-d EPP v0.11.0<br/>file-discovery mode<br/>+ our scorer plugin"]
   E --> A["vLLM 0.30.0<br/>4x A100 node"]
@@ -142,10 +190,15 @@ flowchart LR
   G -. per-request timings .-> M
 ```
 
-Design diagrams of the current system, how a packing policy decides, why the
-latency model changed, and a timeline of every checkpoint are in
+![System architecture of the Stage 5 path](docs/diagrams/current/d1_system_architecture.png)
+
+![How a packing policy picks an endpoint](docs/diagrams/current/d3_packing_decision.png)
+
+![Checkpoints: what was found and what was decided](docs/diagrams/current/d5_checkpoints_timeline.png)
+
+*Design drawings, not results. All seven are in
 [`docs/diagrams/current/`](docs/diagrams/current/). Superseded data is kept
-and indexed in [`docs/plan/CHECKPOINT-2026-10-09.md`](docs/plan/CHECKPOINT-2026-10-09.md).
+and indexed in [`docs/plan/CHECKPOINT-2026-10-09.md`](docs/plan/CHECKPOINT-2026-10-09.md).*
 
 This is the Stage 5 path. In Stage 2 the routing rule lived inside the load
 generator, which sent each request straight to the chosen vLLM server; Envoy
@@ -167,10 +220,15 @@ reproducibly by [`router-plugin/build.sh`](router-plugin/build.sh).
 - **The pre-registration is being amended before any of its trials run.**
   [`PREREGISTRATION-STAGE5.md`](docs/plan/PREREGISTRATION-STAGE5.md) was frozen
   as tag `prereg-stage5-v1` on 2026-10-09. The same day's audit showed it
-  inherited the unequal limits in finding 2. The amendment adds three things:
-  a calibrated packing headroom, curves matched to 256 on both GPU types, and
-  llm-d's own SLO-packing scorer (`latency-scorer`) as a baseline. It is tagged
-  `prereg-stage5-v2`. The v1 tag stays where it is.
+  inherited the unequal limits in finding 2. The amendment will add:
+  - open-loop curves with routing on 95th-percentile latency, a cap of 256
+    and h = 0 (from calibration v3);
+  - the random tie-break;
+  - 25 + 25 trials;
+  - llm-d's own SLO-packing scorer (`latency-scorer`) as a baseline, H4.
+
+  It is frozen as tag `prereg-stage5-v2` once the h = 0 validation passes.
+  The v1 tag stays where it is.
 - `energy_consolidate` against `energy_greedy` (+0.4 to +0.5 points per
   trial) is not a resolved difference. It is registered as its own
   hypothesis.
