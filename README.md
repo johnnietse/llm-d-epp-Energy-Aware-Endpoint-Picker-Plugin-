@@ -61,6 +61,15 @@ A100 latency there is only 0.9 s against the 2.0 s target. The +1.4% is
 therefore a margin under an undeclared per-GPU cap. Its size with the cap
 removed is not yet known (finding 2).
 
+A second caveat, found 2026-10-09: the baseline `slo_packing` ignores energy,
+but it broke ties by list position, and the A100s were listed first. So it
+filled the efficient GPUs first by accident. The +1.4% was measured against a
+baseline that list order helped, and probably understates what energy
+awareness adds. These records are kept exactly as measured; Stage 5 uses a
+seeded random tie-break, so the baseline is genuinely blind (plan 12.14d).
+This result is the **pilot** that set the hypotheses and the trial count, not
+the confirmatory test.
+
 ### 2. On a single-type fleet, packing to the latency target fails, for every packing policy
 
 8x RTX 6000, load inside that fleet's capacity (job 12321478). The three
