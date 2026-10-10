@@ -1968,8 +1968,20 @@ These were verified at run time, not just in the files:
 - **Capacity runs.** Slurm's stored copies of 12330546-48 predate 4187daf:
   vLLM is launched with literal 256/2048 and has no log check. vLLM's own logs
   report `max_num_seqs 256 / max_num_batched_tokens 2048` on all 16 servers
-  of 12330546 (COMPLETED 02:30-02:40) and 12330547. 12330548 is still to be
-  checked.
+  of 12330546 (COMPLETED 02:30-02:40), 12330547 and 12330548: 24 of 24.
+
+**Validation of h = 0, rule v2: PASSED (records 6cfd543).**
+- At 300 req/s on the one-type fleet, round_robin and least_loaded met the
+  SLO for only 12-26% in all three seeds. So that cell is beyond fleet
+  capacity, as estimated at about 265 req/s, and is excluded.
+- All 81 remaining combinations passed at h = 0.
+- The reference runs are valid:
+  - open-loop curves, cap 256, h 0, random tie-break;
+  - the generator was never client-limited;
+  - the realised rate was 297-302 req/s.
+- The verdict and its exact output are in
+  `validation-capacity-v2-verdict.txt`.
+- Next: finalise amendment v2 and tag prereg-stage5-v2.
 - **Sensitivity jobs.** The stored copies are free of control characters,
   carry a real `\b` and launch from the variables. The first two jobs,
   12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
