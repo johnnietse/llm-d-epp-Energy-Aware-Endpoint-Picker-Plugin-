@@ -1933,6 +1933,26 @@ any of their data.**
   Calibration and validation are pass/fail checks, with every one of 3
   seeds required to pass.
 
+**Validation of h = 0: FAILED as written, 81 of 90 (records 93516d7).**
+- **Failed:** only the one-type fleet at 300 req/s, all three packers and
+  seeds (14-32% met).
+- **Passed:** everything else at 100% met. That is every mixed-fleet cell
+  at 200-600 req/s, with the random tie-break and RTX 6000s carrying traffic,
+  and the one-type fleet at 100-250 req/s. So the coverage gap and both
+  partly tested assumptions hold across that range.
+- **Diagnosis:** 300 req/s is beyond the one-type fleet's SLO capacity. The
+  packers spread over all 8 GPUs and found no feasible endpoint for 95% of
+  picks. 37.5 req/s per GPU exceeds the RTX 6000's p95 = 2.0 s point (about
+  33 req/s per GPU, so about 265 req/s for the fleet). In Stage 2,
+  round_robin (20.7%) and least_loaded (12.1%) also failed at 300.
+- **The rule's own error:** it asserted "every cell below capacity" using
+  the RTX 6000's stationarity limit (about 61 req/s per GPU, 488 for the
+  fleet) instead of its SLO limit. The failure is recorded as it stands. A
+  corrected rule must be written down before any further data.
+- **Stage 5 itself is unaffected:** its analysis takes each arm's best
+  feasible load, so an over-capacity top load is expected (Stage 2 had
+  them).
+
 **Diagrams and checkpoints, 2026-10-09 (author's request).**
 - Seven design diagrams of the current system are in `docs/diagrams/current/`
   (`make_diagrams.py`).

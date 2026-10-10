@@ -59,7 +59,16 @@ before the amendment is frozen. The H1 baseline `slo_packing` fills the
 A100s first only because they are listed first. And calibration did not
 reach the loads where the mixed fleet needs its RTX 6000s.
 
-## Pending at the time of writing (superseded by the update above)
+## Update: h = 0 validation failed as written (records 93516d7)
+
+`stage2-12329238/41/44` and `stage2het-12329239/42/45`, seeds 921-923: 81 of
+90 combinations passed. Only the one-type fleet at 300 req/s failed. That
+load is beyond the fleet's SLO capacity (about 265 req/s), which the
+validation rule wrongly assumed it was not. Kept exactly as measured; the
+verdict text is `results/validation-h0-verdict.txt`. See plan 12.14d for
+the next rule.
+
+## Pending at the time of writing (superseded by the updates above)
 
 Open-loop curves `olc-12325349` (A100, frnt154) and `olc-12325350` (RTX 6000,
 frnt149) are running. Calibration v3 waits on them: seeds 911-913, homogeneous
