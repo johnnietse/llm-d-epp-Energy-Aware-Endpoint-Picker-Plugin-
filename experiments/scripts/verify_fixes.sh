@@ -208,6 +208,14 @@ for f in policy_harness.py multinode_energy.py node_energy_sampler.py \
     && ok "python: $f" || bad "python: $f"
 done
 
+echo "=== control characters: a mangled escape is invisible and silent ==="
+# 2026-10-10: a "\b" in a grep pattern, written through a heredoc, became a
+# literal backspace (0x08). The pattern could then never match, so every
+# open-loop job would have aborted. bash -n cannot catch it.
+cc=$(grep -lP '[\x00-\x08\x0b\x0c\x0e-\x1f]' *.sbatch *.sh *.py 2>/dev/null)
+[ -z "$cc" ] && ok "no control characters in any script" \
+  || bad "control characters in: $(echo $cc)"
+
 echo
 echo "=================================================="
 echo "PASS=$PASS  FAIL=$FAIL"
