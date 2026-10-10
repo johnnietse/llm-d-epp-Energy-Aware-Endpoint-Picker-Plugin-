@@ -1987,7 +1987,11 @@ These were verified at run time, not just in the files:
   12330608 and 12330610 will show it.
 - **Corrections:**
   - The predicted start time (about 05:15) was wrong. The capacity runs
-    started at 02:30.
+    started at 02:30. The cause was an interpretation error, not a timing
+    glitch. Another user's jobs showed an `END_TIME` of about 05:11 in
+    `squeue`. For a running job that column is start plus the time limit
+    (3:00:00), an upper bound, but it was reported as a forecast. Those jobs
+    ran for minutes and freed the nodes early.
   - The start watcher was faulty. It polled `squeue`, which forgets a
     finished job, so it would have waited out its full timeout. It has been
     stopped. Completion is now watched by job state.
