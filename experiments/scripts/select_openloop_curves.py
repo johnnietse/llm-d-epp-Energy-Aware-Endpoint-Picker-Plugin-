@@ -45,6 +45,13 @@ def stationary_rates(path):
 
 def main():
     root, model = sys.argv[1], sys.argv[2]
+    # Only curves measured with the vLLM limits this run will use (default:
+    # the Stage 5 configuration, 256 / 2048). Without this, the newest curve
+    # wins, and the sensitivity study's curves (other limits) would silently
+    # become the curves Stage 5 routes on.
+    seqs = os.environ.get("MAX_NUM_SEQS", "256")
+    batched = os.environ.get("MAX_BATCHED", "2048")
+    want = "--max-num-seqs %s --max-num-batched-tokens %s" % (seqs, batched)
     best = {}
     for path in glob.glob(os.path.join(root, "results", "olc-*", "curve.csv")):
         d = os.path.dirname(path)
@@ -53,6 +60,8 @@ def main():
         except OSError:
             continue
         if "model=" + model not in text:
+            continue
+        if want not in text:
             continue
         g = re.search(TYPES, text)
         j = re.search(r"olc-(\d+)", d)
@@ -66,7 +75,8 @@ def main():
         if name not in best or int(j.group(1)) > best[name][0]:
             best[name] = (int(j.group(1)), path, n)
     if not best:
-        raise SystemExit("no usable open-loop curve under %s/results/olc-*" % root)
+        raise SystemExit("no usable open-loop curve under %s/results/olc-* measured with %s"
+                         % (root, want))
     for name in sorted(best):
         print("  open-loop curve for %s: %s (%d stationary rates)"
               % (name, best[name][1], best[name][2]), file=sys.stderr)

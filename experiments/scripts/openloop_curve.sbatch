@@ -46,8 +46,10 @@ TRIALS=${TRIALS:-6}
 DURATION=${DURATION:-60}
 WORKERS=${WORKERS:-6}
 SEED=${SEED:-701}
-MAX_NUM_SEQS=256
-MAX_BATCHED=2048
+# vLLM batch limits. Default = vLLM 0.30.0's own defaults for GPUs under
+# 70 GB (the Stage 5 configuration). The sensitivity study overrides them.
+MAX_NUM_SEQS=${MAX_NUM_SEQS:-256}
+MAX_BATCHED=${MAX_BATCHED:-2048}
 export HF_HOME=${HF_HOME:-$ROOT/.hf}
 CPY="env -u SSL_CERT_FILE $APPTAINER exec --nv $IMG python3"
 GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 | tr ' ' '_')"
@@ -78,7 +80,7 @@ for t in $(seq 1 90); do
 done
 curl -sf http://127.0.0.1:8100/v1/models >/dev/null || { echo "FATAL: vllm never came up"; tail -20 "$RUN/vllm.log"; exit 1; }
 # The pinned limits must be what vLLM actually uses, not just what we asked.
-grep -qE "max_num_seqs.{0,4}256" "$RUN/vllm.log" && grep -qE "max_num_batched_tokens.{0,4}2048" "$RUN/vllm.log" \
+grep -qE "max_num_seqs.{0,4}${MAX_NUM_SEQS}" "$RUN/vllm.log" && grep -qE "max_num_batched_tokens.{0,4}${MAX_BATCHED}" "$RUN/vllm.log" \
   && echo "vllm limits confirmed in its own log" \
   || { echo "FATAL: vllm log does not confirm max_num_seqs=256 and max_num_batched_tokens=2048"; exit 1; }
 
