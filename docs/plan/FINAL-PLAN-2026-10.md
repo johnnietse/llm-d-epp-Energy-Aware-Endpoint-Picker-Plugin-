@@ -1963,6 +1963,35 @@ any of their data.**
 - All cluster records to date are in the repository. The running jobs will be
   fetched when they finish.
 
+**Runtime check of the 2026-10-10 fixes (author asked "are you sure").**
+These were verified at run time, not just in the files:
+- **Capacity runs.** Slurm's stored copies of 12330546-48 predate 4187daf:
+  vLLM is launched with literal 256/2048 and has no log check. vLLM's own logs
+  report `max_num_seqs 256 / max_num_batched_tokens 2048` on all 16 servers
+  of 12330546 (COMPLETED 02:30-02:40) and 12330547. 12330548 is still to be
+  checked.
+- **Sensitivity jobs.** The stored copies are free of control characters,
+  carry a real `\b` and launch from the variables. The first two jobs,
+  12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
+  log", and vLLM reports 64/2048 on each.
+- **Fleet log check (4187daf).** No job has run it yet. Its block was
+  extracted byte for byte from the cluster copies of both stage2 scripts and
+  run against 12330546's eight real logs:
+  - 256/2048 passes;
+  - 512/2048, 256/8192 and 25/2048 abort. The last case shows `\b` stops 25
+    matching 256.
+- **Remote-node logs in the het job.** These land in the shared `$RUN` as
+  `vllm-<host>-gpu<i>.log` (seen in stage2het-12329239), so the glob covers
+  them.
+- **Still unproven:** whether max-num-seqs 512 fits on the RTX 6000. Jobs
+  12330608 and 12330610 will show it.
+- **Corrections:**
+  - The predicted start time (about 05:15) was wrong. The capacity runs
+    started at 02:30.
+  - The start watcher was faulty. It polled `squeue`, which forgets a
+    finished job, so it would have waited out its full timeout. It has been
+    stopped. Completion is now watched by job state.
+
 ### 12.14e Literature re-check, 2026-10-09
 
 **All 20 arXiv identifiers cited in this plan and the README were re-fetched
