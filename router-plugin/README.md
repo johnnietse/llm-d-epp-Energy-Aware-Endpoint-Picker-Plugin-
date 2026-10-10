@@ -20,12 +20,42 @@ a configuration explicitly selects.
 | Type | Status | What it does |
 |---|---|---|
 | `energy-epp-plumbing-probe` | Alpha, **inert** | Gives every endpoint a score of 1.0 and counts its calls in `energy_epp_probe_score_calls_total`. It proves the plugin is wired in. It is not a policy, takes no parameters, and must never be a measured arm. |
+| `energy-epp-policy-scorer` | Alpha | The Stage 2 routing rules, ported (`pkg/energypolicy`): `energy_consolidate`, `energy_greedy`, `slo_packing`, `round_robin`, `least_loaded`. It gives 1.0 to exactly the endpoints the rule chooses between and 0.0 to the rest. It counts every decision in `energy_epp_policy_picks_total{policy,outcome}`, where the outcome is feasible, saturated, ungrounded or misconfigured. |
+| `energy-epp-seeded-random-picker` | Alpha | Chooses uniformly among the top-scored endpoints from a per-trial seed (amendment B5). Upstream's `max-score-picker` breaks ties by a process-wide rotation instead. |
 
-The real scorer is Stage 4 of the plan. It ports only the rule Stage 2 measured
-as a winner, with the packing headroom the calibration chooses, under the
-amended pre-registration (tag `prereg-stage5-v2`). Stage 4 also ports
-`slo_packing`, `energy_greedy` and `round_robin`, so every arm of the study
-goes through the same router path.
+**How the policies are ported.** This follows the amended pre-registration,
+tag `prereg-stage5-v2`, section 15.
+- **Inputs:** endpoints carry `energy-epp/index` and `energy-epp/gpu-type`
+  labels in the file-discovery list. The in-flight count comes from the
+  router's `inflight-load-producer`, which the scorer declares in
+  `Consumes()`; the router refuses undeclared reads.
+- **Curves:** these are `curves/*.json`, written by
+  `experiments/scripts/export_router_fixtures.py` through the harness's own
+  `load_openloop_curve`, so the curve reduction exists once.
+- **Fidelity:** on 9,856 recorded fleet states,
+  `TestDecideMatchesPython` requires each policy's tied set and outcome
+  (feasible, saturated or ungrounded) to equal the Python `Router`'s
+  exactly. 2,077 of those states contain ties.
+  - Three deliberate one-character bugs were each caught.
+  - A sample of 1,408 states is re-run through real framework endpoints
+    behind the router's data scoping.
+- **Exact float equality:** ties are decided by exact equality, so the
+  interpolation forbids fused multiply-add. A fused result could differ from
+  Python's in the last bit and change which endpoints tie.
+
+**Configs.** `configs/epp-config.sh` writes one arm's EPP config.
+- **Saturation filter:** v0.11.0 adds a saturation detector to every
+  scheduling profile as a filter, whether or not flow control is on. Its
+  default drops endpoints whose metrics are stale. With no scraping, every
+  endpoint is stale, so that default is inert only through its fail-open
+  fallback. The generated configs set a concurrency detector instead, with a
+  limit of 10^9 requests, which is inert by construction.
+- **Check:** `configs/check-configs.sh` (WSL) starts the built EPP with each
+  arm's config and prints the final profile. Each policy arm shows only the
+  inert filter, the policy scorer and the seeded picker; `random` shows the
+  same filter, no scorer and upstream's `random-picker`.
+- **Not generated yet:** `stock_llmd` and `llmd_latency_least` are
+  materials-addendum decisions.
 
 ## Build
 

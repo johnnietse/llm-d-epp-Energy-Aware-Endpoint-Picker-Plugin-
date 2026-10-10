@@ -11,6 +11,7 @@ import (
 
 	"github.com/llm-d/llm-d-router/cmd/epp/runner"
 
+	"github.com/johnnie/energy-aware-epp/router-plugin/pkg/energypolicy"
 	"github.com/johnnie/energy-aware-epp/router-plugin/pkg/probe"
 )
 
@@ -25,10 +26,11 @@ func run() int {
 	ctx := ctrl.SetupSignalHandler()
 
 	probe.Register()
+	energypolicy.Register()
 
 	if err := runner.NewRunner().
 		WithExecutableName("energy-epp").
-		WithCustomCollectors(probe.Calls).
+		WithCustomCollectors(probe.Calls, energypolicy.Picks).
 		Run(ctx); err != nil {
 		return 1
 	}
