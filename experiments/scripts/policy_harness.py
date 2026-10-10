@@ -533,7 +533,7 @@ class Router:
     """
 
     def __init__(self, n, types, curves, slo_s, shared=False, headroom=0.0,
-                 max_inflight=None):
+                 max_inflight=None, tiebreak="index", seed=0):
         self.n = n
         self.types = types
         self.curves = curves
@@ -543,6 +543,18 @@ class Router:
         # at once and queues the rest, so a packing policy must never count
         # on more. None reproduces Stage 2, which had no cap.
         self.max_inflight = max_inflight
+        # How ties between equally good endpoints are broken (audit
+        # 2026-10-09). "index" is Python's min/max: the FIRST of equals. The
+        # mixed fleet lists the A100s at 0-3, so energy-blind slo_packing
+        # filled A100s first in every Stage 2 trial purely from list order,
+        # behaving as if energy-aware by accident. "random" picks uniformly
+        # among the tied endpoints from a seeded stream, so a policy that
+        # ignores energy is blind to GPU type. Default "index" reproduces
+        # Stage 2 exactly. Applied to every policy's choice and fallback.
+        if tiebreak not in ("index", "random"):
+            raise SystemExit("tiebreak must be index or random: %r" % tiebreak)
+        self.tiebreak = tiebreak
+        self.reseed(seed)
         # The packing policies admit an endpoint while its projected latency is
         # at most pack_limit. With headroom 0 that is the SLO itself, and the
         # policies pack until latency sits ON the boundary: job 12321478 ran
@@ -704,6 +716,21 @@ class Router:
             return math.inf
         return pwr / thr if thr > 0 else math.inf
 
+    def reseed(self, seed):
+        """Seed the tie-break stream. Each worker process reseeds with its
+        own derived seed after fork, so streams differ between workers and
+        are reproducible for a given seed and worker count."""
+        self._rng = random.Random(seed)
+
+    def _best(self, cands, key, maximize=False):
+        """min (or max) of cands by key, ties broken per self.tiebreak."""
+        cands = list(cands)
+        if self.tiebreak == "index":
+            return (max if maximize else min)(cands, key=key)
+        keys = [key(k) for k in cands]
+        best = max(keys) if maximize else min(keys)
+        return self._rng.choice([k for k, v in zip(cands, keys) if v == best])
+
     def pick(self, policy):
         if self.lock is not None:
             with self.lock:
@@ -727,21 +754,21 @@ class Router:
                 i = self.rr % self.n
                 self.rr += 1
         elif policy == "least_loaded":
-            i = min(range(self.n), key=lambda k: self.inflight[k])
+            i = self._best(range(self.n), key=lambda k: self.inflight[k])
         elif policy == "slo_packing":
             feas = [k for k in range(self.n) if self._proj_latency(k) <= self.pack_limit]
             if feas:
-                i = max(feas, key=lambda k: self._inflight[k])
+                i = self._best(feas, key=lambda k: self._inflight[k], maximize=True)
             else:
                 # This fallback was already sound - balance load when the curve
                 # cannot say which endpoint is safe - but it is still a pick
                 # made without grounded information, so it is counted.
                 self._no_feasible()
-                i = min(range(self.n), key=lambda k: self._inflight[k])
+                i = self._best(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_greedy":
             feas = [k for k in range(self.n) if self._proj_latency(k) <= self.pack_limit]
             if feas:
-                i = min(feas, key=self._jtok)
+                i = self._best(feas, key=self._jtok)
             else:
                 # No endpoint has curve data for its current concurrency. The
                 # old code did `or list(range(self.n))` and then min() by
@@ -751,7 +778,7 @@ class Router:
                 # as energy-aware. Without energy information the defensible
                 # action is to balance load, which is what least_loaded does.
                 self._no_feasible()
-                i = min(range(self.n), key=lambda k: self._inflight[k])
+                i = self._best(range(self.n), key=lambda k: self._inflight[k])
         elif policy == "energy_consolidate":
             # prefer an already-busy endpoint of the most efficient type, and
             # only wake an idle one when no busy endpoint is SLO-feasible
@@ -759,13 +786,13 @@ class Router:
             busy = [k for k in feas if self._inflight[k] > 0]
             pool = busy or feas
             if pool:
-                i = min(pool, key=lambda k: (self._jtok(k), -self._inflight[k]))
+                i = self._best(pool, key=lambda k: (self._jtok(k), -self._inflight[k]))
             else:
                 # Same defect as energy_greedy: the old `or list(range(self.n))`
                 # made every candidate's key (+inf, ...) so the tuple compare
                 # fell through to index order.
                 self._no_feasible()
-                i = min(range(self.n), key=lambda k: self._inflight[k])
+                i = self._best(range(self.n), key=lambda k: self._inflight[k])
         else:
             raise SystemExit("unknown policy " + policy)
         if self._was_idle[i]:
@@ -910,6 +937,7 @@ def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
     Queue: a worker returning tens of thousands of inter-token samples through
     a pipe can block on the pipe buffer while the parent is still waiting to
     join it, which deadlocks."""
+    router.reseed(seed * 1009 + wid + 1)
     res = asyncio.run(drive_slice(router, policy, endpoints, idxs, arrivals,
                                   t_start, seed, pool))
     with open(out_path, "w") as fh:
@@ -919,9 +947,11 @@ def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
 async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
                      scratch="/tmp", energy_mode="local", sample_dir=None,
-                     clock_skew=0.0, headroom=0.0, max_inflight=None):
+                     clock_skew=0.0, headroom=0.0, max_inflight=None,
+                     tiebreak="index"):
     router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1),
-                    headroom=headroom, max_inflight=max_inflight)
+                    headroom=headroom, max_inflight=max_inflight,
+                    tiebreak=tiebreak, seed=seed * 1009)
     meter = EnergyMeter(gpus, poll_interval=poll_interval)
 
     # The arrival process is generated once, in the parent, from the seed. It
@@ -1107,6 +1137,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "headroom": router.headroom,
         "pack_limit_s": router.pack_limit,
         "max_inflight": router.max_inflight,
+        "tiebreak": router.tiebreak,
         "curve_kind": sorted({"openloop" if c.get("openloop") else "closedloop"
                               for c in curves.values()}),
         # Mean latency, and the mean number in flight by Little's law
@@ -1224,6 +1255,9 @@ def main():
     ap.add_argument("--max-inflight", type=int, default=None,
                     help="hard per-endpoint cap for the latency projection, "
                          "normally vLLM's --max-num-seqs; default none = Stage 2")
+    ap.add_argument("--tiebreak", choices=("index", "random"), default="index",
+                    help="ties between equal endpoints: index = first (Stage 2), "
+                         "random = seeded uniform choice (blind to list order)")
     ap.add_argument("--headroom", type=float, default=0.0,
                     help="packing policies admit an endpoint only while its "
                          "projected latency <= (1 - headroom) * SLO; 0 = Stage 2")
@@ -1291,7 +1325,8 @@ def main():
                                    sample_dir=args.sample_dir,
                                    clock_skew=args.clock_skew,
                                    headroom=args.headroom,
-                                   max_inflight=args.max_inflight))
+                                   max_inflight=args.max_inflight,
+                                   tiebreak=args.tiebreak))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")

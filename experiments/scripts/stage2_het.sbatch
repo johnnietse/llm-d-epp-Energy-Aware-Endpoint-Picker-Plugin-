@@ -571,6 +571,11 @@ fi
 # vLLM's pinned --max-num-seqs. Empty reproduces Stage 2 (no cap).
 MAXINF_ARG=""
 [ -n "${MAX_INFLIGHT:-}" ] && MAXINF_ARG="--max-inflight $MAX_INFLIGHT"
+# TIEBREAK (audit 2026-10-09): index = first of equals (Stage 2); random =
+# seeded choice among ties, blind to endpoint list order. Rides on MAXINF_ARG,
+# which every harness call already passes.
+case "${TIEBREAK:-index}" in index|random) ;; *) echo "FATAL: TIEBREAK must be index or random"; exit 1 ;; esac
+MAXINF_ARG="$MAXINF_ARG --tiebreak ${TIEBREAK:-index}"
 echo "curves: $CURVE_ARGS ${MAXINF_ARG}"
 
 # ----------------------------------------------------------------- Pass A
