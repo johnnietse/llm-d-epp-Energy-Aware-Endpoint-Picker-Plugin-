@@ -1865,6 +1865,41 @@ Full open-loop curves `olc-12325349` (A100) and `olc-12325350` (RTX 6000) are
 running. Calibration v3 is queued behind them: seeds 911-913, homogeneous
 12325359/62/65 and mixed 12325360/63/66.
 
+**Open-loop curves and calibration v3: h = 0 (records ad2b6bc).**
+
+- **A100 curve** (`olc-12325349`): steady up to 128 req/s (about 126 in
+  flight, p95 1.20 s, TTFT p50 0.05 s). At 147 req/s it collapses: TTFT p50
+  2.9 s, keep-up 0.88. Its open-loop capacity is about 128 req/s, not the 183
+  the closed-loop curve implied.
+- **RTX 6000 curve** (`olc-12325350`): steady to 61 req/s (about 170 in
+  flight).
+- **Calibration v3** (seeds 911-913): every h qualifies, so the rule chooses
+  **h = 0**. At h = 0, all 36 combinations met the SLO for 100% of requests
+  with zero saturated or ungrounded picks.
+- **Real packing, no fallback:** on the one-type fleet at 100 req/s the
+  packers used 4 of 8 GPUs at p95 1.89 s. Routing on measured p95 from
+  open-loop curves makes a safety margin unnecessary. That is the
+  approach-A result, and it is stronger than "it works with a margin".
+
+**Two findings that must be settled before the amendment is frozen.**
+1. **The baseline's tie-break favours the A100s.** `slo_packing` picks
+   `max(feasible, key=in-flight)`, and Python's `max` returns the first of
+   equals. The fleet lists the A100s at indices 0-3, so in every Stage 2
+   trial and every calibration cell this energy-blind baseline filled
+   A100s first, purely from list order. It reached the RTX 6000s only at
+   500-600 req/s. The H1 baseline therefore behaved as if energy-aware, by
+   accident: the Stage 2 +1.4% is against a baseline helped by endpoint
+   order, and is likely an underestimate of what energy awareness adds
+   over a genuinely blind packer. Fix proposed: a seeded random endpoint
+   order per trial, so blind tie-breaks are blind on average. The decision
+   is the author's.
+2. **Calibration covered the mixed fleet only below where RTX 6000s are
+   needed.** At 300 and 400 req/s every packer stayed on the A100s, since 4 x
+   128 req/s is enough. The RTX 6000 curve was checked on the one-type fleet
+   (100% at h = 0). Mixed-fleet loads of 500-600 req/s, where both types
+   carry traffic, were not calibrated. This is recorded as a limitation; the
+   pre-committed rule's verdict stands.
+
 **Diagrams and checkpoints, 2026-10-09 (author's request).**
 - Seven design diagrams of the current system are in `docs/diagrams/current/`
   (`make_diagrams.py`).

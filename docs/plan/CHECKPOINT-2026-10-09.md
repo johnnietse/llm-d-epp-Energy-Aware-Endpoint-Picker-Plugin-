@@ -49,7 +49,17 @@ records above, each with a CSV of the plotted numbers. Each title starts with
 The design diagrams in `docs/diagrams/current/` (`make_diagrams.py`) include
 `d5_checkpoints_timeline`, which shows this record as a timeline.
 
-## Pending at the time of writing
+## Update, later on 2026-10-09: approach A passed
+
+The open-loop curves (`olc-12325349`, `olc-12325350`) and calibration v3
+(`stage2-12325359/62/65`, `stage2het-12325360/63/66`) finished. Rule v3
+chose **h = 0**: every policy, cell and seed met the SLO for 100% of
+requests, with no fallback. Plan 12.14d records two findings to settle
+before the amendment is frozen. The H1 baseline `slo_packing` fills the
+A100s first only because they are listed first. And calibration did not
+reach the loads where the mixed fleet needs its RTX 6000s.
+
+## Pending at the time of writing (superseded by the update above)
 
 Open-loop curves `olc-12325349` (A100, frnt154) and `olc-12325350` (RTX 6000,
 frnt149) are running. Calibration v3 waits on them: seeds 911-913, homogeneous
