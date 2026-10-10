@@ -1998,6 +1998,43 @@ still on e9425af.
   router mode, `stock_llmd` and `llmd_latency_least` configs). It is
   committed as the materials addendum, `prereg-stage5-v1-materials`, before
   trial 1. The sensitivity jobs keep running alongside.
+
+**Stage 4, part 1: the policies inside the router (9afbd9f, 2026-10-10).**
+- **Ported:** `router-plugin/pkg/energypolicy` holds
+  `energy-epp-policy-scorer`, which decides, and
+  `energy-epp-seeded-random-picker`, which breaks ties (B5). Upstream's
+  `max-score-picker` breaks ties by a process-wide rotation instead.
+- **Fidelity test (section 10 item 2, B11).** On 9,856 recorded states, the
+  Go tied set and outcome equal the Python `Router`'s in every case.
+  - 2,077 of the states have ties, and every outcome branch is reached.
+  - Three deliberate mutants are caught.
+  - A 1,408-state sample is re-run on framework endpoints behind the
+    router's data scoping.
+- **Binary:** sha256 `a7664114...`, reproducible across two builds.
+- **Found while reading v0.11.0:** the config loader adds a saturation
+  detector to every scheduling profile as a filter, even with flow control
+  off.
+  - Its default drops endpoints with stale metrics. With no scraping, every
+    endpoint is stale, so it is inert only through its fail-open fallback.
+  - The arm configs set an inert concurrency detector (limit 10^9) instead.
+  - `check-configs.sh` confirms the final profile of every arm in the built
+    binary.
+- **Open, before the materials addendum:**
+  1. **`stock_llmd`.** With no profile configured, v0.11.0 auto-builds one
+     from whatever plugins exist. A config listing only discovery gets no
+     scorer at all, plus `max-score-picker` (rotation). Which upstream
+     default counts as "what an operator gets" needs the author's decision.
+  2. **`llmd_latency_least` feasibility.** Can the latency predictor
+     service run on Frontenac? If not, the arm and H4 are dropped (B7).
+  3. **Router mode in the generator, arm-order randomisation and per-level
+     warm-up.** These change `policy_harness.py` and the stage scripts, so
+     they wait for the sync freeze to lift when the sensitivity jobs end.
+  4. **A cluster smoke test** of the new binary with real vLLM servers:
+     pick counts, outcome counters, and the in-flight count agreeing with
+     vLLM's running and waiting gauges. One race needs measuring. The EPP
+     snapshots in-flight counts per scheduling cycle and increments after
+     the pick, while the Python Router held a lock across both. Concurrent
+     cycles can therefore see the same count.
 - **Sensitivity jobs.** The stored copies are free of control characters,
   carry a real `\b` and launch from the variables. The first two jobs,
   12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
