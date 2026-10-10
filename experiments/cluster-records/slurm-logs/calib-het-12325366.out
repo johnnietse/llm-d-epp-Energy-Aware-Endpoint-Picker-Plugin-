@@ -1,0 +1,274 @@
+job=12325366 het_size=2
+  component 0: host=frnt154.frontenac.local type=NVIDIA_A100-PCIE-40GB gpus_present=8
+  component 1: host=frnt149.frontenac.local type=Quadro_RTX_6000 gpus_present=4
+  balancing component 0: 8 GPUs present, using 4
+fleet: 2 types x 4 replicas each
+
+=== clock skew across components ===
+  conservative skew bound: 0.060010s (includes srun round-trip, so it
+  overstates the true clock difference)
+
+=== staging Qwen/Qwen2.5-1.5B-Instruct to /tmp/hfstage-12325366 on every node ===
+  frnt154.frontenac.local: 2944 MiB of weights staged
+  frnt149.frontenac.local: 2944 MiB of weights staged
+  verifying /tmp/hfstage-12325366 resolves on every node
+    frnt154.frontenac.local: OK
+    frnt149.frontenac.local: OK
+  HF_HOME=/tmp/hfstage-12325366 verified on all 2 nodes; HF_HUB_OFFLINE=1
+launching vLLM on frnt154.frontenac.local gpu 0 port 8100
+launching vLLM on frnt154.frontenac.local gpu 1 port 8101
+launching vLLM on frnt154.frontenac.local gpu 2 port 8102
+launching vLLM on frnt154.frontenac.local gpu 3 port 8103
+launching vLLM on frnt149.frontenac.local gpu 0 port 8200
+launching vLLM on frnt149.frontenac.local gpu 1 port 8201
+launching vLLM on frnt149.frontenac.local gpu 2 port 8202
+launching vLLM on frnt149.frontenac.local gpu 3 port 8203
+starting energy sampler on frnt154.frontenac.local -> energy-frnt154.frontenac.local.jsonl
+starting energy sampler on frnt149.frontenac.local -> energy-frnt149.frontenac.local.jsonl
+
+waiting for all 8 servers across 2 nodes
+  deadline 1200s; abort if no server log grows for 300s
+ready: 8/8
+  sampler frnt154.frontenac.local: 576 line(s)
+  sampler frnt149.frontenac.local: 580 line(s)
+
+calibrating single-request latency on each type
+  NVIDIA_A100-PCIE-40GB: median single-request latency 0.5431s
+  Quadro_RTX_6000: median single-request latency 0.9821s
+SLO = 2.0s (2x the slowest type's median single-request latency)
+PEAK_RPS 1049.9 req/s, summed from each type's measured curve
+load levels: 300,400 req/s
+  curve for NVIDIA_A100-PCIE-40GB: /global/home/hpc6081/energy-epp/results/h1-12325153/h1.csv (levels=1,2,4,8,16,32,48,64,96,128,160,192,256,320,384,512, top 512)
+  curve for NVIDIA_A30: /global/home/hpc6081/energy-epp/results/h1-12304127/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for NVIDIA_L4: /global/home/hpc6081/energy-epp/results/h1-12304128/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for NVIDIA_L40S: /global/home/hpc6081/energy-epp/results/h1-12304129/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  curve for Quadro_RTX_6000: /global/home/hpc6081/energy-epp/results/h1-12325154/h1.csv (levels=1,2,4,8,16,32,48,64,96,128,160,192,256, top 256)
+  curve for Quadro_RTX_8000: /global/home/hpc6081/energy-epp/results/h1-12304126/h1.csv (levels=1,2,4,8,16,32,48,64,96,128, top 128)
+  skipping /global/home/hpc6081/energy-epp/results/olc-12325343/curve.csv: 0 stationary rates
+  open-loop curve for NVIDIA_A100-PCIE-40GB: /global/home/hpc6081/energy-epp/results/olc-12325349/curve.csv (9 stationary rates)
+  open-loop curve for Quadro_RTX_6000: /global/home/hpc6081/energy-epp/results/olc-12325350/curve.csv (12 stationary rates)
+curves: --curves /global/home/hpc6081/energy-epp/results/olc-12325349/curve.csv=NVIDIA_A100-PCIE-40GB /global/home/hpc6081/energy-epp/results/olc-12325350/curve.csv=Quadro_RTX_6000 --max-inflight 256
+
+endpoints: frnt154.frontenac.local:8100,frnt154.frontenac.local:8101,frnt154.frontenac.local:8102,frnt154.frontenac.local:8103,frnt149.frontenac.local:8200,frnt149.frontenac.local:8201,frnt149.frontenac.local:8202,frnt149.frontenac.local:8203
+types:     NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,NVIDIA_A100-PCIE-40GB,Quadro_RTX_6000,Quadro_RTX_6000,Quadro_RTX_6000,Quadro_RTX_6000
+
+=========== headroom 0, offered load 300 req/s, 60s, 18000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 6.04  goodput/J 0.1656  SLO 100.0%
+    TTFT p50/p95 0.055/0.092s  TPOT 0.0064s  ITL p99/max 0.0112/0.0686s  e2e p99 0.953s  errors 0
+    SLO margin p50/p95 0.444/0.468 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 132.6 req/s  fidelity 44.2%  send delay p99 0.001s  TTFT from send p50 0.055
+    (curve probed above its measured range 13676 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 300.0 req/s ---
+    J/req 5.80  goodput/J 0.1725  SLO 100.0%
+    TTFT p50/p95 0.056/0.095s  TPOT 0.0065s  ITL p99/max 0.0112/0.0478s  e2e p99 0.961s  errors 0
+    SLO margin p50/p95 0.446/0.473 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 142.8 req/s  fidelity 47.6%  send delay p99 0.001s  TTFT from send p50 0.055
+    (curve probed above its measured range 14148 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 4.85  goodput/J 0.2060  SLO 100.0%
+    TTFT p50/p95 0.059/0.096s  TPOT 0.0065s  ITL p99/max 0.0111/0.0567s  e2e p99 0.964s  errors 0
+    SLO margin p50/p95 0.448/0.473 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 190.2 req/s  fidelity 63.4%  send delay p99 0.001s  TTFT from send p50 0.058
+    (curve probed above its measured range 14085 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-rate300.json
+
+=========== headroom 0, offered load 400 req/s, 60s, 24000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 400.0 req/s ---
+    J/req 4.25  goodput/J 0.2352  SLO 100.0%
+    TTFT p50/p95 0.065/0.100s  TPOT 0.0065s  ITL p99/max 0.0115/0.0588s  e2e p99 0.959s  errors 0
+    SLO margin p50/p95 0.445/0.472 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 215.7 req/s  fidelity 53.9%  send delay p99 0.001s  TTFT from send p50 0.064
+    (curve probed above its measured range 30139 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 400.0 req/s ---
+    J/req 4.90  goodput/J 0.2042  SLO 100.0%
+    TTFT p50/p95 0.063/0.098s  TPOT 0.0065s  ITL p99/max 0.0114/0.0529s  e2e p99 0.964s  errors 0
+    SLO margin p50/p95 0.444/0.474 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 172.1 req/s  fidelity 43.0%  send delay p99 0.001s  TTFT from send p50 0.063
+    (curve probed above its measured range 29937 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 400.0 req/s ---
+    J/req 4.72  goodput/J 0.2120  SLO 100.0%
+    TTFT p50/p95 0.066/0.101s  TPOT 0.0066s  ITL p99/max 0.0119/0.0585s  e2e p99 0.962s  errors 0
+    SLO margin p50/p95 0.447/0.474 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 182.7 req/s  fidelity 45.7%  send delay p99 0.001s  TTFT from send p50 0.065
+    (curve probed above its measured range 30408 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-rate400.json
+
+=========== headroom 0.1, offered load 300 req/s, 60s, 18000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 5.84  goodput/J 0.1711  SLO 100.0%
+    TTFT p50/p95 0.059/0.097s  TPOT 0.0065s  ITL p99/max 0.0112/0.0494s  e2e p99 0.970s  errors 0
+    SLO margin p50/p95 0.449/0.476 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 141.0 req/s  fidelity 47.0%  send delay p99 0.001s  TTFT from send p50 0.058
+    (curve probed above its measured range 14510 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 300.0 req/s ---
+    J/req 4.74  goodput/J 0.2110  SLO 100.0%
+    TTFT p50/p95 0.055/0.093s  TPOT 0.0065s  ITL p99/max 0.0112/0.0457s  e2e p99 0.960s  errors 0
+    SLO margin p50/p95 0.447/0.472 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 196.2 req/s  fidelity 65.4%  send delay p99 0.001s  TTFT from send p50 0.055
+    (curve probed above its measured range 14388 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 3.87  goodput/J 0.2586  SLO 100.0%
+    TTFT p50/p95 0.061/0.099s  TPOT 0.0065s  ITL p99/max 0.0112/0.0499s  e2e p99 0.959s  errors 0
+    SLO margin p50/p95 0.449/0.473 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 288.8 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.060
+    (curve probed above its measured range 14603 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.1-rate300.json
+
+=========== headroom 0.1, offered load 400 req/s, 60s, 24000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 400.0 req/s ---
+    J/req 3.10  goodput/J 0.3223  SLO 100.0%
+    TTFT p50/p95 0.062/0.099s  TPOT 0.0066s  ITL p99/max 0.0114/0.0523s  e2e p99 0.965s  errors 0
+    SLO margin p50/p95 0.445/0.473 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 385.3 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.062
+    (curve probed above its measured range 29750 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 400.0 req/s ---
+    J/req 3.12  goodput/J 0.3203  SLO 100.0%
+    TTFT p50/p95 0.061/0.098s  TPOT 0.0066s  ITL p99/max 0.0115/0.0550s  e2e p99 0.961s  errors 0
+    SLO margin p50/p95 0.448/0.474 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 385.5 req/s  fidelity 96.4%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 30232 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 400.0 req/s ---
+    J/req 3.14  goodput/J 0.3188  SLO 100.0%
+    TTFT p50/p95 0.061/0.096s  TPOT 0.0066s  ITL p99/max 0.0117/0.0546s  e2e p99 0.963s  errors 0
+    SLO margin p50/p95 0.449/0.475 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 385.5 req/s  fidelity 96.4%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 30093 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.1-rate400.json
+
+=========== headroom 0.2, offered load 300 req/s, 60s, 18000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 3.87  goodput/J 0.2581  SLO 100.0%
+    TTFT p50/p95 0.057/0.100s  TPOT 0.0065s  ITL p99/max 0.0114/0.0593s  e2e p99 0.972s  errors 0
+    SLO margin p50/p95 0.450/0.476 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 288.8 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.056
+    (curve probed above its measured range 14868 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 300.0 req/s ---
+    J/req 3.86  goodput/J 0.2594  SLO 100.0%
+    TTFT p50/p95 0.055/0.091s  TPOT 0.0065s  ITL p99/max 0.0113/0.0525s  e2e p99 0.959s  errors 0
+    SLO margin p50/p95 0.448/0.472 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 288.9 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.054
+    (curve probed above its measured range 14285 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 3.87  goodput/J 0.2581  SLO 100.0%
+    TTFT p50/p95 0.060/0.096s  TPOT 0.0065s  ITL p99/max 0.0113/0.0520s  e2e p99 0.968s  errors 0
+    SLO margin p50/p95 0.450/0.476 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 288.9 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.059
+    (curve probed above its measured range 14216 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.2-rate300.json
+
+=========== headroom 0.2, offered load 400 req/s, 60s, 24000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 400.0 req/s ---
+    J/req 3.12  goodput/J 0.3203  SLO 100.0%
+    TTFT p50/p95 0.060/0.097s  TPOT 0.0065s  ITL p99/max 0.0115/0.0509s  e2e p99 0.964s  errors 0
+    SLO margin p50/p95 0.445/0.473 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 385.4 req/s  fidelity 96.3%  send delay p99 0.001s  TTFT from send p50 0.059
+    (curve probed above its measured range 30339 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_greedy at 400.0 req/s ---
+    J/req 3.12  goodput/J 0.3202  SLO 100.0%
+    TTFT p50/p95 0.062/0.102s  TPOT 0.0066s  ITL p99/max 0.0121/0.0518s  e2e p99 0.968s  errors 0
+    SLO margin p50/p95 0.446/0.475 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 385.5 req/s  fidelity 96.4%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 30530 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+--- energy_consolidate at 400.0 req/s ---
+    J/req 3.77  goodput/J 0.2655  SLO 100.0%
+    TTFT p50/p95 0.060/0.095s  TPOT 0.0065s  ITL p99/max 0.0115/0.0550s  e2e p99 0.961s  errors 0
+    SLO margin p50/p95 0.446/0.473 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 267.4 req/s  fidelity 66.8%  send delay p99 0.001s  TTFT from send p50 0.060
+    (curve probed above its measured range 29970 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.2-rate400.json
+
+=========== headroom 0.3, offered load 300 req/s, 60s, 18000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 4.22  goodput/J 0.2369  SLO 100.0%
+    TTFT p50/p95 0.059/0.098s  TPOT 0.0065s  ITL p99/max 0.0112/0.0453s  e2e p99 0.972s  errors 0
+    SLO margin p50/p95 0.452/0.478 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 245.0 req/s  fidelity 81.7%  send delay p99 0.001s  TTFT from send p50 0.059
+    (curve probed above its measured range 14271 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 300.0 req/s ---
+    J/req 6.00  goodput/J 0.1667  SLO 100.0%
+    TTFT p50/p95 0.058/0.097s  TPOT 0.0065s  ITL p99/max 0.0112/0.0618s  e2e p99 0.971s  errors 0
+    SLO margin p50/p95 0.452/0.477 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 136.1 req/s  fidelity 45.4%  send delay p99 0.001s  TTFT from send p50 0.058
+    (curve probed above its measured range 14420 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 6.10  goodput/J 0.1639  SLO 100.0%
+    TTFT p50/p95 0.062/0.099s  TPOT 0.0065s  ITL p99/max 0.0113/0.0528s  e2e p99 0.971s  errors 0
+    SLO margin p50/p95 0.451/0.477 x SLO  within 10% of boundary 0.0%
+    offered 300.0 req/s  achieved 132.3 req/s  fidelity 44.1%  send delay p99 0.001s  TTFT from send p50 0.062
+    (curve probed above its measured range 14654 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.3-rate300.json
+
+=========== headroom 0.3, offered load 400 req/s, 60s, 24000 requests ===========
+load generator: 16 worker process(es)
+--- slo_packing at 400.0 req/s ---
+    J/req 4.42  goodput/J 0.2264  SLO 100.0%
+    TTFT p50/p95 0.063/0.097s  TPOT 0.0065s  ITL p99/max 0.0115/0.0551s  e2e p99 0.959s  errors 0
+    SLO margin p50/p95 0.444/0.471 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 200.6 req/s  fidelity 50.2%  send delay p99 0.001s  TTFT from send p50 0.062
+    (curve probed above its measured range 29677 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_greedy at 400.0 req/s ---
+    J/req 4.08  goodput/J 0.2453  SLO 100.0%
+    TTFT p50/p95 0.062/0.100s  TPOT 0.0065s  ITL p99/max 0.0119/0.0642s  e2e p99 0.967s  errors 0
+    SLO margin p50/p95 0.445/0.475 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 231.4 req/s  fidelity 57.9%  send delay p99 0.001s  TTFT from send p50 0.062
+    (curve probed above its measured range 30445 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- energy_consolidate at 400.0 req/s ---
+    J/req 3.69  goodput/J 0.2713  SLO 100.0%
+    TTFT p50/p95 0.062/0.096s  TPOT 0.0065s  ITL p99/max 0.0117/0.0636s  e2e p99 0.959s  errors 0
+    SLO margin p50/p95 0.447/0.473 x SLO  within 10% of boundary 0.0%
+    offered 400.0 req/s  achieved 277.4 req/s  fidelity 69.3%  send delay p99 0.001s  TTFT from send p50 0.061
+    (curve probed above its measured range 30296 time(s); those endpoints were excluded as infeasible, which is the intended conservative behaviour, and every pick still had a grounded option)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2het-12325366/policies-h0.3-rate400.json
+
+results in /global/home/hpc6081/energy-epp/results/stage2het-12325366
+  per-node energy samples: /global/home/hpc6081/energy-epp/results/stage2het-12325366/samples/energy-*.jsonl
+  measured clock skew:     0.060010s
+total 147922
+-rw-------. 1 hpc6081 hpc6081       52 Oct  9 12:14 calibration.txt
+-rw-------. 1 hpc6081 hpc6081      390 Oct  9 12:08 clock_skew.txt
+-rw-------. 1 hpc6081 hpc6081    15865 Oct  9 13:02 harness.log
+-rw-------. 1 hpc6081 hpc6081    56221 Oct  9 12:35 policies-h0.1-rate300.json
+-rw-------. 1 hpc6081 hpc6081    56346 Oct  9 12:39 policies-h0.1-rate400.json
+-rw-------. 1 hpc6081 hpc6081    56270 Oct  9 12:43 policies-h0.2-rate300.json
+-rw-------. 1 hpc6081 hpc6081    56382 Oct  9 12:48 policies-h0.2-rate400.json
+-rw-------. 1 hpc6081 hpc6081    56341 Oct  9 12:55 policies-h0.3-rate300.json
+-rw-------. 1 hpc6081 hpc6081    56444 Oct  9 13:02 policies-h0.3-rate400.json
+-rw-------. 1 hpc6081 hpc6081    49992 Oct  9 12:21 policies-rate300.json
+-rw-------. 1 hpc6081 hpc6081    55552 Oct  9 12:29 policies-rate400.json
+-rw-------. 1 hpc6081 hpc6081        0 Oct  9 12:10 sampler-frnt149.frontenac.local.log
+-rw-------. 1 hpc6081 hpc6081        0 Oct  9 12:10 sampler-frnt154.frontenac.local.log
+drwx------. 2 hpc6081 hpc6081     4096 Oct  9 12:10 samples
+-rw-------. 1 hpc6081 hpc6081        9 Oct  9 12:08 skew_seconds.txt
+-rw-------. 1 hpc6081 hpc6081    27436 Oct  9 13:01 vllm-frnt149.frontenac.local-gpu0.log
+-rw-------. 1 hpc6081 hpc6081    26355 Oct  9 13:01 vllm-frnt149.frontenac.local-gpu1.log
+-rw-------. 1 hpc6081 hpc6081    26350 Oct  9 13:01 vllm-frnt149.frontenac.local-gpu2.log
+-rw-------. 1 hpc6081 hpc6081    26352 Oct  9 13:01 vllm-frnt149.frontenac.local-gpu3.log
+-rw-------. 1 hpc6081 hpc6081 13497554 Oct  9 13:01 vllm-frnt154.frontenac.local-gpu0.log
+-rw-------. 1 hpc6081 hpc6081 18011982 Oct  9 13:01 vllm-frnt154.frontenac.local-gpu1.log
+-rw-------. 1 hpc6081 hpc6081 15545935 Oct  9 13:01 vllm-frnt154.frontenac.local-gpu2.log
+-rw-------. 1 hpc6081 hpc6081   593765 Oct  9 13:01 vllm-frnt154.frontenac.local-gpu3.log
+stopping samplers and servers
+[2026-10-09T13:02:18.028] error: *** JOB 12325366 ON frnt154 CANCELLED AT 2026-10-09T13:02:18 DUE to SIGNAL Terminated ***
