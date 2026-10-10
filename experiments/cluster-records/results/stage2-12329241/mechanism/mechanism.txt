@@ -1,0 +1,94 @@
+=== mechanism pass (Pass B), 2026-10-09T22:34:19-04:00 ===
+node: frnt155.frontenac.local  job: 12329241
+NOTE: these tools perturb timing and energy. Nothing here is used for the
+headline energy numbers; Pass A owns those.
+RmProfilingAdminOnly = 1
+
+======== 1. CUPTI via torch.profiler (tracing path) ========
+USDT:2026-10-09 22:34:31 1151981:1151981 SyncActivityProfilerHandler.cpp:59] profiler_stop
+workload done inf
+CUPTI_EVENTS_WITH_DEVICE_TIME 7
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                           aten::matmul         0.21%       9.442us        58.32%       2.597ms       2.597ms       0.000us         0.00%       3.607ms       3.607ms             1  
+                                               aten::mm         3.50%     156.070us        58.10%       2.588ms       2.588ms       1.803ms        92.85%       3.607ms       3.607ms             1  
+                                Activity Buffer Request        30.14%       1.343ms        30.14%       1.343ms       1.343ms       1.803ms        92.85%       1.803ms       1.803ms             1  
+turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_stages_3...         0.00%       0.000us         0.00%       0.000us       0.000us       1.803ms        92.85%       1.803ms       1.803ms             1  
+                                             aten::relu         0.27%      11.982us         1.40%      62.193us      62.193us       0.000us         0.00%     138.975us     138.975us             1  
+                                        aten::clamp_min         0.80%      35.763us         1.13%      50.211us      50.211us     138.975us         7.15%     138.975us     138.975us             1  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 4.454ms
+Self CUDA time total: 1.942ms
+
+
+======== 2. CUPTI counter path (expected denied when the bit is 1) ========
+libcupti: ['/usr/local/lib/python3.12/dist-packages/nvidia/cu13/lib/libcupti.so.13']
+cuptiGetVersion rc 0 version 130001
+
+======== 3. Nsight Systems trace ========
+NVIDIA Nsight Systems version 2025.6.3.541-256337736014v0
+--- nsys status -e ---
+General Check
+- Timestamp counter supported: Yes
+
+CPU Profiling Environment Check
+- Root privilege: disabled
+- Linux Kernel Paranoid Level: 2 (some features maybe not available)
+- Linux Distribution: rocky
+- Linux Kernel Version (4.18.0-553.148.1.el8_10.x86_64): OK
+- Linux perf_event_open syscall available: OK
+- Sampling trigger event available: OK
+- Intel(c) Last Branch Record support: Available
+- CPU Profiling Environment (process-tree): OK
+- CPU Profiling Environment (system-wide): Fail
+
+--- nsys profile --trace=cuda ---
+workload done inf
+Collecting data...
+Generating '/tmp/nsys-report-ae7c.qdstrm'
+[1/1] [0%                          ] nsys-trace.nsys-rep[1/1] [0%                          ] nsys-trace.nsys-rep[1/1] [=========46%                ] nsys-trace.nsys-rep[1/1] [==========49%               ] nsys-trace.nsys-rep[1/1] [===========52%              ] nsys-trace.nsys-rep[1/1] [===========53%              ] nsys-trace.nsys-rep[1/1] [============54%             ] nsys-trace.nsys-rep[1/1] [============55%             ] nsys-trace.nsys-rep[1/1] [============56%             ] nsys-trace.nsys-rep[1/1] [=============58%            ] nsys-trace.nsys-rep[1/1] [=============59%            ] nsys-trace.nsys-rep[1/1] [=============60%            ] nsys-trace.nsys-rep[1/1] [==============61%           ] nsys-trace.nsys-rep[1/1] [==============64%           ] nsys-trace.nsys-rep[1/1] [===============66%          ] nsys-trace.nsys-rep[1/1] [===============67%          ] nsys-trace.nsys-rep[1/1] [================68%         ] nsys-trace.nsys-rep[1/1] [================71%         ] nsys-trace.nsys-rep[1/1] [=================72%        ] nsys-trace.nsys-rep[1/1] [=================73%        ] nsys-trace.nsys-rep[1/1] [=================74%        ] nsys-trace.nsys-rep[1/1] [==================75%       ] nsys-trace.nsys-rep[1/1] [==================76%       ] nsys-trace.nsys-rep[1/1] [===================81%      ] nsys-trace.nsys-rep[1/1] [===================82%      ] nsys-trace.nsys-rep[1/1] [====================83%     ] nsys-trace.nsys-rep[1/1] [====================84%     ] nsys-trace.nsys-rep[1/1] [=====================88%    ] nsys-trace.nsys-rep[1/1] [======================92%   ] nsys-trace.nsys-rep[1/1] [=======================93%  ] nsys-trace.nsys-rep[1/1] [========================97% ] nsys-trace.nsys-rep[1/1] [========================99% ] nsys-trace.nsys-rep[1/1] [========================100%] nsys-trace.nsys-rep[1/1] [========================100%] nsys-trace.nsys-rep
+Generated:
+	/global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/nsys-trace.nsys-rep
+-rw-rw-r--. 1 hpc6081 hpc6081 1.1M Oct  9 22:34 /global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/nsys-trace.nsys-rep
+--- nsys stats (kernel summary from the trace) ---
+Generating SQLite file /global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/nsys-trace.sqlite from /global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/nsys-trace.nsys-rep
+Processing [/global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/nsys-trace.sqlite] with [/global/home/hpc6081/energy-epp/opt/nsight/opt/nvidia/nsight-systems/2025.6.3/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances  Avg (ns)   Med (ns)   Min (ns)  Max (ns)  StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  ---------  ---------  --------  --------  -----------  ----------------------------------------------------------------------------------------------------
+     92.6         89892947         50  1797858.9  1798470.0   1788150   1803990       3510.2  turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_stages_32x1_nn                                          
+      7.1          6886460         50   137729.2   137711.0    136767    139071        621.3  void at::native::vectorized_elementwise_kernel<(int)4, at::native::<unnamed>::launch_clamp_scalar(a…
+      0.3           259838          2   129919.0   129919.0    128063    131775       2624.8  void at::native::<unnamed>::distribution_elementwise_grid_stride_kernel<float, (int)4, void at::nat…
+      0.1            75583          1    75583.0    75583.0     75583     75583          0.0  void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<c10::Half, at::native::func_w…
+
+
+======== 4. Nsight Compute (kernel counters) ========
+ncu NOT INSTALLED.
+RECORDED RESULT: Nsight Compute is unavailable to us. It needs profiling
+permission, which this node denies when RmProfilingAdminOnly=1, and it
+serialises kernels so it could not share a run with the energy pass
+regardless. Its absence is a finding about the deployment, not a gap in
+the method.
+
+======== 5. DCGM DCP fields under load (SM_ACTIVE 1002, DRAM_ACTIVE 1005) ========
+--- energy/power (required fields, should always work) ---
+#Entity         TOTEC                   POWER             
+GPU 0           9692454226              54.622            
+GPU 0           9692454226              54.622            
+GPU 0           9692487014              54.366            
+GPU 0           9692514318              54.366            
+--- DCP fields (kernel-gated) ---
+#Entity         SMACT        DRAMA        
+Error setting watches. Result: -29: Unable to watch one or more of the requested fields because doing so requires the host engine to be running as root.
+
+======== 6. nvidia-smi high-rate sampling under load ========
+ERROR: Option --query-gpu=timestamp,index,power.draw,clocks.sm,clocks.mem,utilization.gpu,utilization.memory,temperature.gpu is not recognized. Please run 'nvidia-smi -h' for help.
+
+
+=== mechanism pass complete: /global/home/hpc6081/energy-epp/results/stage2-12329241/mechanism/mechanism.txt ===
+Tools attempted: CUPTI tracing, CUPTI counter probe, Nsight Systems trace
++ stats, Nsight Compute, DCGM energy/power, DCGM DCP, nvidia-smi sampling.
+Denials above are recorded results about this deployment.
