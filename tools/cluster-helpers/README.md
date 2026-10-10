@@ -26,7 +26,9 @@ yourself.
 | `fr-jobwait.sh <max-s> "<ids>" <script> [args]` | Generic wait-then-run. |
 | `fr-fetchall.sh [dir...]` | Pulls records. Name directories to avoid re-downloading logs already gzipped locally. Then run `experiments/scripts/prepare_records.sh <dir>` before committing. |
 | `fr-check.sh` | Checks the shared connection without ever prompting (`ssh -O check`, then a `BatchMode` command). |
-| `fr-wait.sh <max-s> <id>...` | Waits until none of the jobs is queued or running, then prints their `sacct` state. Run it in the background. |
+| `fr-wait.sh <max-s> <id>...` | Waits until `sacct` shows every job in a terminal state, then prints the states. A short or empty reply counts as a failed poll, never as done. Run it in the background. |
+| `fr-wait-start.sh <id> <max-s>` | Reports when a job leaves PENDING, reading `sacct`, so a job that started or finished before the watcher was armed is still reported (and flagged as such). |
+| `fr-node-users.sh` | Who is on frnt149/154/155. The end column is `ENDS_NO_LATER_THAN` (start + limit), and our pending jobs' `--start` is a latest-start bound. Neither is a forecast. |
 | `fr-ls-results.sh` | Lists the cluster's result directories, so you can confirm that every one is in the repository. |
 
 Cluster-side submit scripts live in `experiments/scripts/` and run through
