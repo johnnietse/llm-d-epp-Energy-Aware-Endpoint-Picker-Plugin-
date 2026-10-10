@@ -22,6 +22,9 @@ Hypotheses (numbers match the pre-registration):
   H3  secondary mixed fleet: the activation term helps - energy_consolidate
                 beats energy_greedy. One-sided t-test on per-trial margins.
   H2 and H3 form one family, Holm-corrected at alpha 0.025.
+  H4 (Amendment 1)  mixed fleet: energy_consolidate beats llmd_latency_least,
+                llm-d's own SLO packing. Tested like H3; joins the Holm family
+                when that arm is present in the data.
 
 Pre-registered decision rules implemented here:
   * A cell is invalid if it is client-limited, has more than 2% ungrounded
@@ -156,6 +159,20 @@ def main():
         ps["H3"] = p
         print("  n=%d  mean %+.3f%%  sd %.3f  95%% CI [%+.3f, %+.3f]  t=%.2f  "
               "one-sided p=%.4g" % (len(h3), m, sd, ci[0], ci[1], t, p))
+
+    # H4 (Amendment 1, A3/A4): against llm-d's own SLO packing. It joins the
+    # family exactly when the arm exists in the data; the amendment drops the
+    # arm before trial 1 if it cannot run, so presence is decided in advance,
+    # not by looking at results.
+    if any(r["policy"] == "llmd_latency_least"
+           for d in a.het for r in gate.load(d)):
+        h4 = run_margins(a.het, "energy_consolidate", "llmd_latency_least",
+                         "H4 (secondary)")
+        if len(h4) >= 2:
+            m, sd, t, p, ci = one_sided_t(h4)
+            ps["H4"] = p
+            print("  n=%d  mean %+.3f%%  sd %.3f  95%% CI [%+.3f, %+.3f]  t=%.2f  "
+                  "one-sided p=%.4g" % (len(h4), m, sd, ci[0], ci[1], t, p))
 
     print("\nH2 (secondary): reversal on the homogeneous fleet")
     k = n = 0
