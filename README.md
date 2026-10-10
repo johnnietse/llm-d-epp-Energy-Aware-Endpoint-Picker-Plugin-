@@ -134,9 +134,15 @@ full record in [`CHECKPOINT-2026-10-09.md`](docs/plan/CHECKPOINT-2026-10-09.md))
    the target for 100% of requests, with no fallback.
 3. **Random tie-break:** the energy-blind baseline is now blind to list order
    (finding 1, second caveat).
-4. **Validation now running:** h = 0 is being checked on the real fleets at
-   every Stage 5 load (jobs 12329238 to 12329245) before the pre-registration
-   amendment is frozen.
+4. **Validation passed (rule v2):** h = 0 was checked on the real fleets at
+   every Stage 5 load (jobs 12329238 to 12329245).
+   - The first rule failed 81 of 90 because its own premise was wrong. It
+     treated the one-type fleet at 300 req/s as within capacity, and it is
+     not.
+   - A corrected rule, committed before its data, ran reference policies
+     there (jobs 12330546-48). Even round_robin and least_loaded met the
+     target for only 12-26%, so the cell is beyond what the fleet can serve.
+   - All 81 other combinations passed. Both verdicts are on record.
 
 ![Checkpoint: calibration v1 on closed-loop curves, no h qualified](docs/figures/measured/checkpoints/c1_calibration_v1_closedloop.png)
 
@@ -217,17 +223,19 @@ reproducibly by [`router-plugin/build.sh`](router-plugin/build.sh).
   that the **rule** works, not yet that an llm-d plugin delivers it. Porting
   the winning rule to Go is Stage 4. It will use the EPP's own count of
   in-flight requests, which needs no metrics polling.
-- **The pre-registration is being amended before any of its trials run.**
+- **The pre-registration was amended before any of its trials ran.**
   [`PREREGISTRATION-STAGE5.md`](docs/plan/PREREGISTRATION-STAGE5.md) was frozen
   as tag `prereg-stage5-v1` on 2026-10-09. The same day's audit showed it
-  inherited the unequal limits in finding 2. The amendment will add:
+  inherited the unequal limits in finding 2. Amendment 1 (section 15), tagged
+  `prereg-stage5-v2` on 2026-10-10, adds:
   - open-loop curves with routing on 95th-percentile latency, a cap of 256
-    and h = 0 (from calibration v3);
+    and vLLM limits pinned at 256/2048;
+  - h = 0, from calibration v3 and validation rule v2;
   - the random tie-break;
+  - the corrected one-type capacity (about 265 req/s);
   - 25 + 25 trials;
   - llm-d's own SLO-packing scorer (`latency-scorer`) as a baseline, H4.
 
-  It is frozen as tag `prereg-stage5-v2` once the h = 0 validation passes.
   The v1 tag stays where it is.
 - `energy_consolidate` against `energy_greedy` (+0.4 to +0.5 points per
   trial) is not a resolved difference. It is registered as its own

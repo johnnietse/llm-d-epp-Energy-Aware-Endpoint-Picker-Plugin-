@@ -1981,7 +1981,23 @@ These were verified at run time, not just in the files:
   - the realised rate was 297-302 req/s.
 - The verdict and its exact output are in
   `validation-capacity-v2-verdict.txt`.
-- Next: finalise amendment v2 and tag prereg-stage5-v2.
+
+**Amendment 1 frozen: tag `prereg-stage5-v2` on d6fc6f0 (2026-10-10 03:12
+EDT), signed off by the author ("sure!").** Section 15 of
+`PREREGISTRATION-STAGE5.md`, before any Stage 5 trial; `prereg-stage5-v1`
+still on e9425af.
+- **Before tagging:**
+  - the power figures were recomputed with `power_analysis.power`;
+  - the smallest margin detectable at power 0.90 is 0.77%, not the draft's
+    0.78%;
+  - H2 tolerates 6 non-reversals at Holm's strictest step and 7 at its last;
+  - `prereg_analysis.py` reproduced section 6 exactly on the Stage 2 pilot;
+  - the H4 code path was run on a throwaway relabelled copy that was not
+    kept.
+- **Next:** Stage 4 (Go scorers per section 10 and B11, fidelity test,
+  router mode, `stock_llmd` and `llmd_latency_least` configs). It is
+  committed as the materials addendum, `prereg-stage5-v1-materials`, before
+  trial 1. The sensitivity jobs keep running alongside.
 - **Sensitivity jobs.** The stored copies are free of control characters,
   carry a real `\b` and launch from the variables. The first two jobs,
   12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
