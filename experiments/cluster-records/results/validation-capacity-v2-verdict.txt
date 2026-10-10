@@ -1,0 +1,52 @@
+Validation of h = 0, rule v2 (capacity reference), 2026-10-10
+=============================================================
+
+Rule: experiments/scripts/validate_capacity.py, committed in ebaeac8 BEFORE
+the reference runs were submitted. Rule v1 (validate_h0.py) stays on record
+as FAILED, 81 of 90 (validation-h0-verdict.txt).
+
+Reference runs: one-type fleet (8x RTX 6000, frnt155), 300 req/s,
+round_robin and least_loaded, seeds 921-923:
+
+  job       seed  start (EDT)          state      realised req/s
+  12330546  921   2026-10-10T02:30:12  COMPLETED  296.6
+  12330547  922   2026-10-10T02:40:20  COMPLETED  301.8
+  12330548  923   2026-10-10T02:50:02  COMPLETED  298.3
+
+Conditions checked in every result record: open-loop curves, max_inflight
+256, headroom 0, tiebreak random, client_limited false (the generator kept
+to its schedule). keepup about 0.96 is server-side (achieved / realised
+rate), the overload this cell is about.
+
+vLLM limits as each server logged them: max_num_seqs 256 and
+max_num_batched_tokens 2048 on all 24 servers (8 per job). These jobs ran
+the script copy from before 4187daf, which sets the limits literally and has
+no log check, so they were confirmed from the logs after the run.
+
+Command:
+  python experiments/scripts/validate_capacity.py \
+    --validation results/stage2-12329238 results/stage2-12329241 \
+                 results/stage2-12329244 results/stage2het-12329239 \
+                 results/stage2het-12329242 results/stage2het-12329245 \
+    --reference  results/stage2-12330546 results/stage2-12330547 \
+                 results/stage2-12330548
+
+Output (verbatim):
+  Reference, one-type fleet at 300 req/s:
+    least_loaded  seed 921  SLO met  15.3%
+    round_robin   seed 921  SLO met  22.0%
+    least_loaded  seed 922  SLO met  12.1%
+    round_robin   seed 922  SLO met  16.5%
+    least_loaded  seed 923  SLO met  18.3%
+    round_robin   seed 923  SLO met  26.3%
+    -> BEYOND FLEET CAPACITY (excluded)
+
+  VALIDATION (v2) PASSED: all 81 combinations within fleet capacity met the SLO at h = 0.
+
+Exit code 0.
+
+Meaning: at 300 req/s even the two energy-blind spreading policies meet the
+2.0 s SLO for only 12-26% of requests, so the cell is beyond what this fleet
+can serve, matching the SLO-capacity estimate of about 265 req/s (about 33
+req/s per RTX 6000). The packers' failure there is a capacity limit, not a
+defect of h = 0. h = 0 is validated for every cell within capacity.

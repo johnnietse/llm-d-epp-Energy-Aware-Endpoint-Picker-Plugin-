@@ -1,0 +1,30 @@
+load generator: 16 worker process(es)
+--- round_robin at 300.0 req/s ---
+    J/req 5.20  goodput/J 0.0423  SLO 22.0%
+    TTFT p50/p95 0.052/0.064s  TPOT 0.0154s  ITL p99/max 0.0208/0.0901s  e2e p99 2.056s  errors 0
+    SLO margin p50/p95 1.005/1.018 x SLO  within 10% of boundary 95.6%
+    offered 300.0 req/s  achieved 284.6 req/s  fidelity 94.9%  send delay p99 0.003s  TTFT from send p50 0.051
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+--- least_loaded at 300.0 req/s ---
+    J/req 5.24  goodput/J 0.0292  SLO 15.3%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0154s  ITL p99/max 0.0208/0.0853s  e2e p99 2.049s  errors 0
+    SLO margin p50/p95 1.007/1.017 x SLO  within 10% of boundary 95.5%
+    offered 300.0 req/s  achieved 284.5 req/s  fidelity 94.8%  send delay p99 0.001s  TTFT from send p50 0.051
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2-12330546/policies-rate300.json
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 5.23  goodput/J 0.0314  SLO 16.4%
+    TTFT p50/p95 0.054/0.067s  TPOT 0.0154s  ITL p99/max 0.0207/0.0733s  e2e p99 2.048s  errors 0
+    SLO margin p50/p95 1.008/1.018 x SLO  within 10% of boundary 96.7%
+    offered 300.0 req/s  achieved 284.1 req/s  fidelity 94.7%  send delay p99 0.001s  TTFT from send p50 0.053
+    (policy INACTIVE on 95% of picks: the curve answered but no endpoint met the SLO, so every policy ran the same load-balancing fallback. Sound overload data; no policy comparison can rest on this cell.)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage2-12330546/control-counteronly.json
+  full telemetry : 5.196 J/req   poll=0.25s SLO=22.0%  p95=2.035s
+  counter only   : 5.229 J/req   poll=0.0s SLO=16.4%  p95=2.036s
+  energy difference    : -0.64%
+  p95 difference       : -0.05%
+  completed difference : +0.00%
+  VERDICT: telemetry overhead is not measurable (<1%). Pass A
+  numbers stand unqualified.

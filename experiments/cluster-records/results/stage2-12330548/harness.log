@@ -1,0 +1,27 @@
+load generator: 16 worker process(es)
+--- round_robin at 300.0 req/s ---
+    J/req 5.18  goodput/J 0.0508  SLO 26.3%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0154s  ITL p99/max 0.0206/0.0810s  e2e p99 2.063s  errors 0
+    SLO margin p50/p95 1.005/1.021 x SLO  within 10% of boundary 95.5%
+    offered 300.0 req/s  achieved 286.0 req/s  fidelity 95.3%  send delay p99 0.003s  TTFT from send p50 0.051
+--- least_loaded at 300.0 req/s ---
+    J/req 5.22  goodput/J 0.0350  SLO 18.3%
+    TTFT p50/p95 0.051/0.062s  TPOT 0.0154s  ITL p99/max 0.0207/0.0796s  e2e p99 2.053s  errors 0
+    SLO margin p50/p95 1.008/1.021 x SLO  within 10% of boundary 95.3%
+    offered 300.0 req/s  achieved 286.0 req/s  fidelity 95.3%  send delay p99 0.001s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/stage2-12330548/policies-rate300.json
+load generator: 16 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 5.20  goodput/J 0.0402  SLO 20.9%
+    TTFT p50/p95 0.053/0.066s  TPOT 0.0154s  ITL p99/max 0.0209/0.0974s  e2e p99 2.061s  errors 0
+    SLO margin p50/p95 1.008/1.024 x SLO  within 10% of boundary 96.5%
+    offered 300.0 req/s  achieved 285.9 req/s  fidelity 95.3%  send delay p99 0.001s  TTFT from send p50 0.053
+    (policy INACTIVE on 95% of picks: the curve answered but no endpoint met the SLO, so every policy ran the same load-balancing fallback. Sound overload data; no policy comparison can rest on this cell.)
+wrote /global/home/hpc6081/energy-epp/results/stage2-12330548/control-counteronly.json
+  full telemetry : 5.175 J/req   poll=0.25s SLO=26.3%  p95=2.042s
+  counter only   : 5.199 J/req   poll=0.0s SLO=20.9%  p95=2.047s
+  energy difference    : -0.47%
+  p95 difference       : -0.26%
+  completed difference : +0.00%
+  VERDICT: telemetry overhead is not measurable (<1%). Pass A
+  numbers stand unqualified.
