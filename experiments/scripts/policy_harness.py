@@ -126,6 +126,10 @@ class EnergyMeter:
         self.start_mj = self._read_mj()
         self.t0 = time.time()
         self._stop = False
+        # Timestamped counter readings, so energy can be taken over a
+        # sub-window (the traffic window, which ends at the last completion
+        # rather than after worker teardown). Begin and end reads bracket it.
+        self._counter = [(self.t0, self.start_mj)]
 
     async def poll_forever(self, interval=None):
         interval = self.poll_interval if interval is None else interval
@@ -137,11 +141,44 @@ class EnergyMeter:
                     self._poll[i].append(pynvml.nvmlDeviceGetPowerUsage(h) / 1000.0)
                 except pynvml.NVMLError:
                     pass
+            self._counter.append((time.time(), self._read_mj()))
             await asyncio.sleep(interval)
+
+    def window_energy(self, ta, tb):
+        """Counter energy (J, summed over GPUs) between ta and tb, linearly
+        interpolated between timestamped reads; None if the reads do not
+        bracket the window or any GPU's counter is missing. Interpolation
+        error is bounded by one poll interval of power at each edge.
+        Counter-only mode (no polling) has just the two end reads, and
+        interpolating between them would assume constant power, so it
+        returns None rather than a guess."""
+        if self.poll_interval <= 0:
+            return None
+        pts = sorted(self._counter, key=lambda p: p[0])
+        if len(pts) < 2 or not (pts[0][0] <= ta < tb <= pts[-1][0]):
+            return None
+
+        def at(t, g):
+            for (t1, m1), (t2, m2) in zip(pts, pts[1:]):
+                if t1 <= t <= t2:
+                    if m1[g] is None or m2[g] is None:
+                        return None
+                    if t2 == t1:
+                        return float(m1[g])
+                    return m1[g] + (m2[g] - m1[g]) * (t - t1) / (t2 - t1)
+            return None
+        total = 0.0
+        for g in range(len(self.handles)):
+            a, b = at(ta, g), at(tb, g)
+            if a is None or b is None:
+                return None
+            total += (b - a) / 1000.0
+        return total
 
     def end(self):
         self._stop = True
         end_mj = self._read_mj()
+        self._counter.append((time.time(), end_mj))
         dt = time.time() - self.t0
         per_gpu = []
         for i in range(len(self.handles)):
@@ -895,8 +932,12 @@ async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
     schedules against the same origin and the aggregate arrival process is the
     one that was generated, not W independent ones.
     """
+    # last_done: wall clock of this worker's last completion or error. The
+    # parent's own clock stops only after every worker process has exited, so
+    # it includes teardown; this one stops when the traffic does.
     out = {"latencies": [], "ttfts": [], "ttfts_from_send": [],
-           "send_delays": [], "itls": [], "completed": 0, "errors": 0}
+           "send_delays": [], "itls": [], "completed": 0, "errors": 0,
+           "last_done": 0.0}
     limits = httpx.Limits(max_connections=pool, max_keepalive_connections=pool)
 
     async def fire(client, idx, delay):
@@ -924,6 +965,7 @@ async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
             out["errors"] += 1
         finally:
             router.release(i)
+            out["last_done"] = max(out["last_done"], time.time())
 
     async with httpx.AsyncClient(limits=limits, http2=False) as client:
         await asyncio.gather(*(fire(client, idx, arrivals[k])
@@ -1039,6 +1081,15 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
             os.unlink(path)
 
     t_end = time.time()
+    # End of traffic: the last completion any worker saw. t_end above comes
+    # after every worker process has been joined, so it includes teardown.
+    # In jobs 12330596/8 teardown added about 14 s to some cells, cutting
+    # keep-up and inflating J/request while every request was served on time
+    # (docs/figures/measured/sensitivity/DATA-QUALITY.md). Both windows are
+    # recorded; the existing fields keep their original (join) meaning.
+    t_done = max((a.get("last_done") or 0.0) for a in agg)
+    if not t_start < t_done <= t_end:
+        t_done = t_end
     latencies = [x for a in agg for x in a["latencies"]]
     ttfts = [x for a in agg for x in a["ttfts"]]
     ttfts_from_send = [x for a in agg for x in a["ttfts_from_send"]]
@@ -1055,6 +1106,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                  + (ru_kids1.ru_stime - ru_kids0.ru_stime))
     if use_local_meter:
         energy = meter.end()
+        energy_traffic_j = meter.window_energy(t_start, t_done)
     else:
         if multinode_energy is None:
             raise SystemExit("--energy-mode multinode needs multinode_energy.py "
@@ -1088,6 +1140,11 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                     agg["skew_energy_uncertainty_pct"],
             },
         }
+        # Same samplers, traffic window. Incomplete means None, never a
+        # partial sum: the join-window figure above already refuses that.
+        tw = multinode_energy.aggregate(sample_dir, t_start, t_done, clock_skew,
+                                        tolerance_s=3.0 * SAMPLER_INTERVAL_S)
+        energy_traffic_j = tw["total_energy_j"] if tw["complete"] else None
     rapl_after = rapl_read(zones)
     engine_after = scrape_engine_metrics(endpoints)
     if poll_task is not None:
@@ -1197,6 +1254,21 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         "goodput_rps": met / elapsed if elapsed else None,
         "goodput_per_joule": (met / energy["total_energy_j"]
                               if energy["total_energy_j"] else None),
+        # Traffic window: from the schedule origin to the last completion,
+        # excluding worker teardown (see t_done). Recorded beside the
+        # join-window fields above, which keep their original meaning; which
+        # window defines the Stage 5 outcome is a materials-addendum decision.
+        "traffic_window_s": t_done - t_start,
+        "join_window_s": t_end - t_start,
+        "teardown_s": t_end - t_done,
+        "keepup_traffic": ((completed + errors) / max(1e-9, t_done - t_start))
+                          / (len(arrivals) / arrivals[-1])
+                          if arrivals and arrivals[-1] > 0 else None,
+        "energy_traffic_j": energy_traffic_j,
+        "j_per_request_traffic": (energy_traffic_j / completed
+                                  if energy_traffic_j and completed else None),
+        "goodput_per_joule_traffic": (met / energy_traffic_j
+                                      if energy_traffic_j else None),
         "activations": router.activations,
         # Curve lookups that fell outside the measured concurrency range.
         # Anything materially above zero means the routing decisions in

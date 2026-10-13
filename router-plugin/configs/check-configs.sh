@@ -22,7 +22,7 @@ cp "$HERE/../curves/"*.json "$T/"
 } > "$T/endpoints.yaml"
 
 fail=0
-for arm in energy_consolidate energy_greedy slo_packing round_robin least_loaded random; do
+for arm in energy_consolidate energy_greedy slo_packing round_robin least_loaded random stock_llmd; do
   ARM=$arm ENDPOINTS="$T/endpoints.yaml" CURVE_DIR="$T" SEED=501 HEADROOM=0 \
     MAX_INFLIGHT=256 SLO_S=2.0 bash "$HERE/epp-config.sh" > "$T/$arm.yaml" || { fail=1; continue; }
   "$BIN" --pool-name check --config-file "$T/$arm.yaml" --allow-experimental-plugins \

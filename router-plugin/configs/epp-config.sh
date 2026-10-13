@@ -24,10 +24,47 @@
 #     endpoint while in-flight < 1e9.
 # random: upstream random-picker, as registered (section 4). It is unseeded.
 #
-# stock_llmd and llmd_latency_least are NOT generated here. Their configs are
-# materials-addendum decisions (section 10 item 5, amendment B7).
+# stock_llmd (author decision 2026-10-13): llm-d-router v0.11.0's own sample,
+# deploy/config/epp-config.yaml, verbatim apart from the file-discovery source
+# every arm needs: prefix-cache-scorer (weight 2), decode-filter and
+# max-score-picker, with every upstream default left on (metrics scraping,
+# the default utilization saturation detector). decode-filter keeps endpoints
+# without an llm-d role label, so it passes this fleet through unchanged.
+#
+# llmd_latency_least is NOT generated here: it waits on the predictor
+# feasibility check (amendment B7).
 set -eu
-: "${ARM:?}" "${ENDPOINTS:?}" "${SEED:?}" "${HEADROOM:?}" "${MAX_INFLIGHT:?}" "${SLO_S:?}"
+: "${ARM:?}" "${ENDPOINTS:?}"
+if [ "$ARM" = stock_llmd ]; then
+cat <<EOF
+# llm-d-router v0.11.0 deploy/config/epp-config.yaml, plus file discovery.
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- name: file-disc
+  type: file-discovery
+  parameters:
+    path: $ENDPOINTS
+    watchFile: false
+- type: prefix-cache-scorer
+- type: decode-filter
+- type: max-score-picker
+- type: single-profile-handler
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: decode-filter
+  - pluginRef: max-score-picker
+  - pluginRef: prefix-cache-scorer
+    weight: 2
+dataLayer:
+  discovery:
+    endpoints:
+      pluginRef: file-disc
+EOF
+exit 0
+fi
+: "${SEED:?}" "${HEADROOM:?}" "${MAX_INFLIGHT:?}" "${SLO_S:?}"
 
 common_head() {
 cat <<EOF
