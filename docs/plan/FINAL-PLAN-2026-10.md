@@ -2035,6 +2035,28 @@ still on e9425af.
      snapshots in-flight counts per scheduling cycle and increments after
      the pick, while the Python Router held a lock across both. Concurrent
      cycles can therefore see the same count.
+
+**vLLM-limit sensitivity study: done (7be0966, 2026-10-13).** It is
+exploratory and does not change Stage 5.
+- **Jobs:** all 16 COMPLETED. Each confirms its limits in vLLM's own log and
+  has 90 curve rows.
+- **Result at 2.0 s:**
+  - A100: 128, 256 and 512 seqs reach 128 req/s; 64 seqs reaches 73.
+  - RTX 6000: 128, 256 and 512 seqs reach 27 req/s.
+  - Stage 5's 256/2048 is tied with the leader, within the leader's 95% CI,
+    on both GPUs.
+- **Data quality:** the two RTX 6000 64-seq curves were cut at 1 req/s by a
+  trial-level keep-up shortfall with normal latency.
+  - The harness takes `t_end` after joining its worker processes, so
+    elapsed time includes their teardown.
+  - The likely cause is contention from another user's jobs on frnt149; it
+    is not proven.
+  - Recorded in `docs/figures/measured/sensitivity/DATA-QUALITY.md`, with
+    the tables unchanged.
+  - The Stage 5 curves olc-12325349/50 show no such signature.
+- **Proposed for Stage 4 materials:** time each cell by its last request's
+  completion, as the workers report it, rather than by process join. The
+  sync freeze has lifted, since the sensitivity jobs are finished.
 - **Sensitivity jobs.** The stored copies are free of control characters,
   carry a real `\b` and launch from the variables. The first two jobs,
   12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
