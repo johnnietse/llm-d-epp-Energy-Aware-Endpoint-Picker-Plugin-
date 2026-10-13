@@ -319,6 +319,26 @@ def _parse_histogram(lines, name):
     return {"sum": total, "count": count, "mean": total / count}
 
 
+def scrape_epp_picks(hostport):
+    """energy_epp_policy_picks_total from the EPP's metrics port, summed by
+    outcome over every policy series. Returns {} when the scrape succeeded and
+    the EPP has no such counter (an arm without this project's scorer:
+    stock_llmd, random), and None when the scrape itself failed."""
+    try:
+        with urllib.request.urlopen("http://%s/metrics" % hostport, timeout=5) as r:
+            text = r.read().decode()
+    except (urllib.error.URLError, OSError):
+        return None
+    out = {}
+    for line in text.splitlines():
+        if not line.startswith("energy_epp_policy_picks_total{"):
+            continue
+        labels, _, val = line.rpartition(" ")
+        oc = labels.split('outcome="', 1)[1].split('"', 1)[0] if 'outcome="' in labels else "?"
+        out[oc] = out.get(oc, 0.0) + float(val)
+    return out
+
+
 def scrape_engine_metrics(endpoints):
     """Cache hit rate, queue depth, and the engine's own latency histograms.
 
@@ -925,12 +945,16 @@ def make_prompt(idx, seed):
 
 
 async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
-                      pool):
+                      pool, target=None):
     """Issue one worker's share of the arrival schedule.
 
     `arrivals` are absolute offsets from the common t_start, so every worker
     schedules against the same origin and the aggregate arrival process is the
     one that was generated, not W independent ones.
+
+    `target` (router mode, Stage 5): every request goes to this host:port, the
+    Envoy listener, and the llm-d EPP behind it chooses the server. The Python
+    Router then makes no decision at all.
     """
     # last_done: wall clock of this worker's last completion or error. The
     # parent's own clock stops only after every worker process has exited, so
@@ -942,8 +966,11 @@ async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
 
     async def fire(client, idx, delay):
         await asyncio.sleep(max(0.0, (t_start + delay) - time.time()))
-        i = router.pick(policy)
-        url = "http://" + endpoints[i]
+        if target:
+            i, url = None, "http://" + target
+        else:
+            i = router.pick(policy)
+            url = "http://" + endpoints[i]
         # Two clocks. t_sched is when the Poisson schedule said this request
         # should arrive; t_send is when the client actually got it out. Latency
         # and TTFT are reported from t_sched, because that is what a user
@@ -964,7 +991,8 @@ async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
         except Exception:
             out["errors"] += 1
         finally:
-            router.release(i)
+            if i is not None:
+                router.release(i)
             out["last_done"] = max(out["last_done"], time.time())
 
     async with httpx.AsyncClient(limits=limits, http2=False) as client:
@@ -974,14 +1002,14 @@ async def drive_slice(router, policy, endpoints, idxs, arrivals, t_start, seed,
 
 
 def worker_entry(wid, router, policy, endpoints, idxs, arrivals, t_start, seed,
-                 pool, out_path):
+                 pool, out_path, target=None):
     """Child-process entry point. Writes its aggregate to a file rather than a
     Queue: a worker returning tens of thousands of inter-token samples through
     a pipe can block on the pipe buffer while the parent is still waiting to
     join it, which deadlocks."""
     router.reseed(seed * 1009 + wid + 1)
     res = asyncio.run(drive_slice(router, policy, endpoints, idxs, arrivals,
-                                  t_start, seed, pool))
+                                  t_start, seed, pool, target=target))
     with open(out_path, "w") as fh:
         json.dump(res, fh)
 
@@ -990,7 +1018,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
                      scratch="/tmp", energy_mode="local", sample_dir=None,
                      clock_skew=0.0, headroom=0.0, max_inflight=None,
-                     tiebreak="index"):
+                     tiebreak="index", router_url=None, epp_metrics=None):
     router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1),
                     headroom=headroom, max_inflight=max_inflight,
                     tiebreak=tiebreak, seed=seed * 1009)
@@ -1022,6 +1050,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     zones = rapl_zones()
     rapl_before = rapl_read(zones)
     engine_before = scrape_engine_metrics(endpoints)
+    epp_before = scrape_epp_picks(epp_metrics) if router_url else None
     # The load generator runs on the SAME node as the servers, so its own CPU
     # time is inside the RAPL package energy for this cell. GPU-package energy,
     # the primary metric, is untouched; the CPU/DRAM figure is not, and a
@@ -1041,12 +1070,19 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     # at once during startup and appear as dispatch delay the generator did not
     # actually cause.
     lead = 1.0 if workers > 1 else 0.0
+    # Every interval here is wall clock, because multinode energy windows must
+    # line up across machines. A wall-clock step during a cell (NTP step, or a
+    # WSL resync: a 2.48 s backward step was caught on 2026-10-13 in the
+    # offline test) would silently shift latency, keep-up and the energy
+    # window. The monotonic clock cannot step, so their divergence over the
+    # cell is recorded as clock_step_s.
+    w_ref, m_ref = time.time(), time.monotonic()
     t_start = time.time() + lead
 
     if workers <= 1:
         agg = [await drive_slice(router, policy, endpoints,
                                  list(range(n_requests)), arrivals, t_start,
-                                 seed, pool)]
+                                 seed, pool, target=router_url)]
     else:
         ctx = mp.get_context("fork")
         procs, paths = [], []
@@ -1059,7 +1095,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
             proc = ctx.Process(target=worker_entry,
                                args=(w, router, policy, endpoints, idxs,
                                      slice_arrivals, t_start, seed, pool,
-                                     path))
+                                     path, router_url))
             proc.start()
             procs.append(proc)
         loop = asyncio.get_running_loop()
@@ -1081,6 +1117,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
             os.unlink(path)
 
     t_end = time.time()
+    clock_step_s = (t_end - w_ref) - (time.monotonic() - m_ref)
     # End of traffic: the last completion any worker saw. t_end above comes
     # after every worker process has been joined, so it includes teardown.
     # In jobs 12330596/8 teardown added about 14 s to some cells, cutting
@@ -1147,6 +1184,7 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         energy_traffic_j = tw["total_energy_j"] if tw["complete"] else None
     rapl_after = rapl_read(zones)
     engine_after = scrape_engine_metrics(endpoints)
+    epp_after = scrape_epp_picks(epp_metrics) if router_url else None
     if poll_task is not None:
         poll_task.cancel()
         try:
@@ -1170,8 +1208,9 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     fidelity = achieved / rate if rate else 0.0
     sd_p99 = pct(send_delays, 0.99)
     sd_budget = max(SEND_DELAY_FLOOR_S, SEND_DELAY_SLO_FRAC * slo_s)
-    return {
+    res = {
         "policy": policy,
+        "routing": "harness",
         "offered_rate_rps": rate,
         "achieved_rate_rps": achieved,
         "rate_fidelity": fidelity,
@@ -1258,6 +1297,10 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
         # excluding worker teardown (see t_done). Recorded beside the
         # join-window fields above, which keep their original meaning; which
         # window defines the Stage 5 outcome is a materials-addendum decision.
+        # Wall minus monotonic elapsed over the cell; anything beyond a few
+        # milliseconds means the wall clock stepped and every interval above
+        # is suspect.
+        "clock_step_s": clock_step_s,
         "traffic_window_s": t_done - t_start,
         "join_window_s": t_end - t_start,
         "teardown_s": t_end - t_done,
@@ -1310,6 +1353,48 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
             st.mean(ttfts_from_send) if ttfts_from_send else None,
             st.mean(all_itls) if all_itls else None),
     }
+    if router_url:
+        apply_router_mode(res, router_url, epp_before, epp_after, completed)
+    return res
+
+
+def apply_router_mode(res, router_url, epp_before, epp_after, completed):
+    """Router mode: the EPP decided, so the Python Router's counters are
+    meaningless and must not be reported. The validity fields the frozen
+    analysis reads (router_ungrounded_frac, router_saturated_frac; section 7
+    of the pre-registration) are filled from the EPP's own decision counter,
+    with the same denominator as before (completed requests):
+
+      * ungrounded + misconfigured picks count as ungrounded. A misconfigured
+        pick had no curve or in-flight count behind it, so it is no more
+        grounded than an ungrounded one; counting it makes a broken arm
+        invalid instead of quietly clean.
+      * The EPP counter absent (scrape fine, no series): an arm without this
+        project's scorer (stock_llmd, random). It makes no curve-based
+        decision, so both fractions are 0.
+      * Scrape failed: nothing can be verified, so the cell is marked fully
+        ungrounded and fails validity rather than passing unverified.
+    """
+    res["routing"] = "router"
+    res["router_target"] = router_url
+    for k in ("router_out_of_range", "router_curve_max_concurrency"):
+        res[k] = None
+    if epp_before is None or epp_after is None:
+        res["epp_picks"] = None
+        res["router_ungrounded_picks"] = completed
+        res["router_saturated_picks"] = 0
+        res["router_ungrounded_frac"] = 1.0
+        res["router_saturated_frac"] = 0.0
+        return
+    d = {k: epp_after.get(k, 0.0) - epp_before.get(k, 0.0)
+         for k in set(epp_before) | set(epp_after)}
+    res["epp_picks"] = d
+    ung = d.get("ungrounded", 0.0) + d.get("misconfigured", 0.0)
+    sat = d.get("saturated", 0.0)
+    res["router_ungrounded_picks"] = ung
+    res["router_saturated_picks"] = sat
+    res["router_ungrounded_frac"] = ung / completed if completed else 0.0
+    res["router_saturated_frac"] = sat / completed if completed else 0.0
 
 
 def main():
@@ -1358,11 +1443,23 @@ def main():
     ap.add_argument("--poll-interval", type=float, default=0.25,
                     help="power-poll period in seconds; 0 = counter only "
                          "(used by the perturbation control arm)")
+    ap.add_argument("--router",
+                    help="router mode (Stage 5): send every request to this "
+                         "host:port, the Envoy listener, and let the llm-d EPP "
+                         "choose the server. --policies then only labels the "
+                         "arm; --endpoints still lists the vLLM servers, for "
+                         "their engine metrics")
+    ap.add_argument("--epp-metrics",
+                    help="host:port of the EPP metrics endpoint; required with "
+                         "--router, since the cell's validity fields come from "
+                         "the EPP's decision counter")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     if args.energy_mode == "multinode" and not args.sample_dir:
         raise SystemExit("--energy-mode multinode requires --sample-dir")
+    if args.router and not args.epp_metrics:
+        raise SystemExit("--router requires --epp-metrics")
 
     endpoints = args.endpoints.split(",")
     gpus = [int(x) for x in args.gpus.split(",")]
@@ -1398,7 +1495,9 @@ def main():
                                    clock_skew=args.clock_skew,
                                    headroom=args.headroom,
                                    max_inflight=args.max_inflight,
-                                   tiebreak=args.tiebreak))
+                                   tiebreak=args.tiebreak,
+                                   router_url=args.router,
+                                   epp_metrics=args.epp_metrics))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")
