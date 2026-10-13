@@ -1,0 +1,6 @@
+ARM energy_consolidate PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'saturated': 0.0, 'misconfigured': 0.0, 'feasible': 600.0, 'ungrounded': 0.0} | p95=1.77s slo=0.973 keepup=0.953 clock_step=-0.0000 gpj=0.08170793535818624 | inflight: vLLM mean 33.4, |EPP-vLLM| mean 34.71 over 52 samples
+ARM round_robin FAIL | completed=600 errors=0 split vllm-0/vllm-1=316/284 (top 53%) | epp_picks={'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0} | p95=1.45s slo=1.000 keepup=0.957 clock_step=-0.0000 gpj=0.0555456753407575 | inflight: vLLM mean 26.8, |EPP-vLLM| mean 27.63 over 54 samples
+   reason: misconfigured/ungrounded picks {'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0}
+   reason: round_robin split 316/284
+ARM stock_llmd PASS | completed=600 errors=0 split vllm-0/vllm-1=302/298 (top 50%) | epp_picks={} | p95=1.44s slo=1.000 keepup=0.958 clock_step=-0.0000 gpj=0.05443609515867016 | inflight: vLLM mean 26.5, |EPP-vLLM| mean 26.52 over 54 samples
+VERDICT=FAIL

@@ -1,0 +1,22 @@
+load generator: 2 worker process(es)
+--- energy_consolidate at 20.0 req/s ---
+    J/req 11.91  goodput/J 0.0817  SLO 97.3%
+    TTFT p50/p95 0.044/0.084s  TPOT 0.0125s  ITL p99/max 0.0179/0.0485s  e2e p99 2.534s  errors 0
+    SLO margin p50/p95 0.820/0.883 x SLO  within 10% of boundary 2.5%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.3%  send delay p99 0.003s  TTFT from send p50 0.043
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-energy_consolidate.json
+load generator: 2 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 18.00  goodput/J 0.0555  SLO 100.0%
+    TTFT p50/p95 0.037/0.049s  TPOT 0.0103s  ITL p99/max 0.0172/0.0432s  e2e p99 1.457s  errors 0
+    SLO margin p50/p95 0.679/0.723 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.7%  send delay p99 0.002s  TTFT from send p50 0.036
+    *** UNGROUNDED ROUTING on 600 of 600 picks (100.0%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-round_robin.json
+load generator: 2 worker process(es)
+--- stock_llmd at 20.0 req/s ---
+    J/req 18.37  goodput/J 0.0544  SLO 100.0%
+    TTFT p50/p95 0.038/0.052s  TPOT 0.0102s  ITL p99/max 0.0198/0.0402s  e2e p99 1.450s  errors 0
+    SLO margin p50/p95 0.659/0.718 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-stock_llmd.json

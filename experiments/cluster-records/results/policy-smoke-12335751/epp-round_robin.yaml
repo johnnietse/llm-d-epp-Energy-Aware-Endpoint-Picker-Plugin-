@@ -1,0 +1,41 @@
+plugins:
+  - name: file-disc
+    type: file-discovery
+    parameters:
+      path: /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/endpoints.yaml
+      watchFile: false
+  - name: inflight
+    type: inflight-load-producer
+  - name: inert-saturation
+    type: concurrency-detector
+    parameters:
+      maxConcurrency: 1000000000
+      maxTokenConcurrency: 1000000000000
+  - name: single-profile
+    type: single-profile-handler
+  - name: policy
+    type: energy-epp-policy-scorer
+    parameters:
+      policy: round_robin
+      curves: {}
+      sloSeconds: 2.0
+      headroom: 0
+      maxInflight: 256
+  - name: picker
+    type: energy-epp-seeded-random-picker
+    parameters:
+      seed: 501
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: policy
+        weight: 1
+      - pluginRef: picker
+flowControl:
+  saturationDetector:
+    pluginRef: inert-saturation
+dataLayer:
+  injectDefaults: false
+  discovery:
+    endpoints:
+      pluginRef: file-disc

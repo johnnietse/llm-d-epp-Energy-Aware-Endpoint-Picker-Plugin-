@@ -1,0 +1,48 @@
+node=frnt150.frontenac.local job=12335751 base=47510 gpus=0,1 arms=[energy_consolidate round_robin stock_llmd] rate=20 n=600
+epp sha256=a7664114de00dd878548357598a30c3a88b6e5f0fc24d71a4720931c1fed5fa0
+vLLM 2/2 healthy, limits 256/2048 confirmed in both logs
+
+================ arm energy_consolidate ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- energy_consolidate at 20.0 req/s ---
+    J/req 11.91  goodput/J 0.0817  SLO 97.3%
+    TTFT p50/p95 0.044/0.084s  TPOT 0.0125s  ITL p99/max 0.0179/0.0485s  e2e p99 2.534s  errors 0
+    SLO margin p50/p95 0.820/0.883 x SLO  within 10% of boundary 2.5%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.3%  send delay p99 0.003s  TTFT from send p50 0.043
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-energy_consolidate.json
+ARM energy_consolidate PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'saturated': 0.0, 'misconfigured': 0.0, 'feasible': 600.0, 'ungrounded': 0.0} | p95=1.77s slo=0.973 keepup=0.953 clock_step=-0.0000 gpj=0.08170793535818624 | inflight: vLLM mean 33.4, |EPP-vLLM| mean 34.71 over 52 samples
+
+================ arm round_robin ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 18.00  goodput/J 0.0555  SLO 100.0%
+    TTFT p50/p95 0.037/0.049s  TPOT 0.0103s  ITL p99/max 0.0172/0.0432s  e2e p99 1.457s  errors 0
+    SLO margin p50/p95 0.679/0.723 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.7%  send delay p99 0.002s  TTFT from send p50 0.036
+    *** UNGROUNDED ROUTING on 600 of 600 picks (100.0%): no endpoint had curve data for its concurrency, so the policy fell back to load balancing. Above a few percent this is not the policy being measured.
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-round_robin.json
+ARM round_robin FAIL | completed=600 errors=0 split vllm-0/vllm-1=316/284 (top 53%) | epp_picks={'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0} | p95=1.45s slo=1.000 keepup=0.957 clock_step=-0.0000 gpj=0.0555456753407575 | inflight: vLLM mean 26.8, |EPP-vLLM| mean 27.63 over 54 samples
+   reason: misconfigured/ungrounded picks {'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0}
+   reason: round_robin split 316/284
+
+================ arm stock_llmd ================
+  profile: {Filters: [decode-filter/decode-filter, utilization-detector/utilization-detector], Scorers: [prefix-cache-scorer/prefix-cache-scorer: 2.000000], Picker: max-score-picker/max-score-picker
+load generator: 2 worker process(es)
+--- stock_llmd at 20.0 req/s ---
+    J/req 18.37  goodput/J 0.0544  SLO 100.0%
+    TTFT p50/p95 0.038/0.052s  TPOT 0.0102s  ITL p99/max 0.0198/0.0402s  e2e p99 1.450s  errors 0
+    SLO margin p50/p95 0.659/0.718 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335751/cell-stock_llmd.json
+ARM stock_llmd PASS | completed=600 errors=0 split vllm-0/vllm-1=302/298 (top 50%) | epp_picks={} | p95=1.44s slo=1.000 keepup=0.958 clock_step=-0.0000 gpj=0.05443609515867016 | inflight: vLLM mean 26.5, |EPP-vLLM| mean 26.52 over 54 samples
+
+================ verdict ================
+ARM energy_consolidate PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'saturated': 0.0, 'misconfigured': 0.0, 'feasible': 600.0, 'ungrounded': 0.0} | p95=1.77s slo=0.973 keepup=0.953 clock_step=-0.0000 gpj=0.08170793535818624 | inflight: vLLM mean 33.4, |EPP-vLLM| mean 34.71 over 52 samples
+ARM round_robin FAIL | completed=600 errors=0 split vllm-0/vllm-1=316/284 (top 53%) | epp_picks={'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0} | p95=1.45s slo=1.000 keepup=0.957 clock_step=-0.0000 gpj=0.0555456753407575 | inflight: vLLM mean 26.8, |EPP-vLLM| mean 27.63 over 54 samples
+   reason: misconfigured/ungrounded picks {'saturated': 0.0, 'misconfigured': 600.0, 'ungrounded': 0.0, 'feasible': 0.0}
+   reason: round_robin split 316/284
+ARM stock_llmd PASS | completed=600 errors=0 split vllm-0/vllm-1=302/298 (top 50%) | epp_picks={} | p95=1.44s slo=1.000 keepup=0.958 clock_step=-0.0000 gpj=0.05443609515867016 | inflight: vLLM mean 26.5, |EPP-vLLM| mean 26.52 over 54 samples
+reason=
+VERDICT=FAIL

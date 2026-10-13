@@ -74,7 +74,13 @@ plugins:
     parameters:
       path: $ENDPOINTS
       watchFile: false
-  - name: inflight
+  # One in-flight producer, under the default name. The scorer and the
+  # detector read the default-named key; a producer under any other name
+  # makes the router inject a second, default one, and only one of the two
+  # attaches the count to the endpoints - which one varied between starts
+  # (policy smoke job 12335751: round_robin read nothing, 600 picks
+  # misconfigured, while energy_consolidate worked).
+  - name: inflight-load-producer
     type: inflight-load-producer
   - name: inert-saturation
     type: concurrency-detector

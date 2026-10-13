@@ -180,13 +180,14 @@ EOF
 served() { local n; n="$(grep -c 'POST /v1/completions' "$RUN/vllm-$1.log" 2>/dev/null)"; echo "${n:-0}"; }
 
 # Samples, every 0.5 s: the EPP's in-flight gauge per endpoint and vLLM's own
-# running + waiting per server. Written to a CSV the verdict reads.
+# running + waiting per server. Written to a CSV the verdict reads. Only the
+# default producer's series: job 12335751 summed two producers and doubled it.
 sampler() {  # $1 = output csv
   echo "t,epp_inflight_0,epp_inflight_1,vllm_rw_0,vllm_rw_1" > "$1"
   while :; do
     m="$(curl -s --max-time 1 "http://127.0.0.1:$EPP_METRICS/metrics")"
-    e0="$(printf '%s\n' "$m" | awk '/^llm_d_epp_inflight_requests\{/ && /endpoint_name="vllm-0"/ {s+=$NF} END{print s+0}')"
-    e1="$(printf '%s\n' "$m" | awk '/^llm_d_epp_inflight_requests\{/ && /endpoint_name="vllm-1"/ {s+=$NF} END{print s+0}')"
+    e0="$(printf '%s\n' "$m" | awk '/^llm_d_epp_inflight_requests\{/ && /endpoint_name="vllm-0"/ && /producer_name="inflight-load-producer"/ {s+=$NF} END{print s+0}')"
+    e1="$(printf '%s\n' "$m" | awk '/^llm_d_epp_inflight_requests\{/ && /endpoint_name="vllm-1"/ && /producer_name="inflight-load-producer"/ {s+=$NF} END{print s+0}')"
     v=()
     for p in "$VLLM_PORT0" "$VLLM_PORT1"; do
       v+=("$(curl -s --max-time 1 "http://127.0.0.1:$p/metrics" \
