@@ -1,0 +1,90 @@
+node=frnt150.frontenac.local job=12335763 base=47630 gpus=0,1 arms=[energy_consolidate energy_greedy slo_packing round_robin least_loaded random stock_llmd] rate=20 n=600
+epp sha256=a7664114de00dd878548357598a30c3a88b6e5f0fc24d71a4720931c1fed5fa0
+vLLM 2/2 healthy, limits 256/2048 confirmed in both logs
+
+================ arm energy_consolidate ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- energy_consolidate at 20.0 req/s ---
+    J/req 11.88  goodput/J 0.0821  SLO 97.5%
+    TTFT p50/p95 0.044/0.100s  TPOT 0.0125s  ITL p99/max 0.0185/0.0441s  e2e p99 2.568s  errors 0
+    SLO margin p50/p95 0.821/0.883 x SLO  within 10% of boundary 2.2%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.3%  send delay p99 0.002s  TTFT from send p50 0.044
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-energy_consolidate.json
+ARM energy_consolidate PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'misconfigured': 0.0, 'ungrounded': 0.0, 'saturated': 0.0, 'feasible': 600.0} | p95=1.77s slo=0.975 keepup=0.953 clock_step=-0.0000 gpj=0.08209813842374633 | inflight: vLLM mean 31.8, |EPP-vLLM| mean 1.78 over 54 samples
+
+================ arm energy_greedy ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- energy_greedy at 20.0 req/s ---
+    J/req 12.20  goodput/J 0.0820  SLO 100.0%
+    TTFT p50/p95 0.043/0.054s  TPOT 0.0122s  ITL p99/max 0.0182/0.0325s  e2e p99 1.730s  errors 0
+    SLO margin p50/p95 0.793/0.860 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.3%  send delay p99 0.003s  TTFT from send p50 0.042
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-energy_greedy.json
+ARM energy_greedy PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'misconfigured': 0.0, 'saturated': 0.0, 'ungrounded': 0.0, 'feasible': 600.0} | p95=1.72s slo=1.000 keepup=0.953 clock_step=-0.0000 gpj=0.08195153447070637 | inflight: vLLM mean 31.2, |EPP-vLLM| mean 0.57 over 54 samples
+
+================ arm slo_packing ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- slo_packing at 20.0 req/s ---
+    J/req 12.37  goodput/J 0.0809  SLO 100.0%
+    TTFT p50/p95 0.043/0.055s  TPOT 0.0122s  ITL p99/max 0.0184/0.0241s  e2e p99 1.730s  errors 0
+    SLO margin p50/p95 0.795/0.859 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.3%  send delay p99 0.003s  TTFT from send p50 0.042
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-slo_packing.json
+ARM slo_packing PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'ungrounded': 0.0, 'misconfigured': 0.0, 'feasible': 600.0, 'saturated': 0.0} | p95=1.72s slo=1.000 keepup=0.953 clock_step=-0.0000 gpj=0.08085282127766773 | inflight: vLLM mean 31.4, |EPP-vLLM| mean 0.78 over 54 samples
+
+================ arm round_robin ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 18.41  goodput/J 0.0543  SLO 100.0%
+    TTFT p50/p95 0.036/0.048s  TPOT 0.0102s  ITL p99/max 0.0174/0.0284s  e2e p99 1.425s  errors 0
+    SLO margin p50/p95 0.660/0.709 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.036
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-round_robin.json
+ARM round_robin PASS | completed=600 errors=0 split vllm-0/vllm-1=300/300 (top 50%) | epp_picks={'misconfigured': 0.0, 'feasible': 600.0, 'saturated': 0.0, 'ungrounded': 0.0} | p95=1.42s slo=1.000 keepup=0.958 clock_step=-0.0000 gpj=0.05432752064548297 | inflight: vLLM mean 26.4, |EPP-vLLM| mean 0.61 over 54 samples
+
+================ arm least_loaded ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker
+load generator: 2 worker process(es)
+--- least_loaded at 20.0 req/s ---
+    J/req 18.65  goodput/J 0.0536  SLO 100.0%
+    TTFT p50/p95 0.036/0.048s  TPOT 0.0102s  ITL p99/max 0.0175/0.0447s  e2e p99 1.420s  errors 0
+    SLO margin p50/p95 0.658/0.706 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.035
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-least_loaded.json
+ARM least_loaded PASS | completed=600 errors=0 split vllm-0/vllm-1=301/299 (top 50%) | epp_picks={'misconfigured': 0.0, 'saturated': 0.0, 'ungrounded': 0.0, 'feasible': 600.0} | p95=1.41s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.053623522043385004 | inflight: vLLM mean 26.5, |EPP-vLLM| mean 0.72 over 54 samples
+
+================ arm random ================
+  profile: {Filters: [inert-saturation/concurrency-detector], Scorers: [], Picker: picker/random-picker
+load generator: 2 worker process(es)
+--- random at 20.0 req/s ---
+    J/req 18.96  goodput/J 0.0528  SLO 100.0%
+    TTFT p50/p95 0.036/0.048s  TPOT 0.0102s  ITL p99/max 0.0176/0.0291s  e2e p99 1.443s  errors 0
+    SLO margin p50/p95 0.668/0.714 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.8%  send delay p99 0.002s  TTFT from send p50 0.035
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-random.json
+ARM random PASS | completed=600 errors=0 split vllm-0/vllm-1=286/314 (top 52%) | epp_picks={} | p95=1.43s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.052753397617730895 | inflight: vLLM mean 26.3, |EPP-vLLM| mean 0.76 over 54 samples
+
+================ arm stock_llmd ================
+  profile: {Filters: [decode-filter/decode-filter, utilization-detector/utilization-detector], Scorers: [prefix-cache-scorer/prefix-cache-scorer: 2.000000], Picker: max-score-picker/max-score-picker
+load generator: 2 worker process(es)
+--- stock_llmd at 20.0 req/s ---
+    J/req 19.21  goodput/J 0.0520  SLO 100.0%
+    TTFT p50/p95 0.037/0.052s  TPOT 0.0102s  ITL p99/max 0.0187/0.0647s  e2e p99 1.447s  errors 0
+    SLO margin p50/p95 0.657/0.714 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.0 req/s  fidelity 99.9%  send delay p99 0.003s  TTFT from send p50 0.036
+wrote /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/cell-stock_llmd.json
+ARM stock_llmd PASS | completed=600 errors=0 split vllm-0/vllm-1=302/298 (top 50%) | epp_picks={} | p95=1.43s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.052046800923027256 | inflight: vLLM mean 26.2, |EPP-vLLM| mean 26.19 over 54 samples
+
+================ verdict ================
+ARM energy_consolidate PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'misconfigured': 0.0, 'ungrounded': 0.0, 'saturated': 0.0, 'feasible': 600.0} | p95=1.77s slo=0.975 keepup=0.953 clock_step=-0.0000 gpj=0.08209813842374633 | inflight: vLLM mean 31.8, |EPP-vLLM| mean 1.78 over 54 samples
+ARM energy_greedy PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'misconfigured': 0.0, 'saturated': 0.0, 'ungrounded': 0.0, 'feasible': 600.0} | p95=1.72s slo=1.000 keepup=0.953 clock_step=-0.0000 gpj=0.08195153447070637 | inflight: vLLM mean 31.2, |EPP-vLLM| mean 0.57 over 54 samples
+ARM slo_packing PASS | completed=600 errors=0 split vllm-0/vllm-1=599/1 (top 100%) | epp_picks={'ungrounded': 0.0, 'misconfigured': 0.0, 'feasible': 600.0, 'saturated': 0.0} | p95=1.72s slo=1.000 keepup=0.953 clock_step=-0.0000 gpj=0.08085282127766773 | inflight: vLLM mean 31.4, |EPP-vLLM| mean 0.78 over 54 samples
+ARM round_robin PASS | completed=600 errors=0 split vllm-0/vllm-1=300/300 (top 50%) | epp_picks={'misconfigured': 0.0, 'feasible': 600.0, 'saturated': 0.0, 'ungrounded': 0.0} | p95=1.42s slo=1.000 keepup=0.958 clock_step=-0.0000 gpj=0.05432752064548297 | inflight: vLLM mean 26.4, |EPP-vLLM| mean 0.61 over 54 samples
+ARM least_loaded PASS | completed=600 errors=0 split vllm-0/vllm-1=301/299 (top 50%) | epp_picks={'misconfigured': 0.0, 'saturated': 0.0, 'ungrounded': 0.0, 'feasible': 600.0} | p95=1.41s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.053623522043385004 | inflight: vLLM mean 26.5, |EPP-vLLM| mean 0.72 over 54 samples
+ARM random PASS | completed=600 errors=0 split vllm-0/vllm-1=286/314 (top 52%) | epp_picks={} | p95=1.43s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.052753397617730895 | inflight: vLLM mean 26.3, |EPP-vLLM| mean 0.76 over 54 samples
+ARM stock_llmd PASS | completed=600 errors=0 split vllm-0/vllm-1=302/298 (top 50%) | epp_picks={} | p95=1.43s slo=1.000 keepup=0.959 clock_step=-0.0000 gpj=0.052046800923027256 | inflight: vLLM mean 26.2, |EPP-vLLM| mean 26.19 over 54 samples
+VERDICT=PASS

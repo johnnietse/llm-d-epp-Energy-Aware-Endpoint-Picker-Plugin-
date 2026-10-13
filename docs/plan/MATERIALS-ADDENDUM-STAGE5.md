@@ -31,6 +31,9 @@ Configs are written by `router-plugin/configs/epp-config.sh`.
 `check-configs.sh` loads each one in the built binary and prints its final
 scheduling profile.
 
+Every project arm declares exactly one in-flight producer, under the default
+name `inflight-load-producer` (see the checklist below).
+
 | Arm | Profile after v0.11.0's defaults |
 |---|---|
 | `energy_consolidate`, `energy_greedy`, `slo_packing`, `round_robin` | inert concurrency detector (limit 10^9), policy scorer, seeded picker; `injectDefaults: false` |
@@ -99,8 +102,25 @@ denominator (completed requests) as the Python `Router` used:
       an EPP restart per arm, `--energy-window traffic`, the M5 re-run
       rule, and per-node energy samplers (section 10 item 4).
 - [ ] The `llmd_latency_least` feasibility check and its outcome (B7).
-- [ ] A cluster smoke test with real vLLM servers. It checks pick counts,
-      outcome counters, router mode end to end, and the EPP's in-flight
-      count against vLLM's running and waiting gauges (the scheduling-cycle
-      race noted in the plan).
+- [x] **Cluster smoke test, PASS on all seven arms** (job 12335763, records
+      committed). Two RTX 6000s, 20 req/s, 600 requests per arm, router
+      mode, traffic window.
+      - **Requests:** every request completed and appears in vLLM's logs.
+      - **Decisions:** the project arms made exactly one EPP decision per
+        request, all feasible. None were ungrounded or misconfigured.
+      - **Routing:** the packing arms placed 599 of 600 on one GPU;
+        round_robin split 300/300; least_loaded 301/299; random 286/314;
+        stock_llmd 302/298.
+      - **In-flight count:** the EPP's count sits within 0.6-1.8 requests,
+        on average, of vLLM's running plus waiting (about 31 in flight), so
+        the scheduling-cycle race is small.
+- [x] **Defect found by the first smoke run (job 12335751), fixed before
+      the tag.** The configs declared their in-flight producer as
+      `inflight`, so the router also injected the default producer.
+      - Only one of the two attaches the count to the endpoints, and which
+        one varied at random between starts.
+      - round_robin therefore logged 600 misconfigured picks and fell back
+        to random. The fail-closed counter caught it.
+      - Each config now declares one producer under the default name.
+        `check-configs.sh` asserts the wiring over 5 starts per arm.
 - [ ] The author's sign-off, then the tag.

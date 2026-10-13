@@ -1,0 +1,47 @@
+plugins:
+  - name: file-disc
+    type: file-discovery
+    parameters:
+      path: /global/home/hpc6081/energy-epp/results/policy-smoke-12335763/endpoints.yaml
+      watchFile: false
+  # One in-flight producer, under the default name. The scorer and the
+  # detector read the default-named key; a producer under any other name
+  # makes the router inject a second, default one, and only one of the two
+  # attaches the count to the endpoints - which one varied between starts
+  # (policy smoke job 12335751: round_robin read nothing, 600 picks
+  # misconfigured, while energy_consolidate worked).
+  - name: inflight-load-producer
+    type: inflight-load-producer
+  - name: inert-saturation
+    type: concurrency-detector
+    parameters:
+      maxConcurrency: 1000000000
+      maxTokenConcurrency: 1000000000000
+  - name: single-profile
+    type: single-profile-handler
+  - name: policy
+    type: energy-epp-policy-scorer
+    parameters:
+      policy: least_loaded
+      curves: {}
+      sloSeconds: 2.0
+      headroom: 0
+      maxInflight: 256
+  - name: picker
+    type: energy-epp-seeded-random-picker
+    parameters:
+      seed: 501
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: policy
+        weight: 1
+      - pluginRef: picker
+flowControl:
+  saturationDetector:
+    pluginRef: inert-saturation
+dataLayer:
+  injectDefaults: false
+  discovery:
+    endpoints:
+      pluginRef: file-disc

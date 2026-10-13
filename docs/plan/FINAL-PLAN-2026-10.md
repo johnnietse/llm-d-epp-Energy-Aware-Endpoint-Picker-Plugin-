@@ -2331,3 +2331,28 @@ The lesson from 12303327 is worth keeping in front: a pipeline that fails
 loudly is cheap, and this one failed silently and handed back a publishable
 -25% energy result. Every number now carries the measurement that would have
 caught it.
+
+**Stage 4, part 3: cluster smoke tests (2026-10-13).**
+- **Job 12335751 failed one arm, and that was a real defect.**
+  - Each arm's config declared an in-flight producer named `inflight`, so
+    the router also injected its default producer. Only one of the two
+    attaches the count to the endpoints, and which one flips at random
+    between starts: a negative control on the old config went 4 of 8 each
+    way.
+  - round_robin read nothing: 600 picks were misconfigured, and it fell back
+    to random. The fail-closed counter exposed it.
+  - Fixed in 7d1611e: one producer, under the default name.
+    `check-configs.sh` now asserts the wiring over 5 starts per arm, and all
+    30 starts were correct.
+- **Job 12335763 passed on all seven arms** (2 RTX 6000s, 20 req/s, 600
+  requests per arm).
+  - Every request completed, with exactly one EPP decision each, all
+    feasible.
+  - The packing arms put 599 of 600 on one GPU; round_robin split 300/300.
+  - The EPP's in-flight count sits within 0.6-1.8 of vLLM's running plus
+    waiting, at about 31 in flight.
+- **Not a result:** the packing arms' requests per joule (about 0.082)
+  against the spreading arms' (about 0.053) is a two-GPU, low-load smoke
+  run, with the idle second GPU in the energy.
+- **Still open:** the Stage 5 run script and the llmd_latency_least
+  predictor check (B7). Then the author's sign-off and the materials tag.
