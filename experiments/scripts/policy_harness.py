@@ -870,6 +870,13 @@ POLICIES = ["round_robin", "least_loaded", "slo_packing",
 
 # ------------------------------------------------------------------ the driver
 
+# Extra request headers, set once in main() before any worker forks. Only the
+# llmd_latency_least arm uses them: llm-d's latency scorer reads per-request
+# SLOs from x-llm-d-slo-ttft-ms / x-llm-d-slo-tpot-ms (amendment B7). Every
+# other arm sends none, so their requests are byte-identical to before.
+EXTRA_HEADERS = {}
+
+
 async def one_request(client, base_url, prompt, timeout=300):
     """Stream the completion so TTFT and inter-token latency are measurable.
 
@@ -900,7 +907,7 @@ async def one_request(client, base_url, prompt, timeout=300):
     stamps = []
     async with client.stream(
             "POST", base_url + "/v1/completions", content=body,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **EXTRA_HEADERS},
             timeout=timeout) as r:
         r.raise_for_status()
         async for raw in r.aiter_lines():
@@ -1486,6 +1493,12 @@ def main():
                     help="host:port of the EPP metrics endpoint; required with "
                          "--router, since the cell's validity fields come from "
                          "the EPP's decision counter")
+    ap.add_argument("--slo-ttft-ms", type=float, default=None,
+                    help="send x-llm-d-slo-ttft-ms on every request (the "
+                         "llmd_latency_least arm only, amendment B7)")
+    ap.add_argument("--slo-tpot-ms", type=float, default=None,
+                    help="send x-llm-d-slo-tpot-ms on every request; with "
+                         "--slo-ttft-ms, TTFT + 127 x TPOT = the 2.0 s SLO")
     ap.add_argument("--energy-window", choices=("join", "traffic"),
                     default="join",
                     help="which window fills keepup, j_per_request, "
@@ -1500,6 +1513,11 @@ def main():
         raise SystemExit("--energy-mode multinode requires --sample-dir")
     if args.router and not args.epp_metrics:
         raise SystemExit("--router requires --epp-metrics")
+    if (args.slo_ttft_ms is None) != (args.slo_tpot_ms is None):
+        raise SystemExit("--slo-ttft-ms and --slo-tpot-ms go together")
+    if args.slo_ttft_ms is not None:
+        EXTRA_HEADERS["x-llm-d-slo-ttft-ms"] = "%g" % args.slo_ttft_ms
+        EXTRA_HEADERS["x-llm-d-slo-tpot-ms"] = "%g" % args.slo_tpot_ms
 
     endpoints = args.endpoints.split(",")
     gpus = [int(x) for x in args.gpus.split(",")]

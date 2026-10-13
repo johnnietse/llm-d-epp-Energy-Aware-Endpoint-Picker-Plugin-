@@ -64,6 +64,46 @@ dataLayer:
 EOF
 exit 0
 fi
+# llmd_latency_least (amendment B7, PENDING the feasibility check): llm-d's
+# own SLO packing. predicted-latency-producer (fed by the llm-d-latency-
+# predictor service, reached through TRAINING_SERVER_URL and
+# PREDICTION_SERVER_URL in the EPP's environment) predicts TTFT and TPOT per
+# endpoint; slo-headroom-tier-filter keeps endpoints predicted to meet the
+# request's x-llm-d-slo-ttft-ms / x-llm-d-slo-tpot-ms; latency-scorer with
+# strategy least prefers the endpoint closest to the SLO (bin-packing).
+# streamingMode: the generator streams, so TTFT and TPOT are trained
+# separately. Upstream defaults stay on, as for stock_llmd.
+if [ "$ARM" = llmd_latency_least ]; then
+cat <<EOF
+plugins:
+- name: file-disc
+  type: file-discovery
+  parameters:
+    path: $ENDPOINTS
+    watchFile: false
+- type: predicted-latency-producer
+  parameters:
+    streamingMode: true
+- type: slo-headroom-tier-filter
+- type: latency-scorer
+  parameters:
+    headroomSelectionStrategy: least
+- type: max-score-picker
+- type: single-profile-handler
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: slo-headroom-tier-filter
+  - pluginRef: latency-scorer
+    weight: 1
+  - pluginRef: max-score-picker
+dataLayer:
+  discovery:
+    endpoints:
+      pluginRef: file-disc
+EOF
+exit 0
+fi
 : "${SEED:?}" "${HEADROOM:?}" "${MAX_INFLIGHT:?}" "${SLO_S:?}"
 
 common_head() {
