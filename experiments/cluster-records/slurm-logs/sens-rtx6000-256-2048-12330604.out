@@ -1,0 +1,765 @@
+node=frnt149.frontenac.local job=12330604 kind=openloop
+model=Qwen/Qwen2.5-1.5B-Instruct rates=1,3,7,13,20,27,34,40,47,54,61,67,74,82,90 duration=60 trials=6 seed=730 workers=6
+vllm_args=--max-model-len 2048 --max-num-seqs 256 --max-num-batched-tokens 2048 --gpu-memory-utilization 0.85
+index, uuid, name, driver_version, power.limit [W], power.min_limit [W], power.max_limit [W], memory.total [MiB], persistence_mode
+0, GPU-42b60516-efd6-9e81-d3d8-ec1973ecc29f, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+1, GPU-a108b830-a8d5-f950-910f-ce06a3366a99, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+2, GPU-6eeaede0-53e0-0d28-0852-7dee1c6f8ff3, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+3, GPU-0167ce31-31d8-6580-4ea9-c2bc29e8dbbb, Quadro RTX 6000, 610.43.02, 250.00 W, 150.00 W, 250.00 W, 23040 MiB, Enabled
+kernel=4.18.0-553.148.1.el8_10.x86_64
+rm_profiling_admin_only=1
+slurm_constraint=none exclusive=1node cpus=16
+cotenants_at_start:
+pid, used_gpu_memory [MiB]
+vllm 0.30.0 torch 2.13.0+cu130
+vllm up after 120s
+vllm limits confirmed in its own log
+58.78
+=== trial 1 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 152.77  goodput/J 0.0065  SLO 100.0%
+    TTFT p50/p95 0.029/0.146s  TPOT 0.0083s  ITL p99/max 0.0095/0.0157s  e2e p99 1.309s  errors 0
+    SLO margin p50/p95 0.552/0.596 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 1.0 req/s  fidelity 103.0%  send delay p99 0.016s  TTFT from send p50 0.025
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate1.json
+=== trial 1 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 66.00  goodput/J 0.0152  SLO 100.0%
+    TTFT p50/p95 0.029/0.038s  TPOT 0.0091s  ITL p99/max 0.0145/0.0168s  e2e p99 1.307s  errors 0
+    SLO margin p50/p95 0.593/0.620 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 2.9 req/s  fidelity 95.5%  send delay p99 0.006s  TTFT from send p50 0.028
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate3.json
+=== trial 1 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 28.71  goodput/J 0.0348  SLO 100.0%
+    TTFT p50/p95 0.031/0.041s  TPOT 0.0097s  ITL p99/max 0.0148/0.0167s  e2e p99 1.311s  errors 0
+    SLO margin p50/p95 0.635/0.651 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 7.1 req/s  fidelity 101.1%  send delay p99 0.002s  TTFT from send p50 0.031
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate7.json
+=== trial 1 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 16.56  goodput/J 0.0604  SLO 100.0%
+    TTFT p50/p95 0.034/0.043s  TPOT 0.0108s  ITL p99/max 0.0151/0.0164s  e2e p99 1.488s  errors 0
+    SLO margin p50/p95 0.706/0.737 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 12.9 req/s  fidelity 99.4%  send delay p99 0.002s  TTFT from send p50 0.033
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate13.json
+=== trial 1 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 10.58  goodput/J 0.0945  SLO 100.0%
+    TTFT p50/p95 0.039/0.047s  TPOT 0.0122s  ITL p99/max 0.0157/0.0387s  e2e p99 1.727s  errors 0
+    SLO margin p50/p95 0.794/0.849 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.3 req/s  fidelity 101.4%  send delay p99 0.002s  TTFT from send p50 0.038
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate20.json
+=== trial 1 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 7.94  goodput/J 0.1259  SLO 100.0%
+    TTFT p50/p95 0.043/0.051s  TPOT 0.0136s  ITL p99/max 0.0166/0.0268s  e2e p99 1.940s  errors 0
+    SLO margin p50/p95 0.880/0.943 x SLO  within 10% of boundary 25.9%
+    offered 27.0 req/s  achieved 27.2 req/s  fidelity 100.6%  send delay p99 0.002s  TTFT from send p50 0.042
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate27.json
+=== trial 1 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.48  goodput/J 0.1430  SLO 92.6%
+    TTFT p50/p95 0.047/0.055s  TPOT 0.0148s  ITL p99/max 0.0177/0.0367s  e2e p99 2.016s  errors 0
+    SLO margin p50/p95 0.972/1.003 x SLO  within 10% of boundary 91.5%
+    offered 34.0 req/s  achieved 34.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.046
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate34.json
+=== trial 1 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.66  goodput/J 0.0902  SLO 51.0%
+    TTFT p50/p95 0.049/0.058s  TPOT 0.0154s  ITL p99/max 0.0189/0.0376s  e2e p99 2.140s  errors 0
+    SLO margin p50/p95 1.000/1.063 x SLO  within 10% of boundary 95.3%
+    offered 40.0 req/s  achieved 39.9 req/s  fidelity 99.7%  send delay p99 0.002s  TTFT from send p50 0.049
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate40.json
+=== trial 1 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 5.00  goodput/J 0.0141  SLO 7.1%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0165s  ITL p99/max 0.0206/0.0454s  e2e p99 2.479s  errors 0
+    SLO margin p50/p95 1.064/1.209 x SLO  within 10% of boundary 75.7%
+    offered 47.0 req/s  achieved 46.3 req/s  fidelity 98.5%  send delay p99 0.002s  TTFT from send p50 0.053
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate47.json
+=== trial 1 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.58  goodput/J 0.0057  SLO 2.6%
+    TTFT p50/p95 0.062/0.077s  TPOT 0.0190s  ITL p99/max 0.0247/0.0568s  e2e p99 2.836s  errors 0
+    SLO margin p50/p95 1.233/1.403 x SLO  within 10% of boundary 8.2%
+    offered 54.0 req/s  achieved 52.8 req/s  fidelity 97.8%  send delay p99 0.002s  TTFT from send p50 0.061
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate54.json
+=== trial 1 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.12  goodput/J 0.0023  SLO 0.9%
+    TTFT p50/p95 0.072/0.090s  TPOT 0.0218s  ITL p99/max 0.0288/0.1443s  e2e p99 3.348s  errors 0
+    SLO margin p50/p95 1.395/1.651 x SLO  within 10% of boundary 2.0%
+    offered 61.0 req/s  achieved 59.3 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.071
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate61.json
+=== trial 1 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.86  goodput/J 0.0005  SLO 0.2%
+    TTFT p50/p95 1.051/1.441s  TPOT 0.0292s  ITL p99/max 0.0418/0.0629s  e2e p99 5.343s  errors 0
+    SLO margin p50/p95 2.426/2.621 x SLO  within 10% of boundary 0.6%
+    offered 67.0 req/s  achieved 63.3 req/s  fidelity 94.4%  send delay p99 0.002s  TTFT from send p50 1.050
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate67.json
+=== trial 1 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.83  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 3.902/7.077s  TPOT 0.0297s  ITL p99/max 0.0423/0.1208s  e2e p99 10.928s  errors 0
+    SLO margin p50/p95 3.840/5.349 x SLO  within 10% of boundary 0.3%
+    offered 74.0 req/s  achieved 63.8 req/s  fidelity 86.2%  send delay p99 0.002s  TTFT from send p50 3.902
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate74.json
+=== trial 1 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.84  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 7.499/14.047s  TPOT 0.0299s  ITL p99/max 0.0414/0.1626s  e2e p99 18.079s  errors 0
+    SLO margin p50/p95 5.634/8.886 x SLO  within 10% of boundary 0.1%
+    offered 82.0 req/s  achieved 63.8 req/s  fidelity 77.8%  send delay p99 0.002s  TTFT from send p50 7.498
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate82.json
+=== trial 1 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.81  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 10.444/20.623s  TPOT 0.0299s  ITL p99/max 0.0428/0.2200s  e2e p99 24.501s  errors 0
+    SLO margin p50/p95 7.116/12.195 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.2 req/s  fidelity 71.4%  send delay p99 0.002s  TTFT from send p50 10.444
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial1-rate90.json
+=== trial 2 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 148.91  goodput/J 0.0067  SLO 100.0%
+    TTFT p50/p95 0.030/0.145s  TPOT 0.0085s  ITL p99/max 0.0095/0.0154s  e2e p99 1.279s  errors 0
+    SLO margin p50/p95 0.568/0.597 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 1.2 req/s  fidelity 119.1%  send delay p99 0.009s  TTFT from send p50 0.026
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate1.json
+=== trial 2 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 59.49  goodput/J 0.0168  SLO 100.0%
+    TTFT p50/p95 0.030/0.046s  TPOT 0.0092s  ITL p99/max 0.0144/0.0203s  e2e p99 1.299s  errors 0
+    SLO margin p50/p95 0.596/0.621 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 3.4 req/s  fidelity 114.1%  send delay p99 0.003s  TTFT from send p50 0.029
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate3.json
+=== trial 2 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 28.14  goodput/J 0.0355  SLO 100.0%
+    TTFT p50/p95 0.031/0.042s  TPOT 0.0098s  ITL p99/max 0.0149/0.0172s  e2e p99 1.348s  errors 0
+    SLO margin p50/p95 0.636/0.663 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 7.4 req/s  fidelity 106.2%  send delay p99 0.002s  TTFT from send p50 0.031
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate7.json
+=== trial 2 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 15.37  goodput/J 0.0651  SLO 100.0%
+    TTFT p50/p95 0.035/0.044s  TPOT 0.0110s  ITL p99/max 0.0154/0.0223s  e2e p99 1.532s  errors 0
+    SLO margin p50/p95 0.717/0.753 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 13.9 req/s  fidelity 106.8%  send delay p99 0.002s  TTFT from send p50 0.034
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate13.json
+=== trial 2 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 10.13  goodput/J 0.0988  SLO 100.0%
+    TTFT p50/p95 0.039/0.048s  TPOT 0.0124s  ITL p99/max 0.0160/0.0322s  e2e p99 1.763s  errors 0
+    SLO margin p50/p95 0.810/0.874 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 21.0 req/s  fidelity 105.2%  send delay p99 0.002s  TTFT from send p50 0.039
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate20.json
+=== trial 2 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 7.85  goodput/J 0.1274  SLO 100.0%
+    TTFT p50/p95 0.043/0.051s  TPOT 0.0136s  ITL p99/max 0.0167/0.0271s  e2e p99 1.905s  errors 0
+    SLO margin p50/p95 0.885/0.944 x SLO  within 10% of boundary 31.7%
+    offered 27.0 req/s  achieved 27.4 req/s  fidelity 101.6%  send delay p99 0.002s  TTFT from send p50 0.042
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate27.json
+=== trial 2 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.51  goodput/J 0.1450  SLO 94.4%
+    TTFT p50/p95 0.046/0.055s  TPOT 0.0147s  ITL p99/max 0.0177/0.0433s  e2e p99 2.011s  errors 0
+    SLO margin p50/p95 0.968/1.000 x SLO  within 10% of boundary 92.7%
+    offered 34.0 req/s  achieved 34.0 req/s  fidelity 99.9%  send delay p99 0.002s  TTFT from send p50 0.046
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate34.json
+=== trial 2 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.68  goodput/J 0.0864  SLO 49.0%
+    TTFT p50/p95 0.049/0.058s  TPOT 0.0155s  ITL p99/max 0.0188/0.0482s  e2e p99 2.143s  errors 0
+    SLO margin p50/p95 1.001/1.063 x SLO  within 10% of boundary 96.2%
+    offered 40.0 req/s  achieved 39.6 req/s  fidelity 99.1%  send delay p99 0.002s  TTFT from send p50 0.048
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate40.json
+=== trial 2 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 4.97  goodput/J 0.0130  SLO 6.5%
+    TTFT p50/p95 0.053/0.065s  TPOT 0.0166s  ITL p99/max 0.0212/0.0470s  e2e p99 2.472s  errors 0
+    SLO margin p50/p95 1.068/1.205 x SLO  within 10% of boundary 67.3%
+    offered 47.0 req/s  achieved 46.4 req/s  fidelity 98.7%  send delay p99 0.002s  TTFT from send p50 0.052
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate47.json
+=== trial 2 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.59  goodput/J 0.0070  SLO 3.2%
+    TTFT p50/p95 0.060/0.074s  TPOT 0.0186s  ITL p99/max 0.0236/0.0484s  e2e p99 2.817s  errors 0
+    SLO margin p50/p95 1.201/1.375 x SLO  within 10% of boundary 9.6%
+    offered 54.0 req/s  achieved 52.5 req/s  fidelity 97.1%  send delay p99 0.002s  TTFT from send p50 0.060
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate54.json
+=== trial 2 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.16  goodput/J 0.0016  SLO 0.7%
+    TTFT p50/p95 0.070/0.087s  TPOT 0.0214s  ITL p99/max 0.0283/0.0525s  e2e p99 3.252s  errors 0
+    SLO margin p50/p95 1.376/1.590 x SLO  within 10% of boundary 2.6%
+    offered 61.0 req/s  achieved 58.7 req/s  fidelity 96.3%  send delay p99 0.002s  TTFT from send p50 0.069
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate61.json
+=== trial 2 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.84  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 0.716/1.051s  TPOT 0.0295s  ITL p99/max 0.0426/0.0796s  e2e p99 5.047s  errors 0
+    SLO margin p50/p95 2.259/2.452 x SLO  within 10% of boundary 0.3%
+    offered 67.0 req/s  achieved 63.6 req/s  fidelity 94.9%  send delay p99 0.002s  TTFT from send p50 0.715
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate67.json
+=== trial 2 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.82  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 3.571/6.663s  TPOT 0.0297s  ITL p99/max 0.0435/0.1095s  e2e p99 10.502s  errors 0
+    SLO margin p50/p95 3.715/5.126 x SLO  within 10% of boundary 0.0%
+    offered 74.0 req/s  achieved 64.0 req/s  fidelity 86.4%  send delay p99 0.002s  TTFT from send p50 3.570
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate74.json
+=== trial 2 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.80  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 6.962/13.246s  TPOT 0.0298s  ITL p99/max 0.0426/0.1445s  e2e p99 17.115s  errors 0
+    SLO margin p50/p95 5.396/8.492 x SLO  within 10% of boundary 0.0%
+    offered 82.0 req/s  achieved 64.4 req/s  fidelity 78.5%  send delay p99 0.002s  TTFT from send p50 6.961
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate82.json
+=== trial 2 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.80  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 10.461/19.818s  TPOT 0.0299s  ITL p99/max 0.0430/0.1991s  e2e p99 23.800s  errors 0
+    SLO margin p50/p95 7.111/11.753 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.4 req/s  fidelity 71.6%  send delay p99 0.002s  TTFT from send p50 10.461
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial2-rate90.json
+=== trial 3 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 168.51  goodput/J 0.0059  SLO 100.0%
+    TTFT p50/p95 0.029/0.145s  TPOT 0.0084s  ITL p99/max 0.0094/0.0165s  e2e p99 1.265s  errors 0
+    SLO margin p50/p95 0.563/0.598 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 0.9 req/s  fidelity 94.5%  send delay p99 0.012s  TTFT from send p50 0.025
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate1.json
+=== trial 3 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 69.16  goodput/J 0.0145  SLO 100.0%
+    TTFT p50/p95 0.029/0.038s  TPOT 0.0091s  ITL p99/max 0.0136/0.0155s  e2e p99 1.293s  errors 0
+    SLO margin p50/p95 0.595/0.614 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 2.9 req/s  fidelity 96.0%  send delay p99 0.004s  TTFT from send p50 0.028
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate3.json
+=== trial 3 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 29.52  goodput/J 0.0339  SLO 100.0%
+    TTFT p50/p95 0.031/0.036s  TPOT 0.0097s  ITL p99/max 0.0138/0.0198s  e2e p99 1.331s  errors 0
+    SLO margin p50/p95 0.632/0.660 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 7.1 req/s  fidelity 100.8%  send delay p99 0.002s  TTFT from send p50 0.030
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate7.json
+=== trial 3 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 16.34  goodput/J 0.0612  SLO 100.0%
+    TTFT p50/p95 0.034/0.042s  TPOT 0.0108s  ITL p99/max 0.0142/0.0273s  e2e p99 1.534s  errors 0
+    SLO margin p50/p95 0.706/0.744 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 13.0 req/s  fidelity 100.1%  send delay p99 0.002s  TTFT from send p50 0.033
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate13.json
+=== trial 3 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 10.59  goodput/J 0.0944  SLO 100.0%
+    TTFT p50/p95 0.038/0.046s  TPOT 0.0122s  ITL p99/max 0.0147/0.0402s  e2e p99 1.724s  errors 0
+    SLO margin p50/p95 0.794/0.849 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 20.1 req/s  fidelity 100.7%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate20.json
+=== trial 3 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 7.98  goodput/J 0.1254  SLO 100.0%
+    TTFT p50/p95 0.042/0.049s  TPOT 0.0135s  ITL p99/max 0.0155/0.0300s  e2e p99 1.870s  errors 0
+    SLO margin p50/p95 0.880/0.918 x SLO  within 10% of boundary 18.0%
+    offered 27.0 req/s  achieved 26.9 req/s  fidelity 99.6%  send delay p99 0.002s  TTFT from send p50 0.041
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate27.json
+=== trial 3 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.51  goodput/J 0.1404  SLO 91.4%
+    TTFT p50/p95 0.046/0.054s  TPOT 0.0148s  ITL p99/max 0.0179/0.0414s  e2e p99 2.078s  errors 0
+    SLO margin p50/p95 0.963/1.017 x SLO  within 10% of boundary 95.0%
+    offered 34.0 req/s  achieved 33.9 req/s  fidelity 99.7%  send delay p99 0.002s  TTFT from send p50 0.045
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate34.json
+=== trial 3 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.68  goodput/J 0.0991  SLO 56.3%
+    TTFT p50/p95 0.048/0.057s  TPOT 0.0154s  ITL p99/max 0.0190/0.0384s  e2e p99 2.103s  errors 0
+    SLO margin p50/p95 0.996/1.044 x SLO  within 10% of boundary 95.4%
+    offered 40.0 req/s  achieved 39.7 req/s  fidelity 99.2%  send delay p99 0.002s  TTFT from send p50 0.047
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate40.json
+=== trial 3 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 4.99  goodput/J 0.0124  SLO 6.2%
+    TTFT p50/p95 0.052/0.062s  TPOT 0.0164s  ITL p99/max 0.0203/0.0583s  e2e p99 2.286s  errors 0
+    SLO margin p50/p95 1.065/1.134 x SLO  within 10% of boundary 75.6%
+    offered 47.0 req/s  achieved 46.2 req/s  fidelity 98.2%  send delay p99 0.002s  TTFT from send p50 0.052
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate47.json
+=== trial 3 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.60  goodput/J 0.0075  SLO 3.5%
+    TTFT p50/p95 0.061/0.073s  TPOT 0.0189s  ITL p99/max 0.0240/0.0554s  e2e p99 2.775s  errors 0
+    SLO margin p50/p95 1.229/1.329 x SLO  within 10% of boundary 5.9%
+    offered 54.0 req/s  achieved 52.6 req/s  fidelity 97.4%  send delay p99 0.002s  TTFT from send p50 0.060
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate54.json
+=== trial 3 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.13  goodput/J 0.0030  SLO 1.2%
+    TTFT p50/p95 0.071/0.087s  TPOT 0.0216s  ITL p99/max 0.0289/0.0551s  e2e p99 3.321s  errors 0
+    SLO margin p50/p95 1.400/1.631 x SLO  within 10% of boundary 2.2%
+    offered 61.0 req/s  achieved 59.1 req/s  fidelity 96.9%  send delay p99 0.002s  TTFT from send p50 0.070
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate61.json
+=== trial 3 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.86  goodput/J 0.0014  SLO 0.5%
+    TTFT p50/p95 0.783/1.301s  TPOT 0.0293s  ITL p99/max 0.0435/0.0816s  e2e p99 5.182s  errors 0
+    SLO margin p50/p95 2.261/2.549 x SLO  within 10% of boundary 0.9%
+    offered 67.0 req/s  achieved 63.3 req/s  fidelity 94.4%  send delay p99 0.002s  TTFT from send p50 0.782
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate67.json
+=== trial 3 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.84  goodput/J 0.0004  SLO 0.2%
+    TTFT p50/p95 3.806/7.054s  TPOT 0.0296s  ITL p99/max 0.0449/0.0911s  e2e p99 10.879s  errors 0
+    SLO margin p50/p95 3.809/5.325 x SLO  within 10% of boundary 0.7%
+    offered 74.0 req/s  achieved 63.8 req/s  fidelity 86.2%  send delay p99 0.002s  TTFT from send p50 3.804
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate74.json
+=== trial 3 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.82  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 7.222/13.668s  TPOT 0.0298s  ITL p99/max 0.0396/0.1548s  e2e p99 17.720s  errors 0
+    SLO margin p50/p95 5.499/8.746 x SLO  within 10% of boundary 0.3%
+    offered 82.0 req/s  achieved 64.1 req/s  fidelity 78.1%  send delay p99 0.002s  TTFT from send p50 7.222
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate82.json
+=== trial 3 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.81  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 10.485/20.681s  TPOT 0.0298s  ITL p99/max 0.0426/0.2064s  e2e p99 24.755s  errors 0
+    SLO margin p50/p95 7.054/12.234 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.3 req/s  fidelity 71.4%  send delay p99 0.002s  TTFT from send p50 10.485
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial3-rate90.json
+=== trial 4 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 165.54  goodput/J 0.0060  SLO 100.0%
+    TTFT p50/p95 0.030/0.144s  TPOT 0.0085s  ITL p99/max 0.0094/0.0292s  e2e p99 1.190s  errors 0
+    SLO margin p50/p95 0.567/0.591 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 1.0 req/s  fidelity 96.8%  send delay p99 0.011s  TTFT from send p50 0.026
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate1.json
+=== trial 4 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 69.03  goodput/J 0.0145  SLO 100.0%
+    TTFT p50/p95 0.029/0.039s  TPOT 0.0091s  ITL p99/max 0.0133/0.0310s  e2e p99 1.292s  errors 0
+    SLO margin p50/p95 0.594/0.618 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 3.0 req/s  fidelity 98.4%  send delay p99 0.005s  TTFT from send p50 0.028
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate3.json
+=== trial 4 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 30.95  goodput/J 0.0323  SLO 100.0%
+    TTFT p50/p95 0.031/0.038s  TPOT 0.0097s  ITL p99/max 0.0135/0.0321s  e2e p99 1.313s  errors 0
+    SLO margin p50/p95 0.632/0.651 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 6.8 req/s  fidelity 97.0%  send delay p99 0.002s  TTFT from send p50 0.030
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate7.json
+=== trial 4 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 16.65  goodput/J 0.0601  SLO 100.0%
+    TTFT p50/p95 0.034/0.041s  TPOT 0.0108s  ITL p99/max 0.0139/0.0186s  e2e p99 1.491s  errors 0
+    SLO margin p50/p95 0.705/0.740 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 12.8 req/s  fidelity 98.8%  send delay p99 0.002s  TTFT from send p50 0.033
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate13.json
+=== trial 4 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 11.10  goodput/J 0.0901  SLO 100.0%
+    TTFT p50/p95 0.037/0.045s  TPOT 0.0120s  ITL p99/max 0.0147/0.0338s  e2e p99 1.710s  errors 0
+    SLO margin p50/p95 0.779/0.847 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.3 req/s  fidelity 96.6%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate20.json
+=== trial 4 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 8.23  goodput/J 0.1215  SLO 100.0%
+    TTFT p50/p95 0.041/0.049s  TPOT 0.0134s  ITL p99/max 0.0153/0.0355s  e2e p99 1.835s  errors 0
+    SLO margin p50/p95 0.874/0.910 x SLO  within 10% of boundary 16.1%
+    offered 27.0 req/s  achieved 26.1 req/s  fidelity 96.8%  send delay p99 0.002s  TTFT from send p50 0.040
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate27.json
+=== trial 4 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.73  goodput/J 0.1485  SLO 99.9%
+    TTFT p50/p95 0.045/0.053s  TPOT 0.0145s  ITL p99/max 0.0168/0.0405s  e2e p99 1.982s  errors 0
+    SLO margin p50/p95 0.945/0.986 x SLO  within 10% of boundary 88.8%
+    offered 34.0 req/s  achieved 32.6 req/s  fidelity 95.9%  send delay p99 0.002s  TTFT from send p50 0.044
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate34.json
+=== trial 4 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.85  goodput/J 0.1105  SLO 64.7%
+    TTFT p50/p95 0.048/0.056s  TPOT 0.0152s  ITL p99/max 0.0189/0.0425s  e2e p99 2.093s  errors 0
+    SLO margin p50/p95 0.991/1.028 x SLO  within 10% of boundary 95.8%
+    offered 40.0 req/s  achieved 38.4 req/s  fidelity 96.1%  send delay p99 0.002s  TTFT from send p50 0.047
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate40.json
+=== trial 4 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 5.09  goodput/J 0.0151  SLO 7.7%
+    TTFT p50/p95 0.052/0.062s  TPOT 0.0162s  ITL p99/max 0.0203/0.0427s  e2e p99 2.338s  errors 0
+    SLO margin p50/p95 1.047/1.140 x SLO  within 10% of boundary 82.2%
+    offered 47.0 req/s  achieved 45.1 req/s  fidelity 95.9%  send delay p99 0.002s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate47.json
+=== trial 4 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.61  goodput/J 0.0078  SLO 3.6%
+    TTFT p50/p95 0.059/0.074s  TPOT 0.0183s  ITL p99/max 0.0251/0.0454s  e2e p99 2.764s  errors 0
+    SLO margin p50/p95 1.174/1.361 x SLO  within 10% of boundary 9.5%
+    offered 54.0 req/s  achieved 51.8 req/s  fidelity 95.8%  send delay p99 0.002s  TTFT from send p50 0.058
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate54.json
+=== trial 4 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.20  goodput/J 0.0034  SLO 1.4%
+    TTFT p50/p95 0.070/0.086s  TPOT 0.0213s  ITL p99/max 0.0289/0.0536s  e2e p99 3.268s  errors 0
+    SLO margin p50/p95 1.377/1.595 x SLO  within 10% of boundary 2.8%
+    offered 61.0 req/s  achieved 58.4 req/s  fidelity 95.7%  send delay p99 0.002s  TTFT from send p50 0.069
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate61.json
+=== trial 4 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.88  goodput/J 0.0004  SLO 0.2%
+    TTFT p50/p95 0.254/1.225s  TPOT 0.0292s  ITL p99/max 0.0431/0.0696s  e2e p99 5.214s  errors 0
+    SLO margin p50/p95 2.044/2.454 x SLO  within 10% of boundary 0.9%
+    offered 67.0 req/s  achieved 62.8 req/s  fidelity 93.7%  send delay p99 0.002s  TTFT from send p50 0.253
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate67.json
+=== trial 4 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.84  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 2.818/6.752s  TPOT 0.0296s  ITL p99/max 0.0434/0.1012s  e2e p99 10.589s  errors 0
+    SLO margin p50/p95 3.324/5.224 x SLO  within 10% of boundary 0.6%
+    offered 74.0 req/s  achieved 63.6 req/s  fidelity 86.0%  send delay p99 0.002s  TTFT from send p50 2.818
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate74.json
+=== trial 4 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.80  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 6.210/12.925s  TPOT 0.0297s  ITL p99/max 0.0419/0.1407s  e2e p99 16.880s  errors 0
+    SLO margin p50/p95 4.948/8.321 x SLO  within 10% of boundary 0.1%
+    offered 82.0 req/s  achieved 64.2 req/s  fidelity 78.3%  send delay p99 0.002s  TTFT from send p50 6.209
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate82.json
+=== trial 4 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.81  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 9.632/20.571s  TPOT 0.0299s  ITL p99/max 0.0445/0.2098s  e2e p99 24.573s  errors 0
+    SLO margin p50/p95 6.681/12.166 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.2 req/s  fidelity 71.3%  send delay p99 0.002s  TTFT from send p50 9.632
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial4-rate90.json
+=== trial 5 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 157.77  goodput/J 0.0063  SLO 100.0%
+    TTFT p50/p95 0.031/0.147s  TPOT 0.0085s  ITL p99/max 0.0096/0.0143s  e2e p99 1.307s  errors 0
+    SLO margin p50/p95 0.570/0.622 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 1.0 req/s  fidelity 99.5%  send delay p99 0.015s  TTFT from send p50 0.026
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate1.json
+=== trial 5 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 70.98  goodput/J 0.0141  SLO 100.0%
+    TTFT p50/p95 0.029/0.039s  TPOT 0.0091s  ITL p99/max 0.0133/0.0147s  e2e p99 1.327s  errors 0
+    SLO margin p50/p95 0.595/0.622 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 2.8 req/s  fidelity 93.5%  send delay p99 0.006s  TTFT from send p50 0.027
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate3.json
+=== trial 5 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 31.56  goodput/J 0.0317  SLO 100.0%
+    TTFT p50/p95 0.031/0.039s  TPOT 0.0097s  ITL p99/max 0.0135/0.0189s  e2e p99 1.349s  errors 0
+    SLO margin p50/p95 0.632/0.662 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 6.7 req/s  fidelity 95.2%  send delay p99 0.002s  TTFT from send p50 0.030
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate7.json
+=== trial 5 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 16.62  goodput/J 0.0602  SLO 100.0%
+    TTFT p50/p95 0.034/0.042s  TPOT 0.0108s  ITL p99/max 0.0141/0.0352s  e2e p99 1.518s  errors 0
+    SLO margin p50/p95 0.711/0.752 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 12.9 req/s  fidelity 99.1%  send delay p99 0.002s  TTFT from send p50 0.033
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate13.json
+=== trial 5 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 10.56  goodput/J 0.0947  SLO 100.0%
+    TTFT p50/p95 0.038/0.047s  TPOT 0.0123s  ITL p99/max 0.0149/0.0313s  e2e p99 1.825s  errors 0
+    SLO margin p50/p95 0.803/0.887 x SLO  within 10% of boundary 3.6%
+    offered 20.0 req/s  achieved 20.3 req/s  fidelity 101.5%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate20.json
+=== trial 5 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 7.98  goodput/J 0.1253  SLO 100.0%
+    TTFT p50/p95 0.042/0.050s  TPOT 0.0136s  ITL p99/max 0.0158/0.0265s  e2e p99 1.951s  errors 0
+    SLO margin p50/p95 0.879/0.947 x SLO  within 10% of boundary 37.4%
+    offered 27.0 req/s  achieved 27.1 req/s  fidelity 100.4%  send delay p99 0.002s  TTFT from send p50 0.041
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate27.json
+=== trial 5 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.51  goodput/J 0.1354  SLO 88.2%
+    TTFT p50/p95 0.045/0.054s  TPOT 0.0146s  ITL p99/max 0.0174/0.0399s  e2e p99 2.056s  errors 0
+    SLO margin p50/p95 0.950/1.013 x SLO  within 10% of boundary 89.5%
+    offered 34.0 req/s  achieved 33.9 req/s  fidelity 99.6%  send delay p99 0.002s  TTFT from send p50 0.045
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate34.json
+=== trial 5 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.64  goodput/J 0.0846  SLO 47.8%
+    TTFT p50/p95 0.049/0.058s  TPOT 0.0156s  ITL p99/max 0.0191/0.0472s  e2e p99 2.190s  errors 0
+    SLO margin p50/p95 1.003/1.087 x SLO  within 10% of boundary 95.2%
+    offered 40.0 req/s  achieved 40.1 req/s  fidelity 100.2%  send delay p99 0.002s  TTFT from send p50 0.048
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate40.json
+=== trial 5 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 4.96  goodput/J 0.0141  SLO 7.0%
+    TTFT p50/p95 0.053/0.066s  TPOT 0.0167s  ITL p99/max 0.0213/0.0619s  e2e p99 2.486s  errors 0
+    SLO margin p50/p95 1.080/1.210 x SLO  within 10% of boundary 62.7%
+    offered 47.0 req/s  achieved 46.8 req/s  fidelity 99.7%  send delay p99 0.002s  TTFT from send p50 0.052
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate47.json
+=== trial 5 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.57  goodput/J 0.0067  SLO 3.1%
+    TTFT p50/p95 0.062/0.075s  TPOT 0.0190s  ITL p99/max 0.0235/0.0486s  e2e p99 2.798s  errors 0
+    SLO margin p50/p95 1.254/1.364 x SLO  within 10% of boundary 12.1%
+    offered 54.0 req/s  achieved 52.9 req/s  fidelity 97.9%  send delay p99 0.002s  TTFT from send p50 0.061
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate54.json
+=== trial 5 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.12  goodput/J 0.0036  SLO 1.5%
+    TTFT p50/p95 0.071/0.086s  TPOT 0.0217s  ITL p99/max 0.0280/0.0520s  e2e p99 3.153s  errors 0
+    SLO margin p50/p95 1.435/1.554 x SLO  within 10% of boundary 2.4%
+    offered 61.0 req/s  achieved 59.3 req/s  fidelity 97.2%  send delay p99 0.002s  TTFT from send p50 0.070
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate61.json
+=== trial 5 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.88  goodput/J 0.0006  SLO 0.2%
+    TTFT p50/p95 1.241/1.869s  TPOT 0.0292s  ITL p99/max 0.0392/0.0618s  e2e p99 5.914s  errors 0
+    SLO margin p50/p95 2.503/2.833 x SLO  within 10% of boundary 1.0%
+    offered 67.0 req/s  achieved 63.0 req/s  fidelity 94.0%  send delay p99 0.002s  TTFT from send p50 1.239
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate67.json
+=== trial 5 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.85  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 4.167/7.486s  TPOT 0.0296s  ITL p99/max 0.0392/0.1060s  e2e p99 11.355s  errors 0
+    SLO margin p50/p95 4.015/5.581 x SLO  within 10% of boundary 0.7%
+    offered 74.0 req/s  achieved 63.5 req/s  fidelity 85.8%  send delay p99 0.002s  TTFT from send p50 4.167
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate74.json
+=== trial 5 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.82  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 7.303/13.779s  TPOT 0.0297s  ITL p99/max 0.0418/0.1590s  e2e p99 17.675s  errors 0
+    SLO margin p50/p95 5.565/8.757 x SLO  within 10% of boundary 0.2%
+    offered 82.0 req/s  achieved 64.0 req/s  fidelity 78.1%  send delay p99 0.002s  TTFT from send p50 7.302
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate82.json
+=== trial 5 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.81  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 10.588/20.959s  TPOT 0.0298s  ITL p99/max 0.0423/0.2094s  e2e p99 24.943s  errors 0
+    SLO margin p50/p95 7.213/12.358 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.2 req/s  fidelity 71.4%  send delay p99 0.002s  TTFT from send p50 10.587
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial5-rate90.json
+=== trial 6 rate 1 req/s, 100 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 1.0 req/s ---
+    J/req 158.95  goodput/J 0.0063  SLO 100.0%
+    TTFT p50/p95 0.029/0.146s  TPOT 0.0084s  ITL p99/max 0.0094/0.0138s  e2e p99 1.284s  errors 0
+    SLO margin p50/p95 0.552/0.620 x SLO  within 10% of boundary 0.0%
+    offered 1.0 req/s  achieved 1.1 req/s  fidelity 107.2%  send delay p99 0.010s  TTFT from send p50 0.024
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate1.json
+=== trial 6 rate 3 req/s, 180 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 3.0 req/s ---
+    J/req 62.58  goodput/J 0.0160  SLO 100.0%
+    TTFT p50/p95 0.029/0.039s  TPOT 0.0091s  ITL p99/max 0.0134/0.0140s  e2e p99 1.338s  errors 0
+    SLO margin p50/p95 0.597/0.625 x SLO  within 10% of boundary 0.0%
+    offered 3.0 req/s  achieved 3.2 req/s  fidelity 107.7%  send delay p99 0.004s  TTFT from send p50 0.028
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate3.json
+=== trial 6 rate 7 req/s, 420 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 7.0 req/s ---
+    J/req 29.89  goodput/J 0.0335  SLO 100.0%
+    TTFT p50/p95 0.031/0.038s  TPOT 0.0097s  ITL p99/max 0.0137/0.0359s  e2e p99 1.374s  errors 0
+    SLO margin p50/p95 0.631/0.674 x SLO  within 10% of boundary 0.0%
+    offered 7.0 req/s  achieved 7.1 req/s  fidelity 101.2%  send delay p99 0.002s  TTFT from send p50 0.030
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate7.json
+=== trial 6 rate 13 req/s, 780 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 13.0 req/s ---
+    J/req 16.50  goodput/J 0.0606  SLO 100.0%
+    TTFT p50/p95 0.034/0.041s  TPOT 0.0108s  ITL p99/max 0.0139/0.0269s  e2e p99 1.534s  errors 0
+    SLO margin p50/p95 0.708/0.753 x SLO  within 10% of boundary 0.0%
+    offered 13.0 req/s  achieved 13.0 req/s  fidelity 100.2%  send delay p99 0.002s  TTFT from send p50 0.033
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate13.json
+=== trial 6 rate 20 req/s, 1200 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 20.0 req/s ---
+    J/req 10.78  goodput/J 0.0928  SLO 100.0%
+    TTFT p50/p95 0.038/0.045s  TPOT 0.0122s  ITL p99/max 0.0147/0.0171s  e2e p99 1.758s  errors 0
+    SLO margin p50/p95 0.790/0.864 x SLO  within 10% of boundary 0.0%
+    offered 20.0 req/s  achieved 19.9 req/s  fidelity 99.4%  send delay p99 0.002s  TTFT from send p50 0.037
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate20.json
+=== trial 6 rate 27 req/s, 1620 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 27.0 req/s ---
+    J/req 8.08  goodput/J 0.1238  SLO 100.0%
+    TTFT p50/p95 0.041/0.049s  TPOT 0.0135s  ITL p99/max 0.0157/0.0358s  e2e p99 1.901s  errors 0
+    SLO margin p50/p95 0.875/0.943 x SLO  within 10% of boundary 25.2%
+    offered 27.0 req/s  achieved 26.6 req/s  fidelity 98.7%  send delay p99 0.002s  TTFT from send p50 0.041
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate27.json
+=== trial 6 rate 34 req/s, 2040 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 34.0 req/s ---
+    J/req 6.62  goodput/J 0.1434  SLO 95.0%
+    TTFT p50/p95 0.045/0.053s  TPOT 0.0146s  ITL p99/max 0.0174/0.0372s  e2e p99 2.012s  errors 0
+    SLO margin p50/p95 0.947/1.000 x SLO  within 10% of boundary 89.7%
+    offered 34.0 req/s  achieved 33.2 req/s  fidelity 97.6%  send delay p99 0.002s  TTFT from send p50 0.044
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate34.json
+=== trial 6 rate 40 req/s, 2400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 40.0 req/s ---
+    J/req 5.76  goodput/J 0.1080  SLO 62.2%
+    TTFT p50/p95 0.048/0.056s  TPOT 0.0154s  ITL p99/max 0.0186/0.0418s  e2e p99 2.216s  errors 0
+    SLO margin p50/p95 0.993/1.062 x SLO  within 10% of boundary 94.0%
+    offered 40.0 req/s  achieved 39.0 req/s  fidelity 97.4%  send delay p99 0.002s  TTFT from send p50 0.047
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate40.json
+=== trial 6 rate 47 req/s, 2820 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 47.0 req/s ---
+    J/req 5.05  goodput/J 0.0155  SLO 7.8%
+    TTFT p50/p95 0.052/0.063s  TPOT 0.0163s  ITL p99/max 0.0203/0.0455s  e2e p99 2.310s  errors 0
+    SLO margin p50/p95 1.056/1.149 x SLO  within 10% of boundary 72.2%
+    offered 47.0 req/s  achieved 45.5 req/s  fidelity 96.7%  send delay p99 0.002s  TTFT from send p50 0.051
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate47.json
+=== trial 6 rate 54 req/s, 3240 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 54.0 req/s ---
+    J/req 4.59  goodput/J 0.0071  SLO 3.3%
+    TTFT p50/p95 0.058/0.073s  TPOT 0.0184s  ITL p99/max 0.0248/0.0512s  e2e p99 2.881s  errors 0
+    SLO margin p50/p95 1.178/1.399 x SLO  within 10% of boundary 11.9%
+    offered 54.0 req/s  achieved 52.1 req/s  fidelity 96.5%  send delay p99 0.002s  TTFT from send p50 0.057
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate54.json
+=== trial 6 rate 61 req/s, 3660 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 61.0 req/s ---
+    J/req 4.16  goodput/J 0.0031  SLO 1.3%
+    TTFT p50/p95 0.069/0.088s  TPOT 0.0215s  ITL p99/max 0.0302/0.0534s  e2e p99 3.562s  errors 0
+    SLO margin p50/p95 1.373/1.717 x SLO  within 10% of boundary 3.0%
+    offered 61.0 req/s  achieved 58.8 req/s  fidelity 96.3%  send delay p99 0.002s  TTFT from send p50 0.068
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate61.json
+=== trial 6 rate 67 req/s, 4020 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 67.0 req/s ---
+    J/req 3.86  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 0.353/1.007s  TPOT 0.0292s  ITL p99/max 0.0409/0.0571s  e2e p99 5.190s  errors 0
+    SLO margin p50/p95 2.093/2.444 x SLO  within 10% of boundary 0.7%
+    offered 67.0 req/s  achieved 63.1 req/s  fidelity 94.2%  send delay p99 0.002s  TTFT from send p50 0.352
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate67.json
+=== trial 6 rate 74 req/s, 4440 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 74.0 req/s ---
+    J/req 3.85  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 3.318/6.258s  TPOT 0.0298s  ITL p99/max 0.0432/0.0988s  e2e p99 10.140s  errors 0
+    SLO margin p50/p95 3.576/4.997 x SLO  within 10% of boundary 0.0%
+    offered 74.0 req/s  achieved 63.5 req/s  fidelity 85.9%  send delay p99 0.002s  TTFT from send p50 3.317
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate74.json
+=== trial 6 rate 82 req/s, 4920 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 82.0 req/s ---
+    J/req 3.82  goodput/J 0.0001  SLO 0.0%
+    TTFT p50/p95 6.415/12.686s  TPOT 0.0299s  ITL p99/max 0.0434/0.1448s  e2e p99 16.591s  errors 0
+    SLO margin p50/p95 5.110/8.231 x SLO  within 10% of boundary 0.0%
+    offered 82.0 req/s  achieved 63.9 req/s  fidelity 77.9%  send delay p99 0.002s  TTFT from send p50 6.414
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate82.json
+=== trial 6 rate 90 req/s, 5400 requests ===
+load generator: 6 worker process(es)
+--- round_robin at 90.0 req/s ---
+    J/req 3.82  goodput/J 0.0000  SLO 0.0%
+    TTFT p50/p95 9.960/19.768s  TPOT 0.0300s  ITL p99/max 0.0439/0.1782s  e2e p99 23.840s  errors 0
+    SLO margin p50/p95 6.873/11.778 x SLO  within 10% of boundary 0.0%
+    offered 90.0 req/s  achieved 64.1 req/s  fidelity 71.2%  send delay p99 0.002s  TTFT from send p50 9.959
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/olc-trial6-rate90.json
+wrote /global/home/hpc6081/energy-epp/results/olc-12330604/curve.csv: 90 rows, trials [1, 2, 3, 4, 5, 6], rates [1.0, 3.0, 7.0, 13.0, 20.0, 27.0, 34.0, 40.0, 47.0, 54.0, 61.0, 67.0, 74.0, 82.0, 90.0]
+results in /global/home/hpc6081/energy-epp/results/olc-12330604

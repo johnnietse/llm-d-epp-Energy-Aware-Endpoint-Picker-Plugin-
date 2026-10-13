@@ -1,0 +1,175 @@
+{
+  "results": [
+    {
+      "policy": "round_robin",
+      "offered_rate_rps": 220.0,
+      "achieved_rate_rps": 81.73507198087339,
+      "rate_fidelity": 0.3715230544585154,
+      "client_limited": false,
+      "send_delay_budget_s": 0.1,
+      "server_saturated": true,
+      "send_delay_p50": 0.0005471706390380859,
+      "send_delay_p99": 0.0020296573638916016,
+      "send_delay_max": 0.13919854164123535,
+      "requests": 13200,
+      "completed": 13200,
+      "errors": 0,
+      "slo_s": 2.0,
+      "headroom": 0.0,
+      "pack_limit_s": 2.0,
+      "max_inflight": null,
+      "tiebreak": "index",
+      "curve_kind": [],
+      "arrival_span_s": 59.52358379780257,
+      "realized_rate_rps": 221.76084096077736,
+      "keepup": 0.36857306108128346,
+      "latency_mean": 51.13644519045497,
+      "inflight_mean": 11340.061089179995,
+      "slo_met": 193,
+      "slo_rate": 0.014621212121212122,
+      "slo_margin_p50": 25.540215253829956,
+      "slo_margin_p95": 48.06638550758362,
+      "frac_within_10pct_of_slo": 0.0036363636363636364,
+      "energy": {
+        "window_s": 162.52543807029724,
+        "total_energy_j": 39181.771,
+        "per_gpu": [
+          {
+            "gpu_index": 0,
+            "uuid": "GPU-f2a65a87-b629-f9e3-b5b9-df974c6dab96",
+            "energy_j_counter": 39181.771,
+            "mean_power_w_counter": 241.08085149755254,
+            "mean_power_w_polled": 242.33719319938177,
+            "energy_j_polled": 39385.95848545578,
+            "samples": 647
+          }
+        ]
+      },
+      "j_per_request": 2.968315984848485,
+      "j_per_slo_request": 203.01435751295338,
+      "latency_p50": 51.08043050765991,
+      "latency_p95": 96.13277101516724,
+      "latency_p99": 100.15342164039612,
+      "ttft_p50": 50.317716121673584,
+      "ttft_p95": 95.3723394870758,
+      "ttft_p99": 99.38948154449463,
+      "ttft_mean": 50.37694235155077,
+      "ttft_from_send_p50": 50.31738352775574,
+      "ttft_from_send_p95": 95.37174654006958,
+      "tpot_mean": 0.006322096638790582,
+      "itl_p50": 0.004926204681396484,
+      "itl_p95": 0.013260602951049805,
+      "itl_p99": 0.014433860778808594,
+      "itl_max": 0.8675329685211182,
+      "itl_samples": 1583669,
+      "goodput_rps": 1.1950658251748911,
+      "goodput_per_joule": 0.004925759991808436,
+      "activations": [
+        1
+      ],
+      "router_out_of_range": 0,
+      "router_ungrounded_picks": 0,
+      "router_saturated_picks": 0,
+      "router_saturated_frac": 0.0,
+      "router_ungrounded_frac": 0.0,
+      "router_curve_max_concurrency": {},
+      "seed": 731,
+      "poll_interval_s": 0.25,
+      "energy_mode": "local",
+      "generator_workers": 6,
+      "generator_cpu_s": 175.567,
+      "generator_cpu_cores_mean": 1.087,
+      "generator_pool_per_worker": 8800,
+      "rapl_energy_j": {
+        "intel-rapl:0:package-0": 14455.878655,
+        "intel-rapl:0:0:core": 3.382637,
+        "intel-rapl:1:package-1": 14371.854436,
+        "intel-rapl:1:0:core": 14.966816,
+        "_total_j": 28846.083
+      },
+      "rapl_available": true,
+      "engine_metrics_before": {
+        "127.0.0.1:8100": {
+          "num_requests_running": 0.0,
+          "num_requests_waiting": 0.0,
+          "prompt_tokens_total": 2937006.0,
+          "generation_tokens_total": 9345710.0,
+          "_histograms": {
+            "vllm:time_to_first_token_seconds": {
+              "sum": 1597199.3441653252,
+              "count": 73380.0,
+              "mean": 21.76613987687824
+            },
+            "vllm:inter_token_latency_seconds": {
+              "sum": 52807.94868091401,
+              "count": 9272330.0,
+              "mean": 0.005695218858788892
+            },
+            "vllm:request_time_per_output_token_seconds": {
+              "sum": 417.9106502029124,
+              "count": 73380.0,
+              "mean": 0.005695157402601695
+            },
+            "vllm:e2e_request_latency_seconds": {
+              "sum": 1650019.6151685715,
+              "count": 73380.0,
+              "mean": 22.48595823342289
+            }
+          }
+        }
+      },
+      "engine_metrics_after": {
+        "127.0.0.1:8100": {
+          "num_requests_running": 0.0,
+          "num_requests_waiting": 0.0,
+          "prompt_tokens_total": 3468740.0,
+          "generation_tokens_total": 11026922.0,
+          "_histograms": {
+            "vllm:time_to_first_token_seconds": {
+              "sum": 2261029.912497759,
+              "count": 86580.0,
+              "mean": 26.11492160427072
+            },
+            "vllm:inter_token_latency_seconds": {
+              "sum": 62817.738334396854,
+              "count": 10940342.0,
+              "mean": 0.005741844115512738
+            },
+            "vllm:request_time_per_output_token_seconds": {
+              "sum": 497.1244702137939,
+              "count": 86580.0,
+              "mean": 0.0057417933727626925
+            },
+            "vllm:e2e_request_latency_seconds": {
+              "sum": 2323861.455583334,
+              "count": 86580.0,
+              "mean": 26.84062665261416
+            }
+          }
+        }
+      },
+      "latency_cross_check": {
+        "server_ttft_mean_s": 50.29019457063892,
+        "server_itl_mean_s": 0.0060010297608667365,
+        "server_tpot_mean_s": 0.0060010469705213286,
+        "server_e2e_mean_s": 51.04862427384565,
+        "client_ttft_mean_s": 50.37601256428343,
+        "client_itl_mean_s": 0.006322096638790582,
+        "itl_client_excess_pct": 5.35,
+        "ttft_client_excess_pct": 0.17,
+        "tpot_client_excess_pct": 5.35,
+        "cross_check_usable": true
+      }
+    }
+  ],
+  "endpoints": [
+    "127.0.0.1:8100"
+  ],
+  "types": [
+    "NVIDIA_A100-PCIE-40GB"
+  ],
+  "gpus": [
+    0
+  ],
+  "client_limited_policies": []
+}
