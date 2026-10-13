@@ -2057,6 +2057,46 @@ exploratory and does not change Stage 5.
 - **Proposed for Stage 4 materials:** time each cell by its last request's
   completion, as the workers report it, rather than by process join. The
   sync freeze has lifted, since the sensitivity jobs are finished.
+
+**Stage 4, part 2 (187e8f2, e3a77bc, 2026-10-13).**
+- **`stock_llmd`:** the author chose upstream's v0.11.0 sample,
+  `deploy/config/epp-config.yaml`, plus file discovery, with every upstream
+  default left on.
+  - Its final profile is `decode-filter` plus the default
+    utilization-detector filter, `prefix-cache-scorer` at weight 2, and
+    `max-score-picker`.
+  - `decode-filter` keeps endpoints without a role label, so it passes the
+    fleet through.
+- **Traffic window.** Every cell also records `traffic_window_s` (from the
+  schedule origin to the last completion), `teardown_s`, `keepup_traffic`,
+  `energy_traffic_j` and `goodput_per_joule_traffic`. The old fields keep
+  their meaning.
+  - `test_traffic_window.py` plants a 3 s worker teardown.
+  - Result: keep-up 0.590 (join window) against 0.975 (traffic window);
+    traffic energy equals the stub meter's exact value.
+- **Router mode.** `--router` and `--epp-metrics` send every request through
+  Envoy. The validity fields come from the EPP's
+  `energy_epp_policy_picks_total`.
+  - Misconfigured picks count as ungrounded.
+  - Unreadable EPP metrics mark the cell fully ungrounded, so it fails
+    validity.
+  - Tested with a stand-in counter: 0.10 reported as 0.10; an unreachable
+    port gives 1.0.
+- **Clock-step guard.** Every cell records `clock_step_s`, wall time minus
+  monotonic time.
+  - Found because WSL2 steps its clock about 2.48 s, which produced negative
+    latencies in the first offline test.
+  - On the cluster this would corrupt a cell silently. It is now visible.
+- **Decision for the author, before trial 1 (materials addendum).**
+  - **Energy window:** which window defines Stage 5's energy? The traffic
+    window (recommended) matches the registered "measurement window" and
+    excludes generator teardown. The join window is what Stage 2's pilot
+    used. Both are recorded, so no rerun either way.
+  - **Clock steps:** treat a cell with |`clock_step_s`| > 0.1 s as an
+    infrastructure failure, re-run with the same seed under section 7?
+- **Still open:** the Stage 5 run script (per-level warm-up, seeded arm
+  order, EPP restart per arm); the `llmd_latency_least` feasibility check;
+  a cluster smoke test of the new binary and router mode.
 - **Sensitivity jobs.** The stored copies are free of control characters,
   carry a real `\b` and launch from the variables. The first two jobs,
   12330595 and 12330596 (64/2048), printed "vllm limits confirmed in its own
