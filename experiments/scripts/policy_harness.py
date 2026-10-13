@@ -1018,7 +1018,8 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
                      slo_s, seed, poll_interval=0.25, workers=1,
                      scratch="/tmp", energy_mode="local", sample_dir=None,
                      clock_skew=0.0, headroom=0.0, max_inflight=None,
-                     tiebreak="index", router_url=None, epp_metrics=None):
+                     tiebreak="index", router_url=None, epp_metrics=None,
+                     energy_window="join"):
     router = Router(len(endpoints), types, curves, slo_s, shared=(workers > 1),
                     headroom=headroom, max_inflight=max_inflight,
                     tiebreak=tiebreak, seed=seed * 1009)
@@ -1355,7 +1356,39 @@ async def run_policy(policy, endpoints, gpus, types, curves, rate, n_requests,
     }
     if router_url:
         apply_router_mode(res, router_url, epp_before, epp_after, completed)
+    apply_energy_window(res, energy_window, met)
     return res
+
+
+def apply_energy_window(res, window, met):
+    """Put the chosen window's figures in the fields every analysis reads
+    (keepup, j_per_request, j_per_slo_request, goodput_rps,
+    goodput_per_joule) and keep the other window's under a suffix.
+
+    "join" (default) leaves the record exactly as before this option existed:
+    start to after every worker process has exited. "traffic" (Stage 5,
+    author decision 2026-10-13, materials addendum) is start to the last
+    completion, which excludes generator teardown. If the traffic energy is
+    missing (counter-only metering, or an incomplete multinode window), the
+    energy fields become None rather than falling back to the join window:
+    the analysis then refuses the cell as "no energy" instead of mixing
+    windows silently.
+    """
+    res["energy_window"] = window
+    if window == "join":
+        return
+    keys = ("keepup", "j_per_request", "j_per_slo_request", "goodput_rps",
+            "goodput_per_joule")
+    for k in keys:
+        res[k + "_join"] = res[k]
+    e = res["energy_traffic_j"]
+    tw = res["traffic_window_s"]
+    completed = res["completed"]
+    res["keepup"] = res["keepup_traffic"]
+    res["goodput_rps"] = met / tw if tw > 0 else None
+    res["j_per_request"] = e / completed if e and completed else None
+    res["j_per_slo_request"] = e / met if e and met else None
+    res["goodput_per_joule"] = met / e if e else None
 
 
 def apply_router_mode(res, router_url, epp_before, epp_after, completed):
@@ -1453,6 +1486,13 @@ def main():
                     help="host:port of the EPP metrics endpoint; required with "
                          "--router, since the cell's validity fields come from "
                          "the EPP's decision counter")
+    ap.add_argument("--energy-window", choices=("join", "traffic"),
+                    default="join",
+                    help="which window fills keepup, j_per_request, "
+                         "goodput_per_joule: join = start to after worker "
+                         "exit (Stage 2 and earlier); traffic = start to the "
+                         "last completion (Stage 5, materials addendum). The "
+                         "other window is kept with a suffix")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -1497,7 +1537,8 @@ def main():
                                    max_inflight=args.max_inflight,
                                    tiebreak=args.tiebreak,
                                    router_url=args.router,
-                                   epp_metrics=args.epp_metrics))
+                                   epp_metrics=args.epp_metrics,
+                                   energy_window=args.energy_window))
         def g(key, nd=3):
             v = r.get(key)
             return "n/a" if v is None else format(v, "." + str(nd) + "f")

@@ -158,18 +158,29 @@ def run_cell(ep, extra=()):
         sys.argv = ["policy_harness.py", "--endpoints", ep + "," + ep,
                     "--gpus", ",".join(str(i) for i in range(N_GPU)),
                     "--endpoint-types", "a,a", "--policies", "round_robin",
-                    "--rate", "20", "--requests", "100", "--slo", "2.0",
+                    "--rate", "10", "--requests", "60", "--slo", "2.0",
                     "--workers", "2", "--poll-interval", "0.1", "--out", out,
                     *extra]
-        ph.main()
+        try:
+            ph.main()
+        except SystemExit:
+            # The harness writes the cell, then refuses it when the generator
+            # fell behind its schedule (client-limited). On a loaded laptop
+            # that is the environment, not the logic under test; rerun.
+            if not os.path.exists(out):
+                raise
         r = json.load(open(out))
         r = r[0] if isinstance(r, list) else r
         r = r["results"][0] if "results" in r else r
+        if r.get("client_limited"):
+            print("generator fell behind its schedule (client-limited, flagged "
+                  "by the harness); rerunning")
+            continue
         if abs(r["clock_step_s"]) < 0.05:
             return r
         print("wall clock stepped %+.3f s during the cell (flagged by the "
               "harness); rerunning" % r["clock_step_s"])
-    raise SystemExit("clock kept stepping; no clean cell in 8 attempts")
+    raise SystemExit("no clean cell in 8 attempts (clock steps or client limit)")
 
 
 def main():
@@ -182,7 +193,7 @@ def main():
     print({k: r.get(k) for k in show})
     e_join = r["energy"]["total_energy_j"]
     fails = []
-    if r["completed"] != 100 or r["errors"]:
+    if r["completed"] != 60 or r["errors"]:
         fails.append("not every request completed")
     if not TEARDOWN_S - 0.5 <= r["teardown_s"] <= TEARDOWN_S + 1.5:
         fails.append("teardown_s %.2f, expected about %.1f" % (r["teardown_s"], TEARDOWN_S))
@@ -222,6 +233,26 @@ def main():
     if rd["router_ungrounded_frac"] != 1.0:
         fails.append("unreachable EPP metrics gave router_ungrounded_frac %s, "
                      "not 1.0" % rd["router_ungrounded_frac"])
+
+    # --energy-window traffic (Stage 5): the fields the analysis reads carry
+    # the traffic window; the join values survive with a suffix; with
+    # counter-only metering there is no traffic energy, so the energy fields
+    # are None (the analysis then refuses the cell) instead of falling back.
+    rt = run_cell(ep, ("--energy-window", "traffic"))
+    print("energy-window traffic:", {k: rt.get(k) for k in (
+        "energy_window", "goodput_per_joule", "goodput_per_joule_traffic",
+        "goodput_per_joule_join", "keepup", "keepup_join")})
+    if not (rt["energy_window"] == "traffic"
+            and rt["goodput_per_joule"] == rt["goodput_per_joule_traffic"]
+            and rt["j_per_request"] == rt["j_per_request_traffic"]
+            and rt["keepup"] == rt["keepup_traffic"]
+            and rt["goodput_per_joule_join"] < rt["goodput_per_joule"]):
+        fails.append("traffic window not applied to the analysed fields")
+    rc = run_cell(ep, ("--energy-window", "traffic", "--poll-interval", "0"))
+    print("energy-window traffic, counter-only:",
+          {k: rc.get(k) for k in ("energy_traffic_j", "goodput_per_joule", "j_per_request")})
+    if rc["goodput_per_joule"] is not None or rc["j_per_request"] is not None:
+        fails.append("counter-only traffic window fell back to a number")
 
     if fails:
         print("FAIL:\n  " + "\n  ".join(fails))
