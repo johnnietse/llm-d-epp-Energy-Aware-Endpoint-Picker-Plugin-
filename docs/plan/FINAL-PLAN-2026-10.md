@@ -2356,3 +2356,23 @@ caught it.
   run, with the idle second GPU in the energy.
 - **Still open:** the Stage 5 run script and the llmd_latency_least
   predictor check (B7). Then the author's sign-off and the materials tag.
+
+**Stage 4, part 4: run script, a Stage 2 metering finding, B7 progress (2026-10-13).**
+- **Run script:** `stage5_trial.sbatch` is written, and a dry run (job
+  12335940; seed 990, outside the trial range) is queued.
+- **Finding: Stage 2 mixed-fleet energy included 4 idle A100s.**
+  - The samplers ran without `--gpus`, so frnt154's 8 A100s were all metered
+    while 4 served. That is about 15% of every mixed-fleet cell's energy,
+    the same for every arm.
+  - The pilot's +1.4% is therefore diluted, probably understated. Stage 2
+    stays pilot data.
+  - Stage 5 meters the serving GPUs only (addendum M6).
+- **Finding: B7's registered source for the llm-d SLO split does not
+  exist.** Stage 1 recorded no TTFT. The nearest measured equivalent
+  (olc-12325350 at 1 req/s) gives 54.0 / 15.32 ms; this is the author's
+  decision (M7).
+- **B7 feasibility, in progress (job 12335976).**
+  - The predictor installs only through prefetched cp312 wheels inside the
+    vLLM image.
+  - Its default 30-minute retraining interval raises a cold-start question
+    for a fair protocol.

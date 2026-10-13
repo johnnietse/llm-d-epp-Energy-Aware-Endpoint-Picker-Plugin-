@@ -96,12 +96,62 @@ denominator (completed requests) as the Python `Router` used:
 - **Not a new exclusion criterion:** a stepped cell's intervals are not a
   measurement, so it is re-run, never analysed or excluded.
 
+## M6. Energy is metered over the serving GPUs only
+
+- **The rule:** section 3 defines energy as "summed over all GPUs of the
+  fleet". The fleet is the GPUs that serve: 4 A100 + 4 RTX 6000 on the mixed
+  fleet, 8 RTX 6000 on the homogeneous one.
+- **How it is enforced:** `stage5_trial.sbatch` starts each node's sampler
+  with `--gpus 0..N-1`. It launches vLLM with `CUDA_DEVICE_ORDER=PCI_BUS_ID`,
+  so CUDA's device *i* is NVML's index *i*. It refuses to run if a sampler
+  meters a different number of GPUs than the fleet uses.
+- **Why it is written down:** the Stage 2 mixed-fleet script started its
+  samplers without `--gpus`. On frnt154 (8 A100s, 4 serving) every Stage 2
+  mixed-fleet cell therefore summed 12 GPUs. The 4 idle A100s (NVML 4-7, about
+  2.2-2.5 kJ each per cell) were roughly 15% of each cell's energy.
+- **Effect on Stage 2:** the same for every arm within a cell, so it cannot
+  reverse a comparison, but it dilutes every margin. Stage 2 is pilot data
+  (B12), so nothing confirmatory depends on it.
+
+## M7. Open: the llmd_latency_least SLO split (B7)
+
+- **What B7 says:** the TTFT/TPOT split follows "Stage 1's median TTFT share
+  of end-to-end latency at concurrency 1 on the RTX 6000".
+- **The problem:** Stage 1 never recorded TTFT. Its closed-loop sweep did not
+  stream, and neither `h1.csv` nor `trace.jsonl` has a TTFT field. The
+  registered source does not exist.
+- **The nearest measured equivalent:** the RTX 6000 open-loop curve
+  `olc-12325350` at its lowest rate (1 req/s, mean in flight 1.0-1.45,
+  trials 2-6).
+  - The median TTFT share there is 0.0270.
+  - That gives a TTFT SLO of 54.0 ms and a TPOT SLO of 15.32 ms
+    (54.0 + 127 x 15.32 = 2000 ms).
+- **Status:** the author's decision. The feasibility job uses it
+  provisionally.
+
 ## Still to come before the tag
 
-- [ ] The Stage 5 run script: per-level warm-up, seeded arm order per level,
-      an EPP restart per arm, `--energy-window traffic`, the M5 re-run
-      rule, and per-node energy samplers (section 10 item 4).
-- [ ] The `llmd_latency_least` feasibility check and its outcome (B7).
+- [x] **The Stage 5 run script:** `stage5_trial.sbatch` (6672d2c), submitted
+      with `fr-stage5.sh`.
+      - Per level: a discarded round_robin warm-up (`WARMUP_S`, default
+        30 s), then the arms in a permutation seeded by trial seed and level.
+      - Each arm gets a fresh EPP and Envoy. The in-flight wiring is checked
+        before any request.
+      - `--energy-window traffic` (M4); the clock-step re-run rule (M5);
+        serving-GPU metering (M6).
+      - Seed guard: real trials only with 501-531 / 601-631; dry runs never
+        with them.
+- [ ] **The Stage 5 dry run** (job 12335940): mixed fleet, seed 990,
+      200 and 600 req/s, 30 s cells, under `stage5dry-*`. Queued for
+      frnt154 + frnt149.
+- [ ] **The `llmd_latency_least` feasibility check (B7)**, job 12335976.
+      - Done so far: the predictor installs only through a workaround. The
+        Compute Canada Python refuses manylinux wheels, so the pinned wheels
+        (commit c810ebcb, 53 files, hash-checked) were prefetched for the
+        vLLM image's Python 3.12 and are installed inside the container.
+      - Open: its default retraining interval is 30 min, which sets a
+        cold-start question any fair protocol for this arm must answer.
+        The SLO split is open (M7).
 - [x] **Cluster smoke test, PASS on all seven arms** (job 12335763, records
       committed). Two RTX 6000s, 20 req/s, 600 requests per arm, router
       mode, traffic window.
