@@ -1,0 +1,26 @@
+plugins:
+- name: file-disc
+  type: file-discovery
+  parameters:
+    path: /global/home/hpc6081/energy-epp/results/pred-feas-12341687/endpoints.yaml
+    watchFile: false
+- type: predicted-latency-producer
+  parameters:
+    streamingMode: true
+- type: slo-headroom-tier-filter
+- type: latency-scorer
+  parameters:
+    headroomSelectionStrategy: least
+- type: max-score-picker
+- type: single-profile-handler
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: slo-headroom-tier-filter
+  - pluginRef: latency-scorer
+    weight: 1
+  - pluginRef: max-score-picker
+dataLayer:
+  discovery:
+    endpoints:
+      pluginRef: file-disc

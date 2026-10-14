@@ -151,36 +151,32 @@ the pilot SD is 0.627, not 0.538 (`stage2_serving_gpu_reanalysis.py`).
         serving-GPU metering (M6).
       - Seed guard: real trials only with 501-531 / 601-631; dry runs never
         with them.
-- [ ] **The Stage 5 dry run** (job 12335940): mixed fleet, seed 990,
-      200 and 600 req/s, 30 s cells, under `stage5dry-*`. Queued for
-      frnt154 + frnt149.
-- [ ] **The `llmd_latency_least` feasibility check (B7)**, job 12335976.
-      - Done so far: the predictor installs only through a workaround. The
-        Compute Canada Python refuses manylinux wheels, so the pinned wheels
-        (commit c810ebcb, 53 files, hash-checked) were prefetched for the
-        vLLM image's Python 3.12 and are installed inside the container.
-      - Open: its default retraining interval is 30 min, which sets a
-        cold-start question any fair protocol for this arm must answer.
-        The SLO split is open (M7).
-- [x] **Cluster smoke test, PASS on all seven arms** (job 12335763, records
-      committed). Two RTX 6000s, 20 req/s, 600 requests per arm, router
-      mode, traffic window.
-      - **Requests:** every request completed and appears in vLLM's logs.
-      - **Decisions:** the project arms made exactly one EPP decision per
-        request, all feasible. None were ungrounded or misconfigured.
-      - **Routing:** the packing arms placed 599 of 600 on one GPU;
-        round_robin split 300/300; least_loaded 301/299; random 286/314;
-        stock_llmd 302/298.
-      - **In-flight count:** the EPP's count sits within 0.6-1.8 requests,
-        on average, of vLLM's running plus waiting (about 31 in flight), so
-        the scheduling-cycle race is small.
-- [x] **Defect found by the first smoke run (job 12335751), fixed before
-      the tag.** The configs declared their in-flight producer as
-      `inflight`, so the router also injected the default producer.
-      - Only one of the two attaches the count to the endpoints, and which
-        one varied at random between starts.
-      - round_robin therefore logged 600 misconfigured picks and fell back
-        to random. The fail-closed counter caught it.
-      - Each config now declares one producer under the default name.
-        `check-configs.sh` asserts the wiring over 5 starts per arm.
+- [x] **One-type dry run PASSED** (job 12341686, frnt155, seed 991, records
+      committed).
+      - Both levels ran with all six arms, each routed through the router with
+        the traffic window, in recorded seeded orders.
+      - Every project arm made exactly one EPP decision per request (3,000 at
+        100 req/s; 9,000 at 300). None was ungrounded or misconfigured.
+        `clock_step_s` was about 0.
+      - **It confirms M4:** worker teardown on the cluster was 16-30 s per
+        cell (223 s in one stock_llmd cell). The old join window would have
+        shifted J/request by 25-35%.
+- [ ] **Mixed dry run, retry** (job 12341684). The first attempt (12335940)
+      failed because file discovery needs IPv4 literals. Fixed in 22715e9.
+- [x] **The `llmd_latency_least` arm is FEASIBLE on Frontenac** (job
+      12341687, records committed).
+      - **Install:** llm-d-latency-predictor at commit c810ebcb, with 53
+        pinned wheels for the vLLM image's Python 3.12, installed offline
+        inside the container.
+      - **Routing:** six consecutive 60 s cells at 20 req/s on 2 RTX 6000s
+        went through the llm-d latency stack with SLO headers, with 0 EPP
+        prediction errors.
+      - **Cold start:** the untrained first cell gave p95 7.06 s and 87% SLO.
+        Cells 2-6 gave p95 1.66-1.75 s and 100%, with the model reloaded
+        every 1-2 min (retraining interval 60 s in this test).
+- [ ] **Author's decisions for this arm.**
+      - The SLO split (M7).
+      - A training rule, needed because of the cold start. The upstream
+        default retrains every 1800 s, so without a rule the arm would run
+        untrained for its first 30 minutes.
 - [ ] The author's sign-off, then the tag.

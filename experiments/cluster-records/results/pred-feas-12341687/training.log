@@ -1,0 +1,931 @@
+2026-10-14 06:50:01,630 - INFO - Initialized LatencyPredictor with model type: xgboost, objective: quantile, quantile: 0.9
+INFO:     Started server process [252514]
+INFO:     Waiting for application startup.
+2026-10-14 06:50:02,220 - INFO - Server starting up...
+2026-10-14 06:50:02,220 - INFO - Creating default 'ttft' model with priors.
+2026-10-14 06:50:04,503 - INFO - TTFT model saved.
+2026-10-14 06:50:06,710 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 06:50:06,710 - INFO - Creating default 'tpot' model with priors.
+2026-10-14 06:50:06,768 - INFO - TTFT model saved.
+2026-10-14 06:50:06,771 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 06:50:09,597 - INFO - TPOT model saved.
+2026-10-14 06:50:12,259 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+2026-10-14 06:50:12,260 - INFO - Background training started.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:46877 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54902 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58372 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54910 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54910 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58388 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54910 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54910 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:50:22,260 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:49512 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49512 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49512 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49512 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43956 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43956 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43956 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43956 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45824 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45824 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45824 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45824 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:33364 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33364 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33364 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:33364 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46430 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46430 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46430 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46430 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35630 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35630 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35630 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35630 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:51:22,261 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:58088 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58088 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58088 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58088 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:39596 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39596 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39596 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:39596 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43288 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43288 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43288 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43288 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50460 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50460 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54836 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54836 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54836 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54836 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55844 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55844 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55844 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55844 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:52:22,332 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:36682 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36682 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36682 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36682 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:34804 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34804 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34804 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:34804 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47056 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47056 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47056 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47056 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:33550 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33550 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33550 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:33550 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48250 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48250 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48250 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48250 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44594 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44594 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44594 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44594 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:53:22,333 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:50432 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50432 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50432 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50432 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56044 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56044 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56044 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56044 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37840 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37840 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37840 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37840 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47646 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47646 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47646 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47646 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46002 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46002 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46002 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46002 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56944 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56944 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56944 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56944 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:54:22,333 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:59804 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59804 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59804 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59804 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56282 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56282 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56282 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56282 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49868 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49868 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49868 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49868 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46400 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46400 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46400 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46400 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57424 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57424 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57424 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57424 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42808 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42808 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42808 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42808 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:55:22,333 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:60392 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60392 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60392 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60392 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51078 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51078 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51078 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51078 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40156 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40156 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40156 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40156 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36746 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36746 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36746 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36746 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59168 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59168 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59168 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59168 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49174 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49174 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49174 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49174 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:56:22,334 - INFO - Skipping training: only 0 samples (< 10).
+INFO:     127.0.0.1:40712 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40712 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40712 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40712 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36938 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36946 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36956 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36956 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36956 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36956 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56638 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56638 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56638 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56638 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59988 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59988 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59988 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59988 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:34040 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34040 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34040 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:34040 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:44478 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44478 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44478 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:44478 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 06:57:22,334 - INFO - Initiating training with 1000 samples using xgboost for quantile 0.9.
+TTFT training data size: 500 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 06:57:22,672 - INFO - TTFT model trained on 500 samples. Quantile Loss = 779.6033, Coverage = 59.34% (target: 90%), Violation Rate = 40.66% (target: 10%)
+2026-10-14 06:57:23,045 - INFO - TPOT model trained on 500 samples. Quantile Loss = 1.0259, Coverage = 65.52% (target: 90%), Violation Rate = 34.48% (target: 10%)
+2026-10-14 06:57:23,046 - INFO - Ensemble split counts: {'ttft_noqueue': 500, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 06:57:23,046 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 06:57:23,052 - INFO - TTFT model saved.
+2026-10-14 06:57:23,067 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 06:57:23,076 - INFO - TPOT model saved.
+2026-10-14 06:57:23,101 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:58278 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58278 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:58278 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58278 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:58278 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58278 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56628 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56628 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56628 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42892 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42892 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42892 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42892 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46298 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46298 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46298 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46298 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52556 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52556 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52556 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52556 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55508 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55508 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55508 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55508 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55524 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 06:58:23,102 - INFO - Initiating training with 1005 samples using xgboost for quantile 0.9.
+2026-10-14 06:58:23,497 - INFO - TTFT model trained on 505 samples. Quantile Loss = 499.2112, Coverage = 75.35% (target: 90%), Violation Rate = 24.65% (target: 10%)
+TTFT training data size: 505 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 06:58:23,920 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.6906, Coverage = 71.21% (target: 90%), Violation Rate = 28.79% (target: 10%)
+2026-10-14 06:58:23,921 - INFO - Ensemble split counts: {'ttft_noqueue': 507, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 06:58:23,921 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 06:58:23,928 - INFO - TTFT model saved.
+2026-10-14 06:58:23,953 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 06:58:23,961 - INFO - TPOT model saved.
+2026-10-14 06:58:23,995 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:51546 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51546 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:51546 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51546 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:51546 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51546 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48952 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48952 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48952 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48952 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:38414 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38414 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38414 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38414 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:38888 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38888 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38888 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38888 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:37346 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37346 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37346 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37346 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55540 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:38338 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38338 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38338 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38338 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 06:59:23,998 - INFO - Initiating training with 1131 samples using xgboost for quantile 0.9.
+2026-10-14 06:59:24,268 - INFO - TTFT model trained on 631 samples. Quantile Loss = 275.5779, Coverage = 83.33% (target: 90%), Violation Rate = 16.67% (target: 10%)
+2026-10-14 06:59:24,526 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.5320, Coverage = 63.45% (target: 90%), Violation Rate = 36.55% (target: 10%)
+2026-10-14 06:59:24,526 - INFO - Ensemble split counts: {'ttft_noqueue': 631, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 06:59:24,526 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 06:59:27,405 - INFO - TTFT model saved.
+2026-10-14 06:59:27,434 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 06:59:27,438 - INFO - TPOT model saved.
+2026-10-14 06:59:27,472 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+TTFT training data size: 631 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:37986 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37986 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37986 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37986 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37986 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37986 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45410 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45410 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45410 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45410 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45418 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48996 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48996 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48996 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48996 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52124 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52124 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52124 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52124 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:40492 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40492 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40492 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:40492 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:00:27,473 - INFO - Initiating training with 1286 samples using xgboost for quantile 0.9.
+TTFT training data size: 786 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:00:27,866 - INFO - TTFT model trained on 786 samples. Quantile Loss = 225.9540, Coverage = 82.22% (target: 90%), Violation Rate = 17.78% (target: 10%)
+2026-10-14 07:00:28,197 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.2908, Coverage = 89.41% (target: 90%), Violation Rate = 10.59% (target: 10%)
+2026-10-14 07:00:28,198 - INFO - Ensemble split counts: {'ttft_noqueue': 787, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:00:28,198 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 07:00:28,205 - INFO - TTFT model saved.
+2026-10-14 07:00:28,232 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:00:28,237 - INFO - TPOT model saved.
+2026-10-14 07:00:28,264 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55614 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55614 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48986 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48986 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48986 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:51062 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51062 - "GET /model/tpot/download HTTP/1.1" 200 OK
+2026-10-14 07:01:28,265 - INFO - Initiating training with 1394 samples using xgboost for quantile 0.9.
+2026-10-14 07:01:28,501 - INFO - TTFT model trained on 894 samples. Quantile Loss = 193.5123, Coverage = 83.70% (target: 90%), Violation Rate = 16.30% (target: 10%)
+2026-10-14 07:01:28,738 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.3093, Coverage = 82.02% (target: 90%), Violation Rate = 17.98% (target: 10%)
+2026-10-14 07:01:28,739 - INFO - Ensemble split counts: {'ttft_noqueue': 894, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:01:28,739 - INFO - Insufficient samples for ensemble split, using single model only
+TTFT training data size: 894 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:35232 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35232 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35232 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59670 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59670 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37932 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37932 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37932 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37940 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37940 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37940 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37940 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 07:02:48,377 - INFO - TTFT model saved.
+2026-10-14 07:02:48,403 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:02:48,408 - INFO - TPOT model saved.
+2026-10-14 07:02:48,443 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:46064 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46064 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46064 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46064 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46064 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:46064 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60886 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60886 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60886 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60886 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45204 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45204 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45204 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45204 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53168 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53168 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53168 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53168 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37104 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37104 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37104 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37104 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37112 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37112 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37112 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38632 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38632 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38632 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38632 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38644 - "GET /data/status HTTP/1.1" 200 OK
+2026-10-14 07:03:48,446 - INFO - Initiating training with 1394 samples using xgboost for quantile 0.9.
+2026-10-14 07:03:48,699 - INFO - TTFT model trained on 894 samples. Quantile Loss = 193.5123, Coverage = 83.70% (target: 90%), Violation Rate = 16.30% (target: 10%)
+2026-10-14 07:03:48,937 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.3093, Coverage = 82.02% (target: 90%), Violation Rate = 17.98% (target: 10%)
+2026-10-14 07:03:48,937 - INFO - Ensemble split counts: {'ttft_noqueue': 894, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:03:48,937 - INFO - Insufficient samples for ensemble split, using single model only
+TTFT training data size: 894 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:56670 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56670 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56670 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56670 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:41058 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41058 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41058 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:41058 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50476 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50476 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50476 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50476 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35720 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35720 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35720 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35720 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 07:04:28,898 - INFO - TTFT model saved.
+2026-10-14 07:04:28,925 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:04:28,930 - INFO - TPOT model saved.
+2026-10-14 07:04:28,963 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42224 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42224 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56936 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56936 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35164 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35164 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:05:28,965 - INFO - Initiating training with 1778 samples using xgboost for quantile 0.9.
+2026-10-14 07:05:29,441 - INFO - TTFT model trained on 1278 samples. Quantile Loss = 149.3401, Coverage = 84.52% (target: 90%), Violation Rate = 15.48% (target: 10%)
+TTFT training data size: 1278 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:05:29,916 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.2751, Coverage = 73.57% (target: 90%), Violation Rate = 26.43% (target: 10%)
+2026-10-14 07:05:29,917 - INFO - Ensemble split counts: {'ttft_noqueue': 1285, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:05:29,917 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 07:05:29,923 - INFO - TTFT model saved.
+2026-10-14 07:05:29,956 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:05:29,963 - INFO - TPOT model saved.
+2026-10-14 07:05:29,997 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35726 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:47970 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47970 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47970 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47970 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47970 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47970 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35726 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60878 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60878 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60878 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60878 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42020 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42020 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42020 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42020 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42028 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:38722 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38722 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38722 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38722 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:50974 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50974 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50974 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50974 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:45990 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45990 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45990 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45990 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:06:29,999 - INFO - Initiating training with 1897 samples using xgboost for quantile 0.9.
+TTFT training data size: 1397 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:06:30,536 - INFO - TTFT model trained on 1397 samples. Quantile Loss = 130.2382, Coverage = 82.51% (target: 90%), Violation Rate = 17.49% (target: 10%)
+2026-10-14 07:06:30,942 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.6696, Coverage = 37.04% (target: 90%), Violation Rate = 62.96% (target: 10%)
+2026-10-14 07:06:30,943 - INFO - Ensemble split counts: {'ttft_noqueue': 1397, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:06:30,957 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 07:06:30,964 - INFO - TTFT model saved.
+2026-10-14 07:06:31,001 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:06:31,006 - INFO - TPOT model saved.
+2026-10-14 07:06:31,033 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:45656 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45656 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45656 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45656 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45656 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45656 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42036 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42036 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59516 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59516 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59516 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59516 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:55476 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55476 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55476 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55476 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:42036 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:45154 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45154 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45154 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45154 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52016 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52016 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52016 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52016 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35608 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35616 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35616 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35616 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35616 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:07:31,035 - INFO - Initiating training with 1985 samples using xgboost for quantile 0.9.
+TTFT training data size: 1485 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+2026-10-14 07:07:31,546 - INFO - TTFT model trained on 1485 samples. Quantile Loss = 117.4483, Coverage = 81.31% (target: 90%), Violation Rate = 18.69% (target: 10%)
+2026-10-14 07:07:31,988 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.2428, Coverage = 80.42% (target: 90%), Violation Rate = 19.58% (target: 10%)
+2026-10-14 07:07:31,989 - INFO - Ensemble split counts: {'ttft_noqueue': 1490, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:07:31,989 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 07:07:31,999 - INFO - TTFT model saved.
+2026-10-14 07:07:32,035 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:07:32,040 - INFO - TPOT model saved.
+2026-10-14 07:07:32,077 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:47146 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47146 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47146 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47146 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47146 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:47146 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:50882 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50882 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50882 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50882 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:50816 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50816 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50816 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50816 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:51778 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51778 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51778 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51778 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:48312 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48312 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48312 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:48312 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:35610 - "POST /add_training_data_bulk HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:49670 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49670 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49670 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49670 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+2026-10-14 07:08:32,079 - INFO - Initiating training with 2000 samples using xgboost for quantile 0.9.
+2026-10-14 07:08:32,354 - INFO - TTFT model trained on 1500 samples. Quantile Loss = 99.0468, Coverage = 85.36% (target: 90%), Violation Rate = 14.64% (target: 10%)
+2026-10-14 07:08:32,574 - INFO - TPOT model trained on 500 samples. Quantile Loss = 0.2100, Coverage = 93.30% (target: 90%), Violation Rate = 6.70% (target: 10%)
+2026-10-14 07:08:32,575 - INFO - Ensemble split counts: {'ttft_noqueue': 1500, 'ttft_queued': 0, 'tpot_noqueue': 500, 'tpot_queued': 0}, min required: 200
+2026-10-14 07:08:32,575 - INFO - Insufficient samples for ensemble split, using single model only
+2026-10-14 07:08:32,582 - INFO - TTFT model saved.
+2026-10-14 07:08:32,611 - INFO - TTFT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/ttft_trees.json
+2026-10-14 07:08:32,615 - INFO - TPOT model saved.
+2026-10-14 07:08:32,643 - INFO - TPOT XGBoost trees saved to /global/home/hpc6081/energy-epp/results/pred-feas-12341687/models/tpot_trees.json
+TTFT training data size: 1500 with sample data: ['is_queued', 'kv_cache_percentage', 'input_token_length', 'num_request_waiting', 'num_request_running', 'prefill_tokens_in_flight', 'decode_tokens_in_flight', 'encoder_matched_size', 'encoder_input_size', 'prefix_cache_score', 'effective_input_tokens', 'prefill_score_bucket', 'pod_type_cat']
+INFO:     127.0.0.1:36372 - "GET /model/ttft/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36372 - "GET /model/ttft/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36372 - "GET /model/tpot/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36372 - "GET /model/tpot/download HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36372 - "GET /model/ttft_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36372 - "GET /model/tpot_gated/info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:36380 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36380 - "GET /model/ttft/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36380 - "GET /model/tpot/xgb/json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53452 - "GET /data/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53468 - "GET /model/download/info HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-10-14 07:08:45,290 - INFO - Server shutting down...
+2026-10-14 07:08:45,290 - INFO - Training loop exiting.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [252514]

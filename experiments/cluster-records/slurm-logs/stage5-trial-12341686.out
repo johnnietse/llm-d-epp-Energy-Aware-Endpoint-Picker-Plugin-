@@ -1,3 +1,113 @@
 job=12341686 fleet=homog seed=991 rates=100,300 arms=[energy_consolidate energy_greedy slo_packing round_robin random stock_llmd] het_size=1
   component 0: frnt155.frontenac.local Quadro_RTX_6000 x8 (curve rtx6000)
 clock skew bound 0.063326s
+  frnt155.frontenac.local: staged 2944 MiB
+ready: 8 servers, limits confirmed, samplers metering 8 GPUs per node
+  frnt155.frontenac.local -> 172.26.6.155
+
+=========== level 100 req/s; arm order: slo_packing energy_consolidate random energy_greedy stock_llmd round_robin ===========
+load generator: 6 worker process(es)
+--- slo_packing at 100.0 req/s ---
+    J/req 9.24  goodput/J 0.1082  SLO 100.0%
+    TTFT p50/p95 0.050/0.062s  TPOT 0.0140s  ITL p99/max 0.0197/0.1152s  e2e p99 1.905s  errors 0
+    SLO margin p50/p95 0.934/0.948 x SLO  within 10% of boundary 79.1%
+    offered 100.0 req/s  achieved 57.5 req/s  fidelity 57.5%  send delay p99 0.002s  TTFT from send p50 0.050
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/slo_packing-rate100-try1.json
+load generator: 6 worker process(es)
+--- energy_consolidate at 100.0 req/s ---
+    J/req 9.17  goodput/J 0.1091  SLO 100.0%
+    TTFT p50/p95 0.050/0.060s  TPOT 0.0139s  ITL p99/max 0.0189/0.0740s  e2e p99 1.897s  errors 0
+    SLO margin p50/p95 0.928/0.945 x SLO  within 10% of boundary 74.8%
+    offered 100.0 req/s  achieved 58.6 req/s  fidelity 58.6%  send delay p99 0.002s  TTFT from send p50 0.049
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/energy_consolidate-rate100-try1.json
+load generator: 6 worker process(es)
+--- random at 100.0 req/s ---
+    J/req 14.41  goodput/J 0.0694  SLO 100.0%
+    TTFT p50/p95 0.039/0.051s  TPOT 0.0107s  ITL p99/max 0.0180/0.0514s  e2e p99 1.554s  errors 0
+    SLO margin p50/p95 0.703/0.750 x SLO  within 10% of boundary 0.0%
+    offered 100.0 req/s  achieved 52.0 req/s  fidelity 52.0%  send delay p99 0.001s  TTFT from send p50 0.038
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/random-rate100-try1.json
+load generator: 6 worker process(es)
+--- energy_greedy at 100.0 req/s ---
+    J/req 9.09  goodput/J 0.1100  SLO 100.0%
+    TTFT p50/p95 0.049/0.061s  TPOT 0.0138s  ITL p99/max 0.0192/0.0480s  e2e p99 1.886s  errors 0
+    SLO margin p50/p95 0.924/0.939 x SLO  within 10% of boundary 74.8%
+    offered 100.0 req/s  achieved 56.1 req/s  fidelity 56.1%  send delay p99 0.002s  TTFT from send p50 0.049
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/energy_greedy-rate100-try1.json
+load generator: 6 worker process(es)
+--- stock_llmd at 100.0 req/s ---
+    J/req 14.39  goodput/J 0.0695  SLO 100.0%
+    TTFT p50/p95 0.040/0.052s  TPOT 0.0107s  ITL p99/max 0.0194/0.0495s  e2e p99 1.550s  errors 0
+    SLO margin p50/p95 0.697/0.746 x SLO  within 10% of boundary 0.0%
+    offered 100.0 req/s  achieved 11.8 req/s  fidelity 11.8%  send delay p99 0.002s  TTFT from send p50 0.039
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/stock_llmd-rate100-try1.json
+load generator: 6 worker process(es)
+--- round_robin at 100.0 req/s ---
+    J/req 14.36  goodput/J 0.0696  SLO 100.0%
+    TTFT p50/p95 0.037/0.043s  TPOT 0.0106s  ITL p99/max 0.0173/0.0767s  e2e p99 1.441s  errors 0
+    SLO margin p50/p95 0.693/0.717 x SLO  within 10% of boundary 0.0%
+    offered 100.0 req/s  achieved 48.8 req/s  fidelity 48.8%  send delay p99 0.002s  TTFT from send p50 0.036
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/round_robin-rate100-try1.json
+
+=========== level 300 req/s; arm order: round_robin stock_llmd energy_greedy slo_packing random energy_consolidate ===========
+load generator: 6 worker process(es)
+--- round_robin at 300.0 req/s ---
+    J/req 5.16  goodput/J 0.0278  SLO 14.3%
+    TTFT p50/p95 0.075/0.117s  TPOT 0.0154s  ITL p99/max 0.0326/0.1071s  e2e p99 2.137s  errors 0
+    SLO margin p50/p95 1.021/1.051 x SLO  within 10% of boundary 95.0%
+    offered 300.0 req/s  achieved 169.0 req/s  fidelity 56.3%  send delay p99 0.031s  TTFT from send p50 0.071
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/round_robin-rate300-try1.json
+load generator: 6 worker process(es)
+--- stock_llmd at 300.0 req/s ---
+    J/req 5.19  goodput/J 0.0531  SLO 27.6%
+    TTFT p50/p95 0.081/0.123s  TPOT 0.0154s  ITL p99/max 0.0366/0.1207s  e2e p99 2.206s  errors 1
+    SLO margin p50/p95 1.023/1.080 x SLO  within 10% of boundary 93.6%
+    offered 300.0 req/s  achieved 173.9 req/s  fidelity 58.0%  send delay p99 0.028s  TTFT from send p50 0.077
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/stock_llmd-rate300-try1.json
+load generator: 6 worker process(es)
+--- energy_greedy at 300.0 req/s ---
+    J/req 5.17  goodput/J 0.0313  SLO 16.2%
+    TTFT p50/p95 0.076/0.113s  TPOT 0.0153s  ITL p99/max 0.0302/0.1103s  e2e p99 2.117s  errors 1
+    SLO margin p50/p95 1.018/1.040 x SLO  within 10% of boundary 97.2%
+    offered 300.0 req/s  achieved 187.6 req/s  fidelity 62.5%  send delay p99 0.029s  TTFT from send p50 0.073
+    (policy INACTIVE on 89% of picks: the curve answered but no endpoint met the SLO, so every policy ran the same load-balancing fallback. Sound overload data; no policy comparison can rest on this cell.)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/energy_greedy-rate300-try1.json
+load generator: 6 worker process(es)
+--- slo_packing at 300.0 req/s ---
+    J/req 5.13  goodput/J 0.0332  SLO 17.1%
+    TTFT p50/p95 0.076/0.117s  TPOT 0.0153s  ITL p99/max 0.0299/0.1087s  e2e p99 2.116s  errors 0
+    SLO margin p50/p95 1.017/1.041 x SLO  within 10% of boundary 97.5%
+    offered 300.0 req/s  achieved 178.4 req/s  fidelity 59.5%  send delay p99 0.031s  TTFT from send p50 0.073
+    (policy INACTIVE on 88% of picks: the curve answered but no endpoint met the SLO, so every policy ran the same load-balancing fallback. Sound overload data; no policy comparison can rest on this cell.)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/slo_packing-rate300-try1.json
+load generator: 6 worker process(es)
+--- random at 300.0 req/s ---
+    J/req 5.17  goodput/J 0.0562  SLO 29.1%
+    TTFT p50/p95 0.073/0.112s  TPOT 0.0153s  ITL p99/max 0.0312/0.1133s  e2e p99 2.194s  errors 0
+    SLO margin p50/p95 1.018/1.066 x SLO  within 10% of boundary 94.4%
+    offered 300.0 req/s  achieved 173.7 req/s  fidelity 57.9%  send delay p99 0.031s  TTFT from send p50 0.070
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/random-rate300-try1.json
+load generator: 6 worker process(es)
+--- energy_consolidate at 300.0 req/s ---
+    J/req 5.10  goodput/J 0.0386  SLO 19.7%
+    TTFT p50/p95 0.076/0.116s  TPOT 0.0153s  ITL p99/max 0.0301/0.1148s  e2e p99 2.115s  errors 0
+    SLO margin p50/p95 1.015/1.041 x SLO  within 10% of boundary 97.6%
+    offered 300.0 req/s  achieved 181.4 req/s  fidelity 60.5%  send delay p99 0.032s  TTFT from send p50 0.073
+    (policy INACTIVE on 88% of picks: the curve answered but no endpoint met the SLO, so every policy ran the same load-balancing fallback. Sound overload data; no policy comparison can rest on this cell.)
+    (server-saturated: generator kept schedule, servers did not keep up. Valid overload data point.)
+wrote /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/cells/energy_consolidate-rate300-try1.json
+
+trial complete: /global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686
+/global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/policies-rate100.json
+/global/home/hpc6081/energy-epp/results/stage5dry-homog-s991-12341686/policies-rate300.json
