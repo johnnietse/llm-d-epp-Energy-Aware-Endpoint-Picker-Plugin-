@@ -2362,7 +2362,8 @@ caught it.
   12335940; seed 990, outside the trial range) is queued.
 - **Finding: Stage 2 mixed-fleet energy included 4 idle A100s.**
   - The samplers ran without `--gpus`, so frnt154's 8 A100s were all metered
-    while 4 served. That is about 15% of every mixed-fleet cell's energy,
+    while 4 served. That is 7-17% of every mixed-fleet cell's energy (mean 10.4%;
+    first estimated as about 15% from one cell),
     the same for every arm.
   - The pilot's +1.4% is therefore diluted, probably understated. Stage 2
     stays pilot data.
@@ -2376,3 +2377,30 @@ caught it.
     vLLM image.
   - Its default 30-minute retraining interval raises a cold-start question
     for a fair protocol.
+
+**Stage 2 serving-GPU re-analysis (author's request, 2026-10-14).**
+Labelled, pilot, not confirmatory; output in
+`docs/figures/measured/stage2_serving_gpu_reanalysis.txt`.
+- **Method:** `stage2_serving_gpu_reanalysis.py` drops the 4 unused A100s
+  (NVML 4-7 on frnt154) from each mixed-fleet cell's energy and runs the
+  frozen `prereg_analysis.py --pilot` unchanged.
+- **Size of the effect:** the idle-GPU share of recorded energy was 7.3-17.4%,
+  mean 10.4%, over 225 cells. The earlier "about 15%" came from one cell.
+- **Numbering check:** the dropped A100s never drew more than 39.8 W, even
+  under round_robin at 600 req/s, when every serving A100 was busy. CUDA and
+  NVML numbered the GPUs the same way.
+- **H1 pilot margins:** +2.21 / +1.40 / +0.98%, against +1.98 / +1.19 /
+  +0.96% as recorded.
+  - Mean +1.528% (was +1.377%); SD 0.627 (was 0.538).
+  - The pilot printout's verdict flips at n = 3 (p 0.0259, against 0.0237).
+    Three trials were never meant to test H1.
+- **H3:** +0.489% (was +0.440%).
+- **Sizing (the part that matters):**
+  - At n = 25 and a true margin of +1.0%, power is 0.951 at the corrected
+    SD's 80% upper bound (1.327), against the registered target of 0.90. It
+    was 0.988.
+  - At the 90% upper bound (1.932) it is 0.700, not the 0.825 that amendment
+    B10 states.
+  - The sample size is fixed and B10 is frozen, so this is recorded here and
+    in the materials addendum as a correction to a stated figure, not a
+    change to the design.

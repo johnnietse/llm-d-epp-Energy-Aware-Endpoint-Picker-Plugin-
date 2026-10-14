@@ -1,0 +1,59 @@
+========================================================================
+ORIGINAL (all GPUs on each node, as recorded)
+========================================================================
+PILOT RUN ON STAGE 2 DATA. Not confirmatory: these trials informed
+the hypotheses and the sample size, so they cannot also test them.
+========================================================================
+
+H1 (primary): energy_consolidate vs slo_packing
+  stage2het-12305232           +1.982%  
+  stage2het-12319685           +1.193%  
+  stage2het-12321476           +0.955%  
+  n=3  mean +1.377%  sd 0.538  95% CI [+0.040, +2.713]  t=4.43  one-sided p=0.02366  ->  SUPPORTED
+
+H3 (secondary): energy_consolidate vs energy_greedy
+  stage2het-12305232           +0.415%  
+  stage2het-12319685           +0.415%  
+  stage2het-12321476           +0.490%  
+  n=3  mean +0.440%  sd 0.043  95% CI [+0.333, +0.547]  t=17.77  one-sided p=0.001576
+
+H2 (secondary): reversal on the homogeneous fleet
+  stage2-12321478            reversal  consolidate infeasible
+  1 of 1 trials reversed  one-sided binomial p=0.5
+
+Secondary family, Holm at alpha 0.025:
+  H2  p=0.5  ->  NOT SUPPORTED
+  H3  p=0.001576  ->  SUPPORTED
+
+VERDICTS: H1=supported, H2=not supported, H3=supported
+
+========================================================================
+RE-ANALYSIS: serving GPUs only (labelled; pilot; not confirmatory)
+========================================================================
+PILOT RUN ON STAGE 2 DATA. Not confirmatory: these trials informed
+the hypotheses and the sample size, so they cannot also test them.
+========================================================================
+
+H1 (primary): energy_consolidate vs slo_packing
+  stage2het-12305232           +2.209%  
+  stage2het-12319685           +1.398%  
+  stage2het-12321476           +0.977%  
+  n=3  mean +1.528%  sd 0.627  95% CI [-0.028, +3.085]  t=4.22  one-sided p=0.02587  ->  NOT SUPPORTED
+
+H3 (secondary): energy_consolidate vs energy_greedy
+  stage2het-12305232           +0.447%  
+  stage2het-12319685           +0.502%  
+  stage2het-12321476           +0.517%  
+  n=3  mean +0.489%  sd 0.037  95% CI [+0.397, +0.581]  t=22.90  one-sided p=0.000951
+
+H2 (secondary): reversal on the homogeneous fleet
+  stage2-12321478            reversal  consolidate infeasible
+  1 of 1 trials reversed  one-sided binomial p=0.5
+
+Secondary family, Holm at alpha 0.025:
+  H2  p=0.5  ->  NOT SUPPORTED
+  H3  p=0.000951  ->  SUPPORTED
+
+VERDICTS: H1=not supported, H2=not supported, H3=supported
+
+audit: 225 mixed-fleet cells; idle-GPU share of recorded energy 7.3% to 17.4% (mean 10.4%); dropped A100s at most 39.8 W; kept A100s at least 37.1 W

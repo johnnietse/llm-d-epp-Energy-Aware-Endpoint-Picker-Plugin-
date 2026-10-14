@@ -232,8 +232,8 @@ reproducibly by [`router-plugin/build.sh`](router-plugin/build.sh).
     [materials addendum](docs/plan/MATERIALS-ADDENDUM-STAGE5.md), a draft
     that must be tagged before the first Stage 5 trial.
 - **Stage 2's mixed-fleet energy includes four idle GPUs.** Those samplers
-  metered all 8 A100s on frnt154 while 4 served, about 15% of each cell's
-  energy, the same for every arm.
+  metered all 8 A100s on frnt154 while 4 served, 7-17% of each cell's
+  energy (mean 10.4%), the same for every arm.
   - It cannot reverse a comparison, but it dilutes the margins, so the pilot's
     +1.4% is probably understated.
   - Stage 5 meters the serving GPUs only (addendum M6).

@@ -108,10 +108,20 @@ denominator (completed requests) as the Python `Router` used:
 - **Why it is written down:** the Stage 2 mixed-fleet script started its
   samplers without `--gpus`. On frnt154 (8 A100s, 4 serving) every Stage 2
   mixed-fleet cell therefore summed 12 GPUs. The 4 idle A100s (NVML 4-7, about
-  2.2-2.5 kJ each per cell) were roughly 15% of each cell's energy.
+  2.2-2.5 kJ each per cell) were 7.3-17.4% of each cell's energy, mean 10.4% over 225 cells
+  (`stage2_serving_gpu_reanalysis.py`; an earlier "roughly 15%" came from one
+  cell).
 - **Effect on Stage 2:** the same for every arm within a cell, so it cannot
   reverse a comparison, but it dilutes every margin. Stage 2 is pilot data
   (B12), so nothing confirmatory depends on it.
+
+**M6 consequence for B10's power statement.** Recomputed over serving GPUs,
+the pilot SD is 0.627, not 0.538 (`stage2_serving_gpu_reanalysis.py`).
+- At n = 25, power is 0.951 at its 80% upper bound, which still meets the
+  0.90 target the sample size was set for.
+- At the 90% upper bound it is 0.700, not the 0.82 B10 quotes.
+- B10 is frozen and n is unchanged. This corrects a stated figure; it does
+  not change the design.
 
 ## M7. Open: the llmd_latency_least SLO split (B7)
 
