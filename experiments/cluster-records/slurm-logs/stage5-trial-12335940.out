@@ -1,0 +1,16 @@
+job=12335940 fleet=mixed seed=990 rates=200,600 arms=[energy_consolidate energy_greedy slo_packing round_robin random stock_llmd] het_size=2
+  component 0: frnt154.frontenac.local NVIDIA_A100-PCIE-40GB x8 (curve a100)
+  component 1: frnt149.frontenac.local Quadro_RTX_6000 x4 (curve rtx6000)
+clock skew bound 0.065783s
+  frnt154.frontenac.local: staged 2944 MiB
+  frnt149.frontenac.local: staged 2944 MiB
+ready: 8 servers, limits confirmed, samplers metering 4 GPUs per node
+
+=========== level 200 req/s; arm order: round_robin random energy_greedy energy_consolidate stock_llmd slo_packing ===========
+router for round_robin not ready
+{"severity_text":"INFO","timestamp":"2026-10-14T06:18:16.373778202Z","logger":"setup","caller":"datalayer/runtime.go:107","body":"Configuring datalayer runtime","service.name":"llm-d-epp","numSources":0,"severity_number":9}
+{"severity_text":"INFO","timestamp":"2026-10-14T06:18:16.373854582Z","logger":"setup","caller":"datalayer/runtime.go:248","body":"Datalayer runtime configured","service.name":"llm-d-epp","pollers":0,"notifiers":0,"endpointSources":1,"severity_number":9}
+{"severity_text":"INFO","timestamp":"2026-10-14T06:18:16.373864932Z","logger":"setup","caller":"runner/runner.go:1108","body":"parsed config","service.name":"llm-d-epp","scheduler-config":"{ProfileHandler: single-profile/single-profile-handler, Profiles: map[default:{Filters: [inert-saturation/concurrency-detector], Scorers: [policy/energy-epp-policy-scorer: 1.000000], Picker: picker/energy-epp-seeded-random-picker}]}","severity_number":9}
+{"severity_text":"INFO","timestamp":"2026-10-14T06:18:16.373906741Z","logger":"setup","caller":"runner/runner.go:958","body":"Flow Control layer is disabled via the flowControl feature gate, using legacy admission control","service.name":"llm-d-epp","severity_number":9}
+{"severity_text":"INFO","timestamp":"2026-10-14T06:18:16.37409366Z","logger":"setup","caller":"runner/runner.go:1140","body":"EPP starting (file discovery mode)","service.name":"llm-d-epp","grpcPort":49402,"pool":"epp","namespace":"default","discoveryPlugin":"file-disc/file-discovery","severity_number":9}
+FATAL: warm-up router

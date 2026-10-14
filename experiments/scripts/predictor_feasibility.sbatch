@@ -66,13 +66,14 @@ mkdir -p "$RUN/local_models"
 env -u SSL_CERT_FILE TRAINING_SERVER_URL="http://127.0.0.1:$TRAIN_P" PREDICT_PORT="$PRED_P" PREDICT_HOST=127.0.0.1 \
   LOCAL_TTFT_MODEL_PATH="$RUN/local_models/ttft.joblib" LOCAL_TPOT_MODEL_PATH="$RUN/local_models/tpot.joblib" \
   LOCAL_TTFT_SCALER_PATH="$RUN/local_models/ttft_scaler.joblib" LOCAL_TPOT_SCALER_PATH="$RUN/local_models/tpot_scaler.joblib" \
+  LOCAL_TTFT_GATED_MODEL_PATH="$RUN/local_models/ttft_gated.joblib" LOCAL_TPOT_GATED_MODEL_PATH="$RUN/local_models/tpot_gated.joblib" \
   MODEL_SYNC_INTERVAL_SEC=10 \
   "$APPTAINER" exec "$IMG" "$VENV/bin/uvicorn" prediction.prediction_server:app --host 127.0.0.1 --port "$PRED_P" \
   > "$RUN/prediction.log" 2>&1 & PIDS+=($!)
 cd "$RUN"
 d=$(( $(date +%s) + 180 ))
 until curl -fsS "http://127.0.0.1:$TRAIN_P/healthz" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:$PRED_P/healthz" >/dev/null 2>&1; do
-  [ "$(date +%s)" -ge "$d" ] && { echo "FATAL: predictor servers not healthy"; tail -5 "$RUN"/training.log "$RUN"/prediction.log; exit 1; }
+  [ "$(date +%s)" -ge "$d" ] && { echo "FATAL: predictor servers not healthy"; tail -n 8 "$RUN"/training.log "$RUN"/prediction.log; exit 1; }
   sleep 3
 done
 echo "predictor servers healthy (training :$TRAIN_P, prediction :$PRED_P)"
@@ -102,7 +103,7 @@ sed -e "s/ENVOY_ADMIN/$ENVOY_ADMIN/; s/ENVOY_PORT/$ENVOY_PORT/; s/EPP_GRPC/$EPP_
 "$APPTAINER" exec "$ENVOY_IMG" envoy -c "$RUN/envoy.yaml" --disable-hot-restart --log-level warn > "$RUN/envoy.log" 2>&1 & PIDS+=($!)
 d=$(( $(date +%s) + 120 ))
 until [ "$(curl -s --max-time 2 "http://127.0.0.1:$ENVOY_ADMIN/ready")" = "LIVE" ] && curl -s "http://127.0.0.1:$EPP_METRICS/metrics" >/dev/null; do
-  [ "$(date +%s)" -ge "$d" ] && { echo "FATAL: router"; tail -5 "$RUN/epp.log"; exit 1; }; sleep 2; done
+  [ "$(date +%s)" -ge "$d" ] && { echo "FATAL: router"; tail -n 5 "$RUN/epp.log"; exit 1; }; sleep 2; done
 grep -oE '\{Filters: \[[^]]*\], Scorers: \[[^]]*\], Picker: [^}"]*' "$RUN/epp.log" | head -1
 
 served() { local n; n="$(grep -c 'POST /v1/completions' "$RUN/vllm-$1.log" 2>/dev/null)"; echo "${n:-0}"; }

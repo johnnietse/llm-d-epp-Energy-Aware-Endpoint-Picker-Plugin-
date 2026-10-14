@@ -221,11 +221,23 @@ EPP_HOST="$(hostname)"
 BASE=$(( 30000 + (SLURM_JOB_ID % 2000) * 10 ))
 EPP_GRPC=$((BASE + 2)); EPP_HEALTH=$((BASE + 3)); EPP_METRICS=$((BASE + 4))
 ENVOY_PORT=$((BASE + 5)); ENVOY_ADMIN=$((BASE + 6))
+# File discovery at v0.11.0 accepts only IPv4 literals (validateIPv4Address):
+# host names are rejected and the EPP comes up with no endpoints. Dry run
+# 12335940 failed exactly so, at the first warm-up. Resolve every node now and
+# refuse if one does not resolve.
+declare -A HOST_IP
+for g in $(seq 0 $((NCOMP - 1))); do
+  ip="$(getent ahostsv4 "${HOSTS[$g]}" | awk 'NR==1{print $1}')"
+  case "$ip" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) HOST_IP[${HOSTS[$g]}]="$ip" ;;
+    *) echo "FATAL: ${HOSTS[$g]} does not resolve to an IPv4 address"; exit 1 ;; esac
+  echo "  ${HOSTS[$g]} -> $ip"
+done
 {
   echo "endpoints:"
   for k in "${!PORTS[@]}"; do
+    h="${PORTS[$k]%%:*}"
     printf '  - name: vllm-%d\n    address: "%s"\n    port: "%s"\n    labels: { energy-epp/index: "%d", energy-epp/gpu-type: "%s" }\n' \
-      "$k" "${PORTS[$k]%%:*}" "${PORTS[$k]##*:}" "$k" "${EP_TYPES[$k]}"
+      "$k" "${HOST_IP[$h]}" "${PORTS[$k]##*:}" "$k" "${EP_TYPES[$k]}"
   done
 } > "$RUN/endpoints.yaml"
 cat > "$RUN/envoy.yaml" <<EOF
