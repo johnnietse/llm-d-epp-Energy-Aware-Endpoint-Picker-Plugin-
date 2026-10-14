@@ -217,12 +217,26 @@ reproducibly by [`router-plugin/build.sh`](router-plugin/build.sh).
 
 ## What is not done yet
 
-- **The energy-aware scorer is not in the router yet.** `router-plugin/`
-  currently ships an inert probe that proves the wiring. All results above
-  come from routing rules written in the Python load generator, so they show
-  that the **rule** works, not yet that an llm-d plugin delivers it. Porting
-  the winning rule to Go is Stage 4. It will use the EPP's own count of
-  in-flight requests, which needs no metrics polling.
+- **The routing rules are now inside the router (Stage 4, 2026-10-13).**
+  However, every result above still comes from rules running in the Python
+  load generator, so it shows that the **rule** works. That an llm-d plugin
+  delivers it is shown, so far, only by tests.
+  - **Port:** [`router-plugin/pkg/energypolicy`](router-plugin/pkg/energypolicy)
+    holds the policies as an llm-d-router scorer, plus a seeded tie-break
+    picker, using the EPP's own in-flight count.
+  - **Fidelity test:** the Go rules choose between exactly the same endpoints
+    as the Python rules on 9,856 recorded fleet states.
+  - **Cluster smoke test:** job 12335763 passed on all seven arms with real
+    vLLM servers.
+  - **Implementation record:** the
+    [materials addendum](docs/plan/MATERIALS-ADDENDUM-STAGE5.md), a draft
+    that must be tagged before the first Stage 5 trial.
+- **Stage 2's mixed-fleet energy includes four idle GPUs.** Those samplers
+  metered all 8 A100s on frnt154 while 4 served, about 15% of each cell's
+  energy, the same for every arm.
+  - It cannot reverse a comparison, but it dilutes the margins, so the pilot's
+    +1.4% is probably understated.
+  - Stage 5 meters the serving GPUs only (addendum M6).
 - **The pre-registration was amended before any of its trials ran.**
   [`PREREGISTRATION-STAGE5.md`](docs/plan/PREREGISTRATION-STAGE5.md) was frozen
   as tag `prereg-stage5-v1` on 2026-10-09. The same day's audit showed it
@@ -274,7 +288,7 @@ full positioning is in plan sections 12.2 and 12.14e.
 | [`experiments/scripts/`](experiments/scripts/) | Measurement harness, Slurm jobs, the Stage 2 gate (`stage2_analyse.py`), the verification suite (`verify_fixes.sh`) |
 | [`experiments/cluster-records/`](experiments/cluster-records/) | Every raw record fetched from the cluster, logs gzipped |
 | [`docs/figures/measured/`](docs/figures/measured/) | Figures from those records, each with a CSV of the plotted numbers; regenerate with `python experiments/scripts/make_figures.py` |
-| [`router-plugin/`](router-plugin/) | Out-of-tree llm-d-router plugin module and the EPP entry point |
+| [`router-plugin/`](router-plugin/) | Out-of-tree llm-d-router plugins (the energy policies, the seeded picker, the probe), the EPP entry point, the exported curves and the per-arm config generator |
 | [`llm-d-ref/`](llm-d-ref/) | Git submodule of the official llm-d-router, pinned to v0.11.0 |
 | [`tools/cluster-helpers/`](tools/cluster-helpers/) | Local scripts that connect to the cluster, submit, wait and fetch |
 | `pkg/`, `cmd/energy-epp/` | Pre-measurement code. Builds and tests pass, but its scorer uses a GPU power-rating (TDP) proxy that the measurements refuted, and it does not plug into llm-d-router. Being rewritten in Stage 4 |
